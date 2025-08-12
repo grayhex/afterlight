@@ -1,6 +1,5 @@
-// Добавьте модули в AppModule:
-import { RecipientsModule } from './recipients/recipients.module';
-import { PublicLinksModule } from './public-links/public-links.module';
+// Импортируйте HeartbeatsModule и добавьте в imports:
+import { HeartbeatsModule } from './heartbeats/heartbeats.module';
 
 @Module({
   imports: [
@@ -11,6 +10,7 @@ import { PublicLinksModule } from './public-links/public-links.module';
     BlocksModule,
     RecipientsModule,
     PublicLinksModule,
+    HeartbeatsModule, // <-- новый модуль
   ],
 })
 export class AppModule {}
