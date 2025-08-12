@@ -1,6 +1,12 @@
 // Prisma schema for AfterLight (v0.1) — PostgreSQL
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
 enum VaultStatus { Active Triggered PendingGrace Released Closed }
 enum BlockType { text file url }
