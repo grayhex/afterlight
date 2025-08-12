@@ -1,18 +1,23 @@
 # --------- Build stage ---------
 FROM node:20-alpine AS build
 WORKDIR /app
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ && corepack enable
 
-# Копируем МАНИФЕСТЫ ИМЕННО ИЗ apps/api
-COPY apps/api/package.json apps/api/package-lock.json ./apps/api/
-# Ставим зависимости только для API
-RUN cd apps/api && npm ci
-
-# Копируем исходники API
+# Копируем только приложение API (лучше кэшируется)
 COPY apps/api ./apps/api
 
-# Генерация Prisma и сборка
 WORKDIR /app/apps/api
+
+# Ставим зависимости: pnpm (если есть pnpm-lock), иначе npm ci, иначе npm i
+RUN if [ -f pnpm-lock.yaml ]; then \
+      corepack prepare pnpm@9 --activate && pnpm i --frozen-lockfile; \
+    elif [ -f package-lock.json ]; then \
+      npm ci; \
+    else \
+      npm i; \
+    fi
+
+# Prisma + сборка
 RUN npx prisma generate
 RUN npm run build
 
@@ -21,7 +26,7 @@ FROM node:20-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 
-# Копируем только то, что нужно для запуска API
+# Копируем только нужное для запуска
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
@@ -29,3 +34,4 @@ COPY --from=build /app/apps/api/prisma ./apps/api/prisma
 ENV PORT=3000
 EXPOSE 3000
 CMD ["node", "apps/api/dist/main.js"]
+
