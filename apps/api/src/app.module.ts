@@ -1,1 +1,15 @@
-// Placeholder for NestJS-like structure. Replace with real Nest app later.
+import { Module } from '@nestjs/common';
+import { PrismaModule } from './prisma/prisma.module';
+import { VaultsModule } from './vaults/vaults.module';
+import { VerifiersModule } from './verifiers/verifiers.module';
+import { VerificationEventsModule } from './verification-events/verification-events.module';
+
+@Module({
+  imports: [
+    PrismaModule,
+    VaultsModule,
+    VerifiersModule,
+    VerificationEventsModule,
+  ],
+})
+export class AppModule {}
