@@ -1,0 +1,236 @@
+openapi: 3.1.0
+info:
+  title: AfterLight API
+  version: 0.1.0
+servers:
+  - url: https://api.afterlight.example/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    Idempotency-Key:
+      description: Deduplicate POST/PUT operations
+      schema: { type: string }
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+    Vault:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [Active, Triggered, PendingGrace, Released, Closed] }
+        quorum_threshold: { type: integer, minimum: 3, maximum: 5, default: 3 }
+        max_verifiers: { type: integer, minimum: 3, maximum: 5, default: 5 }
+        heartbeat_timeout_days: { type: integer, default: 60 }
+        grace_hours: { type: integer, default: 24 }
+        is_demo: { type: boolean, default: false }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    VaultCreate:
+      type: object
+      properties:
+        is_demo: { type: boolean, default: false }
+        quorum_threshold: { type: integer, minimum: 3, maximum: 5, default: 3 }
+        max_verifiers: { type: integer, minimum: 3, maximum: 5, default: 5 }
+        heartbeat_timeout_days: { type: integer, default: 60 }
+        grace_hours: { type: integer, default: 24 }
+      required: []
+    Block:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vault_id: { type: string, format: uuid }
+        type: { type: string, enum: [text, file, url] }
+        tags: { type: array, items: { type: string } }
+        size: { type: integer }
+        checksum: { type: string }
+        is_public: { type: boolean, default: false }
+        created_at: { type: string, format: date-time }
+    BlockCreateMultipart:
+      type: object
+      properties:
+        vault_id: { type: string, format: uuid }
+        type: { type: string, enum: [text, file, url] }
+        content: { type: string, format: binary, description: "client-side encrypted payload or envelope (max ~50 MB in MVP)" }
+        metadata: { type: string, description: "JSON (stringified) with client-side metadata" }
+        tags: { type: array, items: { type: string } }
+        is_public: { type: boolean, default: false }
+      required: [vault_id, type]
+    Recipient:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        contact: { type: string, description: "email (phone optional)" }
+        pubkey: { type: string, nullable: true }
+        verification_status: { type: string, enum: [Invited, Verified, Blocked] }
+    RecipientAssign:
+      type: object
+      properties:
+        recipient_id: { type: string, format: uuid }
+        dek_wrapped_for_recipient: { type: string }
+      required: [recipient_id, dek_wrapped_for_recipient]
+    Verifier:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        contact: { type: string, description: "email (phone optional)" }
+        kyc_level: { type: string, enum: [None, Basic, Enhanced] }
+        role_status: { type: string, enum: [Invited, Active, Revoked] }
+        is_primary: { type: boolean, default: false }
+    VerifierInvite:
+      type: object
+      properties:
+        vault_id: { type: string, format: uuid }
+        contact: { type: string, description: "email (phone optional)" }
+        channel: { type: string, enum: [email, sms], default: email }
+        expires_in_hours: { type: integer, default: 168, description: "default 7 days" }
+      required: [vault_id, contact]
+    VerificationEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vault_id: { type: string, format: uuid }
+        state: { type: string, enum: [Draft, Submitted, Confirming, Disputed, QuorumReached, HeartbeatTimeout, Grace, Finalized] }
+        quorum_required: { type: integer }
+        confirms_count: { type: integer }
+        denies_count: { type: integer }
+        created_at: { type: string, format: date-time }
+    DecisionRequest:
+      type: object
+      properties:
+        decision: { type: string, enum: [Confirm, Deny] }
+        signature: { type: string, description: "verifier's signature over event payload (optional in MVP)" }
+      required: [decision]
+    HeartbeatPing:
+      type: object
+      properties:
+        vault_id: { type: string, format: uuid }
+        method: { type: string, enum: [auto, manual], default: manual }
+      required: [vault_id]
+    PublicLink:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        block_id: { type: string, format: uuid }
+        enabled: { type: boolean }
+        publish_from: { type: string, format: date-time }
+        publish_until: { type: string, format: date-time, nullable: true }
+        url: { type: string }
+        max_views: { type: integer, nullable: true }
+        views_count: { type: integer }
+    PublicLinkUpdate:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        publish_from: { type: string, format: date-time }
+        publish_until: { type: string, format: date-time, nullable: true }
+        max_views: { type: integer, nullable: true }
+      required: [enabled]
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /auth/register:
+    post:
+      summary: Register user (MVP with 2FA; Passkeys in M1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string }
+                phone: { type: string, nullable: true }
+                password: { type: string }
+      responses:
+        '201': { description: Created }
+  /auth/login:
+    post:
+      summary: Login, returns JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string }
+                password: { type: string }
+                otp: { type: string, description: "optional TOTP if 2FA enabled" }
+      responses:
+        '200': { description: OK }
+  /vaults:
+    get:
+      summary: List vaults
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create vault
+      responses:
+        '201': { description: Created }
+  /blocks:
+    get:
+      summary: List blocks by vault
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create block (multipart)
+      responses:
+        '201': { description: Created }
+  /recipients:
+    post:
+      summary: Create recipient
+      responses:
+        '201': { description: Created }
+  /blocks/{id}/recipients:
+    post:
+      summary: Assign recipient
+      responses:
+        '201': { description: Created }
+  /verifiers/invitations:
+    post:
+      summary: Invite verifier
+      responses:
+        '201': { description: Created }
+  /verification-events:
+    post:
+      summary: Start verification event
+      responses:
+        '201': { description: Created }
+  /verification-events/{id}/confirm:
+    post:
+      summary: Verifier confirms
+      responses:
+        '204': { description: No Content }
+  /verification-events/{id}/deny:
+    post:
+      summary: Verifier denies
+      responses:
+        '204': { description: No Content }
+  /heartbeats/ping:
+    post:
+      summary: Owner heartbeat ping
+      responses:
+        '204': { description: No Content }

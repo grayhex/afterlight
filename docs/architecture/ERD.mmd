@@ -1,0 +1,13 @@
+```mermaid
+%% AfterLight ERD (draft)
+erDiagram
+  USER ||--o{ VAULT : owns
+  VAULT ||--o{ BLOCK : contains
+  BLOCK ||--o{ BLOCK_RECIPIENT : addressed_to
+  RECIPIENT ||--o{ BLOCK_RECIPIENT : receives
+  VAULT ||--o{ VAULT_VERIFIER : assigns
+  VERIFIER ||--o{ VAULT_VERIFIER : participates
+  VAULT ||--o{ VERIFICATION_EVENT : has
+  VERIFICATION_EVENT ||--o{ VERIFICATION_DECISION : records
+  BLOCK ||--o{ PUBLIC_LINK : publishes
+```

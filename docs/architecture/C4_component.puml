@@ -1,0 +1,10 @@
+@startuml C4_Component
+Container_Boundary(api, "API/Gateway (NestJS)") {
+  Component(auth, "Auth Module", "JWT/2FA")
+  Component(vault, "Vault Module", "Blocks, recipients, wrapping")
+  Component(verifiers, "Verifiers Module", "Invites, N-of-M, decisions")
+  Component(policy, "Policy Engine", "Thresholds, conflicts, dispute 24h")
+  Component(heartbeat, "Heartbeat Module", "Ping tracking, timeouts")
+  Component(release, "Release Module", "Grace, delivery, public links")
+}
+@enduml

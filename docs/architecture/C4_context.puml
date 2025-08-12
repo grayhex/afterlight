@@ -1,0 +1,14 @@
+@startuml C4_Context
+' requires C4-PlantUML includes in your PlantUML installation
+Person(user, "Owner", "Creates & manages the vault")
+Person(verifier, "Verifier", "Confirms/denies event")
+Person(recipient, "Recipient", "Receives blocks")
+System_Boundary(al, "AfterLight Platform") {
+  System_Web(app, "Web App (PWA)", "Next.js", "UI, client-side crypto")
+  System(api, "API", "NestJS", "Policy Engine, Orchestrator")
+  SystemDb(db, "PostgreSQL", "Metadata, indexes, ACL")
+}
+Rel(user, app, "Uses", "HTTPS")
+Rel(app, api, "API calls", "JSON/HTTP")
+Rel(api, db, "CRUD", "psql")
+@enduml

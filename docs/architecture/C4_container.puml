@@ -1,0 +1,18 @@
+@startuml C4_Container
+Person(user, "Owner")
+System_Boundary(al, "AfterLight") {
+  Container(web, "Web (PWA)", "Next.js", "UI")
+  Container(api, "API Gateway", "NestJS", "Auth, RBAC, REST")
+  Container(vault, "Vault Service", "NestJS", "Blocks, E2EE wrap, metadata")
+  Container(verify, "Verification Service", "NestJS", "Invites, N-of-M, decisions")
+  Container(heart, "Heartbeat Service", "Worker", "Pings, timeouts")
+  Container(release, "Release Orchestrator", "Worker", "Grace, delivery, public links")
+  ContainerDb(pg, "PostgreSQL", "Managed PG", "Metadata, ACL, logs")
+}
+Rel(user, web, "HTTPS")
+Rel(web, api, "REST/JSON")
+Rel(api, vault, "gRPC/REST")
+Rel(api, verify, "gRPC/REST")
+Rel(heart, release, "Events")
+Rel(vault, pg, "SQL")
+@enduml
