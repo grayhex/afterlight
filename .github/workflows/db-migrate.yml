@@ -1,0 +1,37 @@
+name: DB Migrate
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: 'Migration name (e.g., init_schema)'
+        required: false
+        default: 'auto'
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Prisma deps
+        run: |
+          npm i --no-audit --no-fund @prisma/client
+          npm i -D --no-audit --no-fund prisma ts-node
+      - name: Prisma generate
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Prisma migrate (deploy on CI)
+        run: |
+          if [ "${{ github.event.inputs.name }}" = "auto" ]; then
+            npx prisma migrate deploy
+          else
+            npx prisma migrate dev --name "${{ github.event.inputs.name }}" --create-only
+            npx prisma migrate deploy
+          fi
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

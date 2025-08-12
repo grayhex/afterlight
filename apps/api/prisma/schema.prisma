@@ -1,0 +1,320 @@
+// Prisma schema for AfterLight (v0.1) — PostgreSQL
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
+
+enum VaultStatus { Active Triggered PendingGrace Released Closed }
+enum BlockType { text file url }
+enum VerifierRoleStatus { Invited Active Revoked }
+enum KycLevel { None Basic Enhanced }
+enum VerificationState { Draft Submitted Confirming Disputed QuorumReached HeartbeatTimeout Grace Finalized }
+enum Decision { Confirm Deny }
+enum HeartbeatMethod { auto manual }
+enum NotificationChannel { email sms telegram push }
+enum NotificationState { Queued Sent Failed }
+enum PlanTier { Free Pro Business }
+enum SubscriptionStatus { trial active canceled }
+enum ActorType { User Verifier System }
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid @map("id")
+  email        String   @unique
+  phone        String?
+  passkeyPub   String?  @map("passkey_pub")
+  twoFaEnabled Boolean  @default(false) @map("two_fa_enabled")
+  locale       String   @default("ru-RU")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  vaults        Vault[]
+  subscriptions Subscription[]
+
+  @@map("user")
+}
+
+model Vault {
+  id                   String      @id @default(uuid()) @db.Uuid @map("id")
+  userId               String      @db.Uuid @map("user_id")
+  status               VaultStatus @default(Active)
+  quorumThreshold      Int         @default(3) @map("quorum_threshold")
+  maxVerifiers         Int         @default(5) @map("max_verifiers")
+  heartbeatTimeoutDays Int         @default(60) @map("heartbeat_timeout_days")
+  graceHours           Int         @default(24) @map("grace_hours")
+  isDemo               Boolean     @default(false) @map("is_demo")
+  mkWrapped            String      @map("mk_wrapped")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  user           User         @relation(fields: [userId], references: [id])
+  blocks         Block[]
+  verifiers      VaultVerifier[]
+  events         VerificationEvent[]
+  heartbeat      Heartbeat?
+  notifications  Notification[]
+  recoveryShares RecoveryShare[]
+
+  @@index([userId], map: "ix_vault_user_id")
+  @@map("vault")
+}
+
+model Block {
+  id         String    @id @default(uuid()) @db.Uuid @map("id")
+  vaultId    String    @db.Uuid @map("vault_id")
+  type       BlockType
+  dekWrapped String    @map("dek_wrapped")
+  metadata   Json?
+  tags       String[]  @db.Text[]
+  size       BigInt?   @db.BigInt
+  checksum   String?
+  isPublic   Boolean   @default(false) @map("is_public")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  vault       Vault     @relation(fields: [vaultId], references: [id])
+  recipients  BlockRecipient[]
+  publicLink  PublicLink?
+
+  @@index([vaultId], map: "ix_block_vault_id")
+  @@map("block")
+}
+
+model Recipient {
+  id                 String   @id @default(uuid()) @db.Uuid @map("id")
+  contact            String
+  pubkey             String?
+  verificationStatus String   @default("Invited") @map("verification_status")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  blocks BlockRecipient[]
+
+  @@index([contact], map: "ix_recipient_contact")
+  @@map("recipient")
+}
+
+model BlockRecipient {
+  blockId                String   @db.Uuid @map("block_id")
+  recipientId            String   @db.Uuid @map("recipient_id")
+  dekWrappedForRecipient String   @map("dek_wrapped_for_recipient")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  block     Block     @relation(fields: [blockId], references: [id])
+  recipient Recipient @relation(fields: [recipientId], references: [id])
+
+  @@id([blockId, recipientId])
+  @@index([recipientId], map: "ix_block_recipient_recipient_id")
+  @@map("block_recipient")
+}
+
+model Verifier {
+  id        String   @id @default(uuid()) @db.Uuid @map("id")
+  contact   String
+  pubkey    String?
+  kycLevel  KycLevel @default(None) @map("kyc_level")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vaults    VaultVerifier[]
+  decisions VerificationDecision[]
+
+  @@index([contact], map: "ix_verifier_contact")
+  @@map("verifier")
+}
+
+model VaultVerifier {
+  vaultId    String             @db.Uuid @map("vault_id")
+  verifierId String             @db.Uuid @map("verifier_id")
+  roleStatus VerifierRoleStatus @default(Invited) @map("role_status")
+  isPrimary  Boolean            @default(false) @map("is_primary")
+  addedAt    DateTime           @default(now()) @map("added_at")
+
+  vault    Vault    @relation(fields: [vaultId], references: [id])
+  verifier Verifier @relation(fields: [verifierId], references: [id])
+
+  @@id([vaultId, verifierId])
+  @@index([verifierId], map: "ix_vault_verifier_verifier_id")
+  @@map("vault_verifier")
+}
+
+model VerificationEvent {
+  id             String            @id @default(uuid()) @db.Uuid @map("id")
+  vaultId        String            @db.Uuid @map("vault_id")
+  initiator      String?
+  state          VerificationState @default(Draft)
+  quorumRequired Int               @map("quorum_required")
+  confirmsCount  Int               @default(0) @map("confirms_count")
+  deniesCount    Int               @default(0) @map("denies_count")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  finalizedAt    DateTime?         @map("finalized_at")
+
+  vault     Vault                 @relation(fields: [vaultId], references: [id])
+  decisions VerificationDecision[]
+  evidences Evidence[]
+
+  @@index([vaultId], map: "ix_ve_vault_id")
+  @@index([state], map: "ix_ve_state")
+  @@map("verification_event")
+}
+
+model VerificationDecision {
+  id                   String    @id @default(uuid()) @db.Uuid @map("id")
+  verificationEventId  String    @db.Uuid @map("verification_event_id")
+  verifierId           String    @db.Uuid @map("verifier_id")
+  decision             Decision
+  signature            String?
+  decidedAt            DateTime  @default(now()) @map("decided_at")
+
+  event    VerificationEvent @relation(fields: [verificationEventId], references: [id])
+  verifier Verifier          @relation(fields: [verifierId], references: [id])
+
+  @@unique([verificationEventId, verifierId], map: "uq_decision_once")
+  @@index([verifierId], map: "ix_vd_verifier_id")
+  @@map("verification_decision")
+}
+
+model Heartbeat {
+  vaultId    String         @id @db.Uuid @map("vault_id")
+  lastPingAt DateTime       @default(now()) @map("last_ping_at")
+  timeoutDays Int           @default(60) @map("timeout_days")
+  method     HeartbeatMethod @default(manual)
+
+  vault Vault @relation(fields: [vaultId], references: [id])
+
+  @@map("heartbeat")
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid @map("id")
+  vaultId   String              @db.Uuid @map("vault_id")
+  toContact String              @map("to_contact")
+  channel   NotificationChannel
+  payload   Json
+  state     NotificationState
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  vault Vault @relation(fields: [vaultId], references: [id])
+
+  @@index([vaultId], map: "ix_notification_vault_id")
+  @@map("notification")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid @map("id")
+  actorType ActorType @map("actor_type")
+  actorId   String   @map("actor_id")
+  action    String
+  targetId  String?
+  targetType String?
+  hash      String?
+  ts        DateTime @default(now())
+
+  @@index([actorType, actorId], map: "ix_audit_actor")
+  @@index([ts], map: "ix_audit_ts")
+  @@map("audit_log")
+}
+
+model RecoveryShare {
+  id          String  @id @default(uuid()) @db.Uuid @map("id")
+  vaultId     String  @db.Uuid @map("vault_id")
+  shareIndex  Int     @map("share_index")
+  shareCipher String  @map("share_cipher")
+
+  vault Vault @relation(fields: [vaultId], references: [id])
+
+  @@index([vaultId], map: "ix_recovery_vault_id")
+  @@map("recovery_share")
+}
+
+model Plan {
+  id     String  @id @default(uuid()) @db.Uuid @map("id")
+  tier   PlanTier
+  limits Json
+
+  subscriptions Subscription[]
+
+  @@map("plan")
+}
+
+model Subscription {
+  id               String            @id @default(uuid()) @db.Uuid @map("id")
+  userId           String            @db.Uuid @map("user_id")
+  planId           String            @db.Uuid @map("plan_id")
+  status           SubscriptionStatus
+  currentPeriodEnd DateTime          @map("current_period_end")
+
+  user User @relation(fields: [userId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@index([userId], map: "ix_sub_user_id")
+  @@index([planId], map: "ix_sub_plan_id")
+  @@map("subscription")
+}
+
+model PublicLink {
+  id           String   @id @default(uuid()) @db.Uuid @map("id")
+  blockId      String   @db.Uuid @map("block_id")
+  enabled      Boolean
+  publishFrom  DateTime @map("publish_from")
+  publishUntil DateTime? @map("publish_until")
+  tokenHash    String   @map("token_hash")
+  maxViews     Int?
+  viewsCount   Int      @default(0) @map("views_count")
+
+  block Block @relation(fields: [blockId], references: [id])
+
+  @@unique([blockId], map: "uq_public_link_per_block")
+  @@map("public_link")
+}
+
+model Evidence {
+  id                  String   @id @default(uuid()) @db.Uuid @map("id")
+  verificationEventId String   @db.Uuid @map("verification_event_id")
+  type                String
+  ref                 String
+  hash                String?
+  uploadedAt          DateTime @default(now()) @map("uploaded_at")
+
+  event VerificationEvent @relation(fields: [verificationEventId], references: [id])
+
+  @@index([verificationEventId], map: "ix_evidence_event_id")
+  @@map("evidence")
+}
+
+model AdminUser {
+  id           String   @id @default(uuid()) @db.Uuid @map("id")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         String   @default("Ops")
+  twoFaEnabled Boolean  @default(false) @map("two_fa_enabled")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admin_user")
+}
+
+model Setting {
+  id    String @id @default(uuid()) @db.Uuid @map("id")
+  key   String @unique
+  value Json
+
+  @@map("setting")
+}
+
+model SiteContent {
+  id     String @id @default(uuid()) @db.Uuid @map("id")
+  key    String
+  locale String @default("ru")
+  data   Json
+
+  @@unique([key, locale], map: "uq_sitecontent_key_locale")
+  @@map("site_content")
+}
+
+model EmailTemplate {
+  id      String @id @default(uuid()) @db.Uuid @map("id")
+  key     String
+  locale  String @default("ru")
+  subject String
+  body    String @db.Text
+
+  @@unique([key, locale], map: "uq_emailtpl_key_locale")
+  @@map("email_template")
+}

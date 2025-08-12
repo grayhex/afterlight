@@ -1,0 +1,26 @@
+name: DB Seed
+on:
+  workflow_dispatch: {}
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Prisma deps
+        run: |
+          npm i --no-audit --no-fund @prisma/client
+          npm i -D --no-audit --no-fund prisma ts-node
+      - name: Prisma generate
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Run seed
+        run: npx ts-node prisma/seed.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
