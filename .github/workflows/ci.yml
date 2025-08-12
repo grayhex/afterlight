@@ -8,6 +8,9 @@ on:
 jobs:
   api:
     runs-on: ubuntu-latest
+    env:
+      # Достаточно, чтобы Prisma прочитал схему; подключения не будет
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/afterlight_ci?schema=public
     defaults:
       run:
         working-directory: apps/api
