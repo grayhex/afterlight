@@ -24,7 +24,7 @@ export class HeartbeatsService {
     const dueAt = last ? addDays(new Date(last), Number(timeoutDays)) : addDays(now, Number(timeoutDays));
     const overdue = now > dueAt;
     return {
-      last_ping_at: last,
+      last_ping_at: hb?.lastPingAt ?? null,
       timeout_days: timeoutDays,
       method: hb?.method ?? 'manual',
       next_due_at: dueAt,
@@ -35,9 +35,13 @@ export class HeartbeatsService {
   async getConfig(userId: string, vaultId: string) {
     const v = await this.ensureVaultOwner(userId, vaultId);
     const hb = await this.prisma.heartbeat.findUnique({ where: { vaultId: v.id } });
-    if (hb) return this.buildStatus(hb);
+    if (hb) {
+      // подмешиваем createdAt сейфа как «опорную» дату
+      return this.buildStatus({ ...hb, createdAt: v.createdAt });
+    }
+    // нет записи — статус по дефолтам сейфа
     return this.buildStatus({
-      lastPingAt: null,
+      lastPingAt: undefined,
       timeoutDays: (v as any).heartbeatTimeoutDays ?? 60,
       method: 'manual',
       createdAt: v.createdAt,
@@ -52,7 +56,7 @@ export class HeartbeatsService {
         vaultId,
         method: (dto.method ?? 'manual') as any,
         timeoutDays: dto.timeout_days ?? 60,
-        lastPingAt: null,
+        // lastPingAt: null,  // <-- не задаём null
       },
       update: {
         method: (dto.method as any) ?? undefined,
@@ -80,11 +84,13 @@ export class HeartbeatsService {
     return this.buildStatus(saved);
   }
 
+  /** Возвращает массив vaultId c просроченным heartbeat */
   async findOverdue(now = new Date()) {
-    const all = await this.prisma.heartbeat.findMany({});
+    const all = await this.prisma.heartbeat.findMany({ include: { vault: true } }); // <-- тянем vault
     return all
       .filter((hb) => {
-        const due = addDays(new Date(hb.lastPingAt ?? hb.createdAt), Number(hb.timeoutDays ?? 60));
+        const base = hb.lastPingAt ?? hb.vault.createdAt; // <-- вместо hb.createdAt
+        const due = addDays(new Date(base), Number(hb.timeoutDays ?? 60));
         return now > due;
       })
       .map((hb) => hb.vaultId);
