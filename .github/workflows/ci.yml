@@ -1,7 +1,9 @@
 name: ci
 on:
-  push: { branches: [ main ] }
-  pull_request: { branches: [ main ] }
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   api:
@@ -11,14 +13,19 @@ jobs:
         working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: Install deps
         run: npm ci || npm i
-       - name: Prisma validate
+
+      - name: Prisma validate
         run: npx prisma validate
+
       - name: Generate Prisma client
         run: npx prisma generate
+
       - name: Build (Nest)
         run: npm run build
