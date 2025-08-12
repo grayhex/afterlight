@@ -35,11 +35,11 @@ docs/
 - [x] CI: `prisma validate/generate` + `nest build`
 - [x] Blocks API (метаданные, назначение получателей)
 - [x] Вайрфреймы (Next.js) `/wireframes`
-- [ ] Recipients API (создание/поиск получателей)
-- [ ] Public Links (permalink + окно публикации)
-- [ ] Heartbeat (сущность + обработчик)
-- [ ] Оркестрация статусов `Submitted → Confirming/Disputed → QuorumReached → Grace → Finalized`
-- [ ] Email‑нотификации (MVP)
+- [x] Recipients API (создание/поиск получателей)
+- [x] Public Links (permalink + окно публикации)
+- [x] Heartbeat (сущность + обработчик)
+- [x] Оркестрация статусов `Submitted → Confirming/Disputed → QuorumReached → Grace → Finalized`
+- [x] Email‑нотификации (MVP)
 
 ### MVP — **Minimal Working State (Staging Smoke)**
 - [ ] Health‑эндпоинт `/healthz` (простой OK) + readiness/liveness пробы
