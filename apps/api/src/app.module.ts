@@ -6,16 +6,21 @@ import { VerificationEventsModule } from './verification-events/verification-eve
 import { BlocksModule } from './blocks/blocks.module';
 import { RecipientsModule } from './recipients/recipients.module';
 import { PublicLinksModule } from './public-links/public-links.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { OrchestratorModule } from './orchestrator/orchestrator.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    VaultsModule,
-    VerifiersModule,
-    VerificationEventsModule,
-    BlocksModule,
-    RecipientsModule,
-    PublicLinksModule,
-  ],
+imports: [
+  PrismaModule,
+  VaultsModule,
+  VerifiersModule,
+  VerificationEventsModule,
+  BlocksModule,
+  RecipientsModule,
+  PublicLinksModule,
+  HeartbeatsModule,
+  NotificationsModule,
+  OrchestratorModule,
+],
 })
 export class AppModule {}

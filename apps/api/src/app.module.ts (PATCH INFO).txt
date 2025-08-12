@@ -1,5 +1,6 @@
-// Импортируйте HeartbeatsModule и добавьте в imports:
-import { HeartbeatsModule } from './heartbeats/heartbeats.module';
+// Импортируйте модули и добавьте в imports:
+import { NotificationsModule } from './notifications/notifications.module';
+import { OrchestratorModule } from './orchestrator/orchestrator.module';
 
 @Module({
   imports: [
@@ -10,7 +11,9 @@ import { HeartbeatsModule } from './heartbeats/heartbeats.module';
     BlocksModule,
     RecipientsModule,
     PublicLinksModule,
-    HeartbeatsModule, // <-- новый модуль
+    HeartbeatsModule,
+    NotificationsModule,
+    OrchestratorModule,
   ],
 })
 export class AppModule {}
