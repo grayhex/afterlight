@@ -68,7 +68,7 @@ model Block {
   type       BlockType
   dekWrapped String    @map("dek_wrapped")
   metadata   Json?
-  tags       String[]  @db.Text[]
+  tags       String[]
   size       BigInt?   @db.BigInt
   checksum   String?
   isPublic   Boolean   @default(false) @map("is_public")
