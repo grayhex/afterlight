@@ -9,18 +9,83 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum VaultStatus { Active Triggered PendingGrace Released Closed }
-enum BlockType { text file url }
-enum VerifierRoleStatus { Invited Active Revoked }
-enum KycLevel { None Basic Enhanced }
-enum VerificationState { Draft Submitted Confirming Disputed QuorumReached HeartbeatTimeout Grace Finalized }
-enum Decision { Confirm Deny }
-enum HeartbeatMethod { auto manual }
-enum NotificationChannel { email sms telegram push }
-enum NotificationState { Queued Sent Failed }
-enum PlanTier { Free Pro Business }
-enum SubscriptionStatus { trial active canceled }
-enum ActorType { User Verifier System }
+enum VaultStatus {
+  Active
+  Triggered
+  PendingGrace
+  Released
+  Closed
+}
+
+enum BlockType {
+  text
+  file
+  url
+}
+
+enum VerifierRoleStatus {
+  Invited
+  Active
+  Revoked
+}
+
+enum KycLevel {
+  None
+  Basic
+  Enhanced
+}
+
+enum VerificationState {
+  Draft
+  Submitted
+  Confirming
+  Disputed
+  QuorumReached
+  HeartbeatTimeout
+  Grace
+  Finalized
+}
+
+enum Decision {
+  Confirm
+  Deny
+}
+
+enum HeartbeatMethod {
+  auto
+  manual
+}
+
+enum NotificationChannel {
+  email
+  sms
+  telegram
+  push
+}
+
+enum NotificationState {
+  Queued
+  Sent
+  Failed
+}
+
+enum PlanTier {
+  Free
+  Pro
+  Business
+}
+
+enum SubscriptionStatus {
+  trial
+  active
+  canceled
+}
+
+enum ActorType {
+  User
+  Verifier
+  System
+}
 
 model User {
   id            String   @id @default(uuid()) @db.Uuid @map("id")
