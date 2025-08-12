@@ -2,6 +2,8 @@
 
 > Платформа, которая помогает человеку заранее подготовить **приватную информацию** для близких и **безопасно** раскрывает её после наступления события (модель **N‑из‑M** верификаторов + **heartbeat** + **grace**).
 
+![logo](https://github.com/grayhex/afterlight/blob/main/logo.jpg)
+
 ## Стек
 
 - **API:** NestJS + Prisma (PostgreSQL), Swagger `/docs`
