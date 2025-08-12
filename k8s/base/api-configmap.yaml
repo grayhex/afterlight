@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: afterlight-staging
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  PUBLIC_BASE_URL: "https://staging.afterlight.example"

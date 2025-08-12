@@ -1,0 +1,21 @@
+# --------- Build stage ---------
+FROM node:20-alpine AS build
+WORKDIR /app
+RUN apk add --no-cache python3 make g++
+COPY package.json package-lock.json ./
+COPY apps ./apps
+RUN npm ci
+WORKDIR /app/apps/api
+RUN npx prisma generate
+RUN npm run build
+
+# --------- Runtime stage ---------
+FROM node:20-alpine AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+ENV PORT=3000
+EXPOSE 3000
+CMD ["node", "apps/api/dist/main.js"]

@@ -1,6 +1,5 @@
-// Импортируйте модули и добавьте в imports:
-import { NotificationsModule } from './notifications/notifications.module';
-import { OrchestratorModule } from './orchestrator/orchestrator.module';
+// Добавьте HealthModule в AppModule:
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -14,6 +13,7 @@ import { OrchestratorModule } from './orchestrator/orchestrator.module';
     HeartbeatsModule,
     NotificationsModule,
     OrchestratorModule,
+    HealthModule, // <— новый модуль для liveness/readiness
   ],
 })
 export class AppModule {}

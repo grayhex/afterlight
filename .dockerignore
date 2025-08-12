@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+**/node_modules
+dist
+coverage
+Dockerfile*
+**/*.log
+*.local
+.env
+.env.*
+*.zip
+*.tar.gz
+.idea
+.vscode
+**/.DS_Store
