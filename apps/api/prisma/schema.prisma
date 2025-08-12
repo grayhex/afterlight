@@ -104,25 +104,25 @@ model User {
 }
 
 model Vault {
-  id                     String       @id @default(uuid()) @db.Uuid @map("id")
-  userId                 String       @db.Uuid @map("user_id")
-  status                 VaultStatus  @default(Active)
-  quorumThreshold        Int          @default(3) @map("quorum_threshold")
-  maxVerifiers           Int          @default(5) @map("max_verifiers")
-  heartbeatTimeoutDays   Int          @default(60) @map("heartbeat_timeout_days")
-  graceHours             Int          @default(24) @map("grace_hours")
-  isDemo                 Boolean      @default(false) @map("is_demo")
-  mkWrapped              String       @map("mk_wrapped")
-  createdAt              DateTime     @default(now()) @map("created_at")
-  updatedAt              DateTime     @updatedAt @map("updated_at")
+  id                     String            @id @default(uuid()) @db.Uuid @map("id")
+  userId                 String            @db.Uuid @map("user_id")
+  status                 VaultStatus       @default(Active)
+  quorumThreshold        Int               @default(3)  @map("quorum_threshold")
+  maxVerifiers           Int               @default(5)  @map("max_verifiers")
+  heartbeatTimeoutDays   Int               @default(60) @map("heartbeat_timeout_days")
+  graceHours             Int               @default(24) @map("grace_hours")
+  isDemo                 Boolean           @default(false) @map("is_demo")
+  mkWrapped              String            @map("mk_wrapped")
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
 
-  user                   User         @relation(fields: [userId], references: [id])
-  blocks                 Block[]
-  verifiers              VaultVerifier[]
-  events                 VerificationEvent[]
-  heartbeat              Heartbeat?
-  notifications          Notification[]
-  recoveryShares         RecoveryShare[]
+  user            User             @relation(fields: [userId], references: [id])
+  blocks          Block[]
+  verifiers       VaultVerifier[]
+  events          VerificationEvent[]
+  heartbeat       Heartbeat?
+  notifications   Notification[]
+  recoveryShares  RecoveryShare[]
 
   @@index([userId], map: "ix_vault_user_id")
   @@map("vault")
@@ -134,8 +134,8 @@ model Block {
   type         BlockType
   dekWrapped   String    @map("dek_wrapped")
   metadata     Json?
-  tags         String[] // ок, Postgres text[]
-  size         BigInt?   
+  tags         String[]
+  size         BigInt?
   checksum     String?
   isPublic     Boolean   @default(false) @map("is_public")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -150,39 +150,5 @@ model Block {
   @@map("block")
 }
 
-model Recipient {
-  id                  String   @id @default(uuid()) @db.Uuid @map("id")
-  contact             String
-  pubkey              String?
-  verificationStatus  String   @default("Invited") @map("verification_status")
-  createdAt           DateTime @default(now()) @map("created_at")
+// … (остальные модели — Recipient, BlockRecipient, Verifier, VaultVerifier, VerificationEvent, VerificationDecision, Heartbeat, Notification, AuditLog, RecoveryShare, Plan, Subscription, PublicLink, Evidence, AdminUser, Setting, SiteContent, EmailTemplate) …
 
-  blocks              BlockRecipient[]
-
-  @@index([contact], map: "ix_recipient_contact")
-  @@map("recipient")
-}
-
-model BlockRecipient {
-  blockId                 String   @db.Uuid @map("block_id")
-  recipientId             String   @db.Uuid @map("recipient_id")
-  dekWrappedForRecipient  String   @map("dek_wrapped_for_recipient")
-  createdAt               DateTime @default(now()) @map("created_at")
-
-  block                   Block     @relation(fields: [blockId], references: [id])
-  recipient               Recipient @relation(fields: [recipientId], references: [id])
-
-  @@id([blockId, recipientId])
-  @@index([recipientId], map: "ix_block_recipient_recipient_id")
-  @@map("block_recipient")
-}
-
-model Verifier {
-  id         String   @id @default(uuid()) @db.Uuid @map("id")
-  contact    String
-  pubkey     String?
-  kycLevel   KycLevel @default(None) @map("kyc_level")
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  vaults     VaultVerifier[]
-  decisions  VerificationDecision[]
