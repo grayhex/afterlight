@@ -9,6 +9,7 @@ import { PublicLinksModule } from './public-links/public-links.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrchestratorModule } from './orchestrator/orchestrator.module';
 import { HeartbeatsModule } from './heartbeats/heartbeats.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
 imports: [
@@ -22,6 +23,7 @@ imports: [
   HeartbeatsModule,
   NotificationsModule,
   OrchestratorModule,
+  HealthModule,
 ],
 })
 export class AppModule {}
