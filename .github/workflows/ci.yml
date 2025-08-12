@@ -1,40 +1,22 @@
 name: ci
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  push: { branches: [ main ] }
+  pull_request: { branches: [ main ] }
 
 jobs:
-  build:
+  api:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
-
-      # 1) Ставим pnpm
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-
-      # 2) Ставим Node и включаем кэш для pnpm
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
-          # если будут lock-файлы — укажем их пути
-          cache-dependency-path: |
-            apps/api/pnpm-lock.yaml
-            apps/web/pnpm-lock.yaml
-
-      # 3) Устанавливаем зависимости API
-      - name: Install deps (API)
-        run: |
-          cd apps/api
-          pnpm install --frozen-lockfile=false
-
-      # 4) Сборка API
-      - name: Build API
-        run: |
-          cd apps/api
-          pnpm build || npx tsc -p tsconfig.json
+          cache: 'npm'
+          cache-dependency-path: apps/api/package-lock.json
+      - name: Install deps
+        run: npm ci || npm i
+      - name: Build
+        run: npx tsc -p tsconfig.json
