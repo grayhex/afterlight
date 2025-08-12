@@ -16,6 +16,8 @@ jobs:
           node-version: '20'
       - name: Install deps
         run: npm ci || npm i
+       - name: Prisma validate
+        run: npx prisma validate
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Build (Nest)
