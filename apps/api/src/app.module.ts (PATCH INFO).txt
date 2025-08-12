@@ -1,5 +1,6 @@
-// Добавьте импорт модуля блоков и внесите его в imports:
-import { BlocksModule } from './blocks/blocks.module';
+// Добавьте модули в AppModule:
+import { RecipientsModule } from './recipients/recipients.module';
+import { PublicLinksModule } from './public-links/public-links.module';
 
 @Module({
   imports: [
@@ -7,7 +8,9 @@ import { BlocksModule } from './blocks/blocks.module';
     VaultsModule,
     VerifiersModule,
     VerificationEventsModule,
-    BlocksModule, // <-- новый модуль
+    BlocksModule,
+    RecipientsModule,
+    PublicLinksModule,
   ],
 })
 export class AppModule {}

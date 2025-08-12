@@ -4,6 +4,8 @@ import { VaultsModule } from './vaults/vaults.module';
 import { VerifiersModule } from './verifiers/verifiers.module';
 import { VerificationEventsModule } from './verification-events/verification-events.module';
 import { BlocksModule } from './blocks/blocks.module';
+import { RecipientsModule } from './recipients/recipients.module';
+import { PublicLinksModule } from './public-links/public-links.module';
 
 @Module({
   imports: [
@@ -12,6 +14,8 @@ import { BlocksModule } from './blocks/blocks.module';
     VerifiersModule,
     VerificationEventsModule,
     BlocksModule,
+    RecipientsModule,
+    PublicLinksModule,
   ],
 })
 export class AppModule {}
