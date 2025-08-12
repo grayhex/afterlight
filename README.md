@@ -32,7 +32,7 @@ docs/
 - [x] Swagger `/docs`, DTO‑валидация
 - [x] CI: `prisma validate/generate` + `nest build`
 - [x] Вайрфреймы (Next.js) `/wireframes`
-- [ ] **Blocks API** (метаданные, адресация получателей)
+- [x] **Blocks API** (метаданные, адресация получателей)
 - [ ] **Recipients API**
 - [ ] **Public Links** (permalink + окно публикации)
 - [ ] **Heartbeat** (сущность + обработчик)
