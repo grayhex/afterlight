@@ -1,29 +1,32 @@
-// apps/api/src/notifications/notifications.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-// (опц.) можно типизировать payload как Prisma.InputJsonValue при желании
+
+type EmailPayload = {
+  subject: string;
+  text?: string;
+  html?: string;
+  template?: string;
+  context?: Record<string, any>;
+};
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   constructor(private prisma: PrismaService) {}
 
-  async enqueueEmail(vaultId: string | null, to: string, payload: any) {
-    this.logger.log(`[Email][enqueue] to=${to} subj=${payload?.subject ?? ''}`);
-    try {
-      await this.prisma.notification.create({
-        data: {
-          // если нужен линк на сейф — передаём как relation
-          ...(vaultId ? { vault: { connect: { id: vaultId } } } : {}),
-          toContact: to,
-          channel: 'email' as any,
-          payload: payload as any, // поле JSON в модели Notification
-          state: 'Queued' as any,
-        },
-      });
-    } catch (e) {
-      this.logger.error(`Failed to enqueue email to=${to}: ${String(e)}`);
-    }
+  // vaultId теперь обязателен
+  async enqueueEmail(vaultId: string, to: string, payload: EmailPayload) {
+    this.logger.log(`[Email][enqueue] to=${to} subj=${payload.subject}`);
+    await this.prisma.notification.create({
+      data: {
+        // обязательная связь с сейфом
+        vault: { connect: { id: vaultId } },
+        toContact: to,
+        channel: 'email' as any,
+        payload: payload as any,
+        state: 'Queued' as any,
+      },
+    });
   }
 
   async flushEmailQueue(limit = 50) {
