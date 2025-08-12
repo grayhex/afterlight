@@ -183,7 +183,7 @@ model BlockRecipient {
 
 model Verifier {
   id        String   @id @default(uuid()) @db.Uuid @map("id")
-  contact   String
+  contact   String   @unique   // <— добавили @unique
   pubkey    String?
   kycLevel  KycLevel @default(None) @map("kyc_level")
   createdAt DateTime @default(now()) @map("created_at")
@@ -191,9 +191,9 @@ model Verifier {
   vaults    VaultVerifier[]
   decisions VerificationDecision[]
 
-  @@index([contact], map: "ix_verifier_contact")
   @@map("verifier")
 }
+
 
 model VaultVerifier {
   vaultId    String             @db.Uuid @map("vault_id")
