@@ -10,7 +10,7 @@ function addDays(date: Date, days: number) {
 @Injectable()
 export class HeartbeatProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(HeartbeatProcessor.name);
-  private timer: NodeJS.Timer | null = null;
+  private timer: NodeJS.Timeout | null = null; // <-- фикс типа
 
   constructor(private prisma: PrismaService) {}
 
@@ -19,15 +19,16 @@ export class HeartbeatProcessor implements OnModuleInit, OnModuleDestroy {
     setTimeout(() => this.tick().catch((e) => this.logger.error(e)), 30 * 1000);
   }
   onModuleDestroy() {
-    if (this.timer) clearInterval(this.timer);
+    if (this.timer) clearInterval(this.timer); // <-- теперь тип совпадает
   }
 
   private async tick() {
     const now = new Date();
+    // тянем vault, чтобы взять createdAt
     const list = await this.prisma.heartbeat.findMany({ include: { vault: true } });
 
     const overdue = list.filter((hb) => {
-      const base = hb.lastPingAt ?? hb.createdAt;
+      const base = hb.lastPingAt ?? hb.vault.createdAt; // <-- вместо hb.createdAt
       const due = addDays(new Date(base), Number(hb.timeoutDays ?? 60));
       return now > due;
     });
@@ -36,13 +37,15 @@ export class HeartbeatProcessor implements OnModuleInit, OnModuleDestroy {
 
     for (const hb of overdue) {
       try {
-        await this.prisma.verificationEvent.create({
-          data: {
-            vaultId: hb.vaultId,
-            state: 'HeartbeatTimeout' as any,
-            quorumRequired: (hb as any).vault?.quorumThreshold ?? 3,
-          },
-        }).catch(() => Promise.resolve());
+        await this.prisma.verificationEvent
+          .create({
+            data: {
+              vaultId: hb.vaultId,
+              state: 'HeartbeatTimeout' as any,
+              quorumRequired: (hb as any).vault?.quorumThreshold ?? 3,
+            },
+          })
+          .catch(() => Promise.resolve());
       } catch (e) {
         this.logger.warn(`Heartbeat timeout marking failed for vault ${hb.vaultId}: ${String(e)}`);
       }
