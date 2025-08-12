@@ -156,7 +156,7 @@ model Block {
 
 model Recipient {
   id                  String   @id @default(uuid()) @db.Uuid @map("id")
-  contact             String
+  contact             String   @unique 
   pubkey              String?
   verificationStatus  String   @default("Invited") @map("verification_status")
   createdAt           DateTime @default(now()) @map("created_at")
