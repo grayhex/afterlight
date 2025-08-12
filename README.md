@@ -24,20 +24,28 @@ docs/
 
 ---
 
-## Roadmap
+## Roadmap (обновлено)
 
-### MVP (текущая работа)
+### MVP — базовые фичи
 - [x] Prisma schema + Prisma Client
 - [x] API модули: `vaults`, `verifiers`, `verification-events`
 - [x] Swagger `/docs`, DTO‑валидация
 - [x] CI: `prisma validate/generate` + `nest build`
+- [x] Blocks API (метаданные, назначение получателей)
 - [x] Вайрфреймы (Next.js) `/wireframes`
-- [ ] **Blocks API** (метаданные, адресация получателей)
-- [ ] **Recipients API**
-- [ ] **Public Links** (permalink + окно публикации)
-- [ ] **Heartbeat** (сущность + обработчик)
+- [ ] Recipients API (создание/поиск получателей)
+- [ ] Public Links (permalink + окно публикации)
+- [ ] Heartbeat (сущность + обработчик)
 - [ ] Оркестрация статусов `Submitted → Confirming/Disputed → QuorumReached → Grace → Finalized`
 - [ ] Email‑нотификации (MVP)
+
+### MVP — **Minimal Working State (Staging Smoke)**
+- [ ] Health‑эндпоинт `/healthz` (простой OK) + readiness/liveness пробы
+- [ ] Dockerfile (`apps/api/Dockerfile`) и сборка образа в GHCR
+- [ ] K8s манифесты: Namespace, Secret, ConfigMap, Job `prisma migrate deploy`, Deployment, Service, Ingress
+- [ ] GitHub Actions: workflow сборки образа и деплоя в `staging`
+- [ ] ENV‑провайдинг: `DATABASE_URL`, `DEFAULT_DEBUG_USER`, (позже `JWT_SECRET`)
+- [ ] Smoke‑тест: создать сейф → пригласить верификатора → старт события → подтверждение → создать блок‑метаданные
 
 ### M1
 - [ ] Аутентификация (JWT) + 2FA (TOTP); Passkeys — опционально
@@ -80,208 +88,94 @@ npm run dev  # http://localhost:3001
 
 ---
 
-## Деплой в облако (Kubernetes, Yandex Cloud)
+## Yandex Cloud — минимальные ресурсы для **staging** (shopping list)
 
-Ниже — минимально жизнеспособная схема, чтобы поднять стенд «с нуля».
+Цель: дешёвый, но реальный стенд для деплоя, миграций и smoke‑теста. Без S3/ботов/KMS на первом шаге (их легко добавить позже).
 
-### 1) Ресурсы в YC
-- **Kubernetes (MKS):** кластер + node group (2–3 ноды `e2-medium`)
-- **PostgreSQL (Managed PG):** v14+, 1–2 хоста для стейджа
-- **Object Storage (S3):** бакет для зашифрованных файлов (M1/M2)
-- **Lockbox / KMS:** секреты и обёртка ключей (по мере внедрения E2EE)
-- **Message Queue:** Yandex Message Queue (SQS‑совместимая) — события верификации/релиза (позже)
+### 1) VPC (сеть)
+- 1 VPC
+- 1 публичная подсеть (если хотите доступ к нодам/Ingress напрямую) **или** приватная + NAT‑шлюз
+- 1 NAT‑шлюз (если подсети приватные) и таблица маршрутов
+- Security Groups: разрешение входа на 80/443 для Ingress‑балансировщика; доступ от нод к PG по 5432/6432
 
-> API публикуем через Ingress. Доступ к PG — из VPC/SSL.
+### 2) Managed Kubernetes (MKS)
+- 1 кластер **staging**, версия Kubernetes 1.27+
+- 1 node group: **2 ноды** по **2 vCPU / 4 GB RAM / 40 GB диска** (для старта достаточно)
+- Автозамена нод включена; автомасштабирование не обязательно
+- Установить через Helm: **NGINX Ingress Controller**
+- (опционально) `cert-manager` для автоматических TLS (Let’s Encrypt)
 
-### 2) Сборка контейнера и реестр
+### 3) Managed PostgreSQL
+- 1 кластер PostgreSQL 14/15
+- **1 хост** (для стейджа достаточно), **2 vCPU / 4 GB RAM / 20–50 GB** SSD
+- Включить SSL; выдать строку подключения формата:  
+  `postgresql://USER:PASSWORD@HOST:PORT/afterlight?schema=public&sslmode=require`
 
-**Dockerfile** (`apps/api/Dockerfile`):
+### 4) Контейнерный реестр
+- Используем **GitHub Container Registry (GHCR)** (уже удобнее для нашего CI)  
+  - Создать PAT `write:packages`  
+  - Добавить секреты репозитория: `GHCR_USERNAME`, `GHCR_TOKEN`  
+  - В кластер добавить imagePullSecret для GHCR
 
-```dockerfile
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+*(Альтернатива: Yandex Container Registry — ок, но тогда подключаем авторизацию Workload Identity; можно добавить позже.)*
 
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npx prisma generate && npm run build
+### 5) Секреты и переменные
+- **K8s Secret** `app-secrets` с переменными:  
+  - `DATABASE_URL` — строка подключения к PG (с `sslmode=require`)  
+  - `DEFAULT_DEBUG_USER` — UUID для временной авторизации на стейдже  
+  - *(позже)* `JWT_SECRET`, SMTP‑креды и т. п.
+- **K8s ConfigMap** `app-config`: `NODE_ENV=production`, `PORT=3000`, `SWAGGER_ENABLED=true`
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-EXPOSE 3000
-CMD ["node", "dist/main.js"]
-```
+### 6) Балансировщик и TLS
+- **Ingress‑контроллер NGINX**, сервис типа `LoadBalancer`  
+- Домен `api.<ваш‑домен>` → указываем на внешний IP балансировщика  
+- TLS: через `cert-manager` (HTTP‑01) **или** через Yandex Certificate Manager (если используете ALB)
 
-Публикация в GHCR (рекомендуется): создайте PAT с `write:packages`, добавьте секреты `GHCR_USERNAME`, `GHCR_TOKEN` и соберите образ `ghcr.io/<owner>/afterlight-api:<tag>`.
+### 7) Мониторинг/логи (по минимуму)
+- Включить Yandex Monitoring и Logging для кластера  
+- Готовность/живость: proby на `/healthz` (см. доработки ниже)
 
-### 3) Kubernetes манифесты (базовые)
-
-**Namespace**
-
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: afterlight
-```
-
-**Secrets**
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-  namespace: afterlight
-type: Opaque
-stringData:
-  DATABASE_URL: "postgresql://<user>:<pass>@<pg-host>:<port>/<db>?schema=public&sslmode=require"
-  JWT_SECRET: "<long-random>"
-  DEFAULT_DEBUG_USER: "<uuid-для-dev>"
-```
-
-**ConfigMap**
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-  namespace: afterlight
-data:
-  NODE_ENV: "production"
-  PORT: "3000"
-  CORS_ORIGIN: "https://your-domain.tld"
-  SWAGGER_ENABLED: "true"
-```
-
-**Миграции (Job)**
-
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: prisma-migrate
-  namespace: afterlight
-spec:
-  template:
-    spec:
-      restartPolicy: Never
-      containers:
-        - name: migrate
-          image: ghcr.io/<owner>/afterlight-api:<tag>
-          envFrom:
-            - secretRef: { name: app-secrets }
-          command: ["npx","prisma","migrate","deploy"]
-```
-
-**Deployment + Service**
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: api
-  namespace: afterlight
-spec:
-  replicas: 2
-  selector: { matchLabels: { app: api } }
-  template:
-    metadata: { labels: { app: api } }
-    spec:
-      containers:
-        - name: api
-          image: ghcr.io/<owner>/afterlight-api:<tag>
-          ports: [{ containerPort: 3000 }]
-          envFrom:
-            - secretRef: { name: app-secrets }
-            - configMapRef: { name: app-config }
-          readinessProbe:
-            httpGet: { path: /docs, port: 3000 }
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          resources:
-            requests: { cpu: "100m", memory: "128Mi" }
-            limits: { cpu: "500m", memory: "512Mi" }
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: api
-  namespace: afterlight
-spec:
-  selector: { app: api }
-  ports: [{ name: http, port: 80, targetPort: 3000 }]
-```
 
-**Ingress (Ingress‑NGINX)**
+## Что доработать в коде для запуска на стейдже (быстро и без ломки)
 
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: api
-  namespace: afterlight
-  annotations:
-    kubernetes.io/ingress.class: nginx
-spec:
-  tls:
-    - hosts: ["api.afterlight.yourdomain"]
-      secretName: api-tls
-  rules:
-    - host: api.afterlight.yourdomain
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: api
-                port:
-                  number: 80
-```
+1) **Health‑контроллер** (Nest)
+   - `GET /healthz` → `{ status: 'ok' }`
+   - readinessProbe/livenessProbe в Deployment указывают на этот путь
 
-Применение:
+2) **Dockerfile** (`apps/api/Dockerfile`)
+   - многостадийная сборка (deps → build → runner)
+   - копировать `dist`, `node_modules` и `prisma`
 
-```bash
-kubectl apply -f namespace.yaml
-kubectl apply -f secrets.yaml
-kubectl apply -f configmap.yaml
-kubectl apply -f job-migrate.yaml
-kubectl apply -f deployment.yaml
-kubectl apply -f ingress.yaml
-```
+3) **K8s манифесты** (папка `deploy/`)
+   - `namespace.yaml`, `secrets.yaml`, `configmap.yaml`
+   - `job-migrate.yaml` — `npx prisma migrate deploy`
+   - `deployment.yaml` + `service.yaml` + `ingress.yaml`
 
-### 4) Переменные окружения (минимум)
-- `DATABASE_URL` — строка подключения к PG (в облаке `sslmode=require`)
-- `JWT_SECRET` — секрет для JWT (после внедрения аутентификации)
-- `DEFAULT_DEBUG_USER` — временная заглушка для dev
-- (позже) SMTP/ESP, S3‑креды, KMS‑параметры
+4) **GitHub Actions (deploy)**  
+   - Workflow: build & push образ в GHCR → `kubectl apply -f deploy/` (через kubeconfig/oidc)
 
-### 5) Обновления схемы
-- При изменении `schema.prisma`: локально `npx prisma migrate dev` → PR → образ → в кластере `Job prisma-migrate`.
+> Хочешь — соберу PR‑пакет с HealthController, Dockerfile и `deploy/`‑манифестами, чтобы запустить стенд за вечер.
+
+---
+
+## Smoke‑тест (после деплоя)
+
+1) Открыть `https://api.<домен>/docs` — Swagger грузится.  
+2) В `K8s Secret` задать `DEFAULT_DEBUG_USER` = любой UUID.  
+3) `POST /vaults` (с заголовком `x-debug-user: <uuid>`) → 201.  
+4) `POST /verifiers/invitations` (email) → 201.  
+5) `POST /verification-events` → 201, затем `POST /verification-events/{id}/confirm/{verifierId}` → 200.  
+6) `POST /blocks` (метаданные) → 201.  
+7) Убедиться, что пробы на `/healthz` зелёные, а pod’ы рестартов не набирают.
 
 ---
 
 ## Безопасность (высокоуровнево)
 
 - Контент — **клиент‑ски зашифрованный** (сервер видит только метаданные).
-- Ключи/секреты — в Secret/Lockbox; доступ к PG — по VPC/SSL.
-- Верификаторы: минимум 3–5; конфликт → `Disputed` на 24 часа, затем перезапуск.
-
----
-
-## Вклад (Contributing)
-
-- PR welcome! Соблюдайте линт и формат. Изменения схемы — с миграциями.
-- Для вопросов/идей — создавайте Issue с пометкой `[idea]`.
+- Ключи/секреты — пока в Kubernetes Secret; KMS/Lockbox можно подключить на M1.
+- Доступ к PG — по VPC/SSL. Ограничить SG, закрыть публичные порты после настройки Runner’а.
 
 ## Лицензия
 
