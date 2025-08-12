@@ -1,0 +1,13 @@
+// Добавьте импорт модуля блоков и внесите его в imports:
+import { BlocksModule } from './blocks/blocks.module';
+
+@Module({
+  imports: [
+    PrismaModule,
+    VaultsModule,
+    VerifiersModule,
+    VerificationEventsModule,
+    BlocksModule, // <-- новый модуль
+  ],
+})
+export class AppModule {}
