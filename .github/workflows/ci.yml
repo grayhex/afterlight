@@ -4,19 +4,37 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # 1) Ставим pnpm
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      # 2) Ставим Node и включаем кэш для pnpm
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'pnpm'
-      - name: Install deps
+          # если будут lock-файлы — укажем их пути
+          cache-dependency-path: |
+            apps/api/pnpm-lock.yaml
+            apps/web/pnpm-lock.yaml
+
+      # 3) Устанавливаем зависимости API
+      - name: Install deps (API)
         run: |
-          cd apps/api && pnpm i || true
-          cd ../../apps/web && pnpm i || true
+          cd apps/api
+          pnpm install --frozen-lockfile=false
+
+      # 4) Сборка API
       - name: Build API
         run: |
-          cd apps/api && pnpm build || true
+          cd apps/api
+          pnpm build || npx tsc -p tsconfig.json
