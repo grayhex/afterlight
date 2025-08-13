@@ -1,4 +1,4 @@
-// apps/web/src/mock/data.ts
+// apps/web/src/mock/data.ts (patched)
 export type Vault = {
   id: string;
   name: string;
@@ -44,6 +44,9 @@ export type VerificationEvent = {
   quorum_required: number;
   confirms_count: number;
   denies_count: number;
+  /** Aliases for UI compatibility */
+  confirms?: number;
+  denies?: number;
   created_at: string;
 };
 
@@ -111,7 +114,6 @@ export const verifiers: Verifier[] = [
   { id: uuid(), contact: 'maria@example.com', role_status: 'Invited' },
 ];
 
-// 👉 Новый экспорт — мок событий верификации
 export const events: VerificationEvent[] = [
   {
     id: uuid(),
@@ -120,6 +122,8 @@ export const events: VerificationEvent[] = [
     quorum_required: 3,
     confirms_count: 2,
     denies_count: 0,
+    confirms: 2,
+    denies: 0,
     created_at: now(),
   },
   {
@@ -129,6 +133,8 @@ export const events: VerificationEvent[] = [
     quorum_required: 3,
     confirms_count: 2,
     denies_count: 2,
+    confirms: 2,
+    denies: 2,
     created_at: now(),
   },
   {
@@ -138,6 +144,8 @@ export const events: VerificationEvent[] = [
     quorum_required: 3,
     confirms_count: 3,
     denies_count: 0,
+    confirms: 3,
+    denies: 0,
     created_at: now(),
   },
 ];
