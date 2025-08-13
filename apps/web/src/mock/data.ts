@@ -1,20 +1,92 @@
-export const vaults = [
-  { id: "v1", status: "Active", is_demo: true, updated_at: "2025-08-01T12:00:00Z" },
-  { id: "v2", status: "Active", is_demo: false, updated_at: "2025-07-12T12:00:00Z" },
+export type Vault = {
+  id: string;
+  name: string;
+  status: 'Active' | 'Triggered' | 'PendingGrace' | 'Released' | 'Closed';
+  quorum_threshold: number;
+  max_verifiers: number;
+  heartbeat_timeout_days: number;
+  grace_hours: number;
+  is_demo?: boolean;
+  updated_at: string;
+};
+
+export type Block = {
+  id: string;
+  vault_id: string;
+  type: 'text' | 'file' | 'url';
+  title: string;
+  tags: string[];
+  size?: number;
+  is_public?: boolean;
+  updated_at: string;
+};
+
+export type Verifier = {
+  id: string;
+  contact: string;
+  role_status: 'Invited' | 'Active' | 'Revoked';
+  is_primary?: boolean;
+};
+
+// --- tiny helpers ---
+const now = () => new Date().toISOString();
+const uuid = () => '00000000-0000-4000-8000-' + Math.random().toString(16).slice(2, 14).padEnd(12, '0');
+
+export const vaults: Vault[] = [
+  {
+    id: uuid(),
+    name: 'Demo Safe',
+    status: 'Active',
+    quorum_threshold: 3,
+    max_verifiers: 5,
+    heartbeat_timeout_days: 60,
+    grace_hours: 24,
+    is_demo: true,
+    updated_at: now(),
+  },
+  {
+    id: uuid(),
+    name: 'Личный сейф',
+    status: 'Active',
+    quorum_threshold: 3,
+    max_verifiers: 5,
+    heartbeat_timeout_days: 60,
+    grace_hours: 24,
+    updated_at: now(),
+  }
 ];
 
-export const verifiers = [
-  { id: "vr1", contact: "anna@example.com", role_status: "Active", is_primary: true },
-  { id: "vr2", contact: "pavel@example.com", role_status: "Invited", is_primary: false },
-  { id: "vr3", contact: "ira@example.com", role_status: "Active", is_primary: false },
+export const blocks: Block[] = [
+  {
+    id: uuid(),
+    vault_id: vaults[0].id,
+    type: 'text',
+    title: 'Инструкции по питомцу',
+    tags: ['pets','care'],
+    is_public: false,
+    updated_at: now(),
+  },
+  {
+    id: uuid(),
+    vault_id: vaults[0].id,
+    type: 'url',
+    title: 'Контакты экстренных служб',
+    tags: ['contacts'],
+    updated_at: now(),
+  },
+  {
+    id: uuid(),
+    vault_id: vaults[1].id,
+    type: 'file',
+    title: 'Организация похорон — чеклист.pdf',
+    tags: ['funeral'],
+    size: 24576,
+    updated_at: now(),
+  },
 ];
 
-export const blocks = [
-  { id: "b1", vault_id: "v1", type: "text", tags: ["дом", "контакты"], is_public: false, updated_at: "2025-08-05T10:00:00Z" },
-  { id: "b2", vault_id: "v1", type: "file", tags: ["питомцы"], is_public: false, updated_at: "2025-08-03T10:00:00Z" },
-  { id: "b3", vault_id: "v1", type: "url", tags: ["похороны"], is_public: true, updated_at: "2025-08-02T10:00:00Z" }
-];
-
-export const events = [
-  { id: "e1", vault_id: "v1", state: "Confirming", confirms: 2, denies: 0, quorum_required: 3, created_at: "2025-08-10T09:00:00Z" }
+export const verifiers: Verifier[] = [
+  { id: uuid(), contact: 'vera@example.com', role_status: 'Active', is_primary: true },
+  { id: uuid(), contact: 'oleg@example.com', role_status: 'Active' },
+  { id: uuid(), contact: 'maria@example.com', role_status: 'Invited' },
 ];
