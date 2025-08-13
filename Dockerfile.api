@@ -4,10 +4,10 @@
 FROM node:20-slim AS deps
 WORKDIR /app/apps/api
 
-# Копируем только манифесты API
+# только манифесты API — быстрый кэш
 COPY apps/api/package*.json ./
 
-# Если нет package-lock.json — fallback на npm install
+# если lock-файла нет — fallback на npm install
 RUN npm ci || npm install
 
 # ============================
@@ -16,19 +16,19 @@ RUN npm ci || npm install
 FROM node:20-slim AS build
 WORKDIR /app/apps/api
 
-# Зависимости
+# зависимости
 COPY --from=deps /app/apps/api/node_modules ./node_modules
 
-# Код API
+# исходники API
 COPY apps/api ./ 
 
-# Prisma client под Debian/OpenSSL 3
+# Prisma Client под Debian/OpenSSL 3.0
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Сборка NestJS (если у тебя другой скрипт — поменяй)
+# сборка NestJS (если скрипт другой — поменяй)
 RUN npm run build
 
-# Оставляем только прод-зависимости
+# оставляем только prod-зависимости
 RUN npm prune --omit=dev
 
 # ============================
@@ -38,17 +38,17 @@ FROM node:20-slim AS runner
 ENV NODE_ENV=production
 WORKDIR /app/apps/api
 
-# Акуратное завершение в k8s (опционально)
+# аккуратное завершение + системные либы TLS
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tini libssl3 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Кладём только нужное
+# минимальный рантайм
 COPY --from=build /app/apps/api/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./dist
 COPY --from=build /app/apps/api/prisma ./prisma
 
-# На всякий — бинд на все интерфейсы
+# слушать все интерфейсы в k8s
 ENV HOST=0.0.0.0
 EXPOSE 3000
 
