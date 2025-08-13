@@ -1,53 +1,54 @@
 # ============================
-# 1. Dependencies stage
+# 1) Dependencies
 # ============================
 FROM node:20-slim AS deps
-WORKDIR /app
+WORKDIR /app/apps/api
 
-# Устанавливаем только prod и dev зависимости
-COPY package*.json ./
-RUN npm ci
+# Копируем только манифесты API
+COPY apps/api/package*.json ./
+
+# Если нет package-lock.json — fallback на npm install
+RUN npm ci || npm install
 
 # ============================
-# 2. Build stage
+# 2) Build (+ Prisma generate)
 # ============================
 FROM node:20-slim AS build
-WORKDIR /app
+WORKDIR /app/apps/api
 
-# Копируем зависимости
-COPY --from=deps /app/node_modules ./node_modules
+# Зависимости
+COPY --from=deps /app/apps/api/node_modules ./node_modules
 
-# Копируем весь код проекта
-COPY . .
+# Код API
+COPY apps/api ./ 
 
-# Генерируем Prisma Client с нужным binaryTarget
-RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+# Prisma client под Debian/OpenSSL 3
+RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Сборка приложения (исправь на свой build-скрипт, если другой)
+# Сборка NestJS (если у тебя другой скрипт — поменяй)
 RUN npm run build
 
-# Убираем dev-зависимости
+# Оставляем только прод-зависимости
 RUN npm prune --omit=dev
 
 # ============================
-# 3. Runtime stage
+# 3) Runtime
 # ============================
 FROM node:20-slim AS runner
 ENV NODE_ENV=production
-WORKDIR /app
+WORKDIR /app/apps/api
 
-# Устанавливаем tini для корректного завершения процессов (опционально, но полезно)
+# Акуратное завершение в k8s (опционально)
 RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
 
-# Копируем собранный проект и зависимости
-COPY --from=build /app ./
+# Кладём только нужное
+COPY --from=build /app/apps/api/node_modules ./node_modules
+COPY --from=build /app/apps/api/dist ./dist
+COPY --from=build /app/apps/api/prisma ./prisma
 
-# Обеспечиваем прослушивание на всех интерфейсах
+# На всякий — бинд на все интерфейсы
 ENV HOST=0.0.0.0
 EXPOSE 3000
 
-# Запуск приложения через tini
-ENTRYPOINT ["/usr/bin/tini", "--"]
-
-# Исправь путь, если у тебя другой входной файл
-CMD ["node", "apps/api/dist/main.js"]
+ENTRYPOINT ["/usr/bin/tini","--"]
+CMD ["node","dist/main.js"]
