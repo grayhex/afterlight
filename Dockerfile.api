@@ -1,37 +1,53 @@
-# --------- Build stage ---------
-FROM node:20-alpine AS build
+# ============================
+# 1. Dependencies stage
+# ============================
+FROM node:20-slim AS deps
 WORKDIR /app
-RUN apk add --no-cache python3 make g++ && corepack enable
 
-# Копируем только приложение API (лучше кэшируется)
-COPY apps/api ./apps/api
+# Устанавливаем только prod и dev зависимости
+COPY package*.json ./
+RUN npm ci
 
-WORKDIR /app/apps/api
+# ============================
+# 2. Build stage
+# ============================
+FROM node:20-slim AS build
+WORKDIR /app
 
-# Ставим зависимости: pnpm (если есть pnpm-lock), иначе npm ci, иначе npm i
-RUN if [ -f pnpm-lock.yaml ]; then \
-      corepack prepare pnpm@9 --activate && pnpm i --frozen-lockfile; \
-    elif [ -f package-lock.json ]; then \
-      npm ci; \
-    else \
-      npm i; \
-    fi
+# Копируем зависимости
+COPY --from=deps /app/node_modules ./node_modules
 
-# Prisma + сборка
-RUN npx prisma generate
+# Копируем весь код проекта
+COPY . .
+
+# Генерируем Prisma Client с нужным binaryTarget
+RUN npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+# Сборка приложения (исправь на свой build-скрипт, если другой)
 RUN npm run build
 
-# --------- Runtime stage ---------
-FROM node:20-alpine AS runtime
+# Убираем dev-зависимости
+RUN npm prune --omit=dev
+
+# ============================
+# 3. Runtime stage
+# ============================
+FROM node:20-slim AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 
-# Копируем только нужное для запуска
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/apps/api/prisma ./apps/api/prisma
+# Устанавливаем tini для корректного завершения процессов (опционально, но полезно)
+RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
 
-ENV PORT=3000
+# Копируем собранный проект и зависимости
+COPY --from=build /app ./
+
+# Обеспечиваем прослушивание на всех интерфейсах
+ENV HOST=0.0.0.0
 EXPOSE 3000
-CMD ["node", "apps/api/dist/main.js"]
 
+# Запуск приложения через tini
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Исправь путь, если у тебя другой входной файл
+CMD ["node", "apps/api/dist/main.js"]
