@@ -1,4 +1,4 @@
-// apps/web/src/mock/data.ts (patched)
+// apps/web/src/mock/data.ts (patched v3)
 export type Vault = {
   id: string;
   name: string;
