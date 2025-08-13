@@ -1,16 +1,29 @@
-name: Build & Push
+name: docker-api
+
 on:
-  push: { branches: [ main ] }
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/api/**'
+      - 'Dockerfile.api'
+      - '.github/workflows/docker-api.yml'
   workflow_dispatch: {}
 
 jobs:
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Sanity check
+        run: |
+          test -f Dockerfile.api
+          test -f apps/api/package.json
+          test -f apps/api/prisma/schema.prisma
 
       - uses: docker/setup-buildx-action@v3
 
@@ -20,19 +33,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sanity check
-        run: |
-          test -f Dockerfile.api || (echo "Dockerfile.api not found" && exit 1)
-          test -f apps/api/package.json || (echo "apps/api/package.json not found" && exit 1)
-          test -f apps/api/prisma/schema.prisma || (echo "apps/api/prisma/schema.prisma not found" && exit 1)
-
-      - name: Build & Push
+      - name: Build & Push (GHCR)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.api          # <-- указываем наш файл
+          file: Dockerfile.api
           push: true
-          no-cache: true         # <— добавь временно
+          # снимите комментарий на один прогон, если нужно убить кэш:
+          # no-cache: true
           tags: |
             ghcr.io/grayhex/afterlight-api:latest
             ghcr.io/grayhex/afterlight-api:main
