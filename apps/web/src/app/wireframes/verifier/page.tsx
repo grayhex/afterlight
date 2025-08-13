@@ -1,9 +1,11 @@
 import { events, verifiers } from '@/mock/data';
 
 export default function Verifier(){
-  const me = verifiers[0];
-  const ev = events[0];
-  const progress = Math.round((ev.confirms/ev.quorum_required)*100);
+const me = verifiers?.[0]; // если надо, тоже безопасно
+const ev = events?.[0];
+  const confirms = ev?.confirms ?? 0;
+  const quorum   = ev?.quorum_required ?? 0;
+  const progress = quorum > 0 ? Math.round((confirms / quorum) * 100) : 0;
   return (
     <main className="container-narrow py-8 space-y-4">
       <div className="card p-6">
