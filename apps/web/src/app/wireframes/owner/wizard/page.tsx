@@ -3,7 +3,7 @@ import { useSearchParams } from 'next/navigation';
 import { Step } from '@/components/Step';
 
 export default function Wizard(){
-  const step = Number(useSearchParams().get('step') || 1);
+  const step = Number(useSearchParams()?.get('step') ?? 1);
   return (
     <main className="container-narrow py-8 space-y-4">
       <h1 className="text-2xl font-semibold mb-4">Мастер создания сейфа</h1>
