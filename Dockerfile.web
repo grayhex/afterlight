@@ -1,18 +1,25 @@
-FROM node:20-alpine AS build
-WORKDIR /app
-RUN apk add --no-cache python3 make g++ && corepack enable
-COPY apps/web ./apps/web
+# deps
+FROM node:20-slim AS deps
 WORKDIR /app/apps/web
-RUN if [ -f pnpm-lock.yaml ]; then corepack prepare pnpm@9 --activate && pnpm i --frozen-lockfile;     elif [ -f yarn.lock ]; then corepack prepare yarn@4 --activate && yarn install --immutable;     elif [ -f package-lock.json ]; then npm ci; else npm i; fi
-RUN npm run build
+COPY apps/web/package*.json ./
+RUN npm ci || npm install
 
-FROM node:20-alpine AS runtime
+# build
+FROM node:20-slim AS build
+WORKDIR /app/apps/web
+COPY --from=deps /app/apps/web/node_modules ./node_modules
+COPY apps/web ./
+RUN npm run build
+# убрать dev-зависимости
+RUN npm prune --omit=dev
+
+# runtime
+FROM node:20-slim AS runner
 ENV NODE_ENV=production
+WORKDIR /app/apps/web
+COPY --from=build /app/apps/web ./
+ENV HOST=0.0.0.0
 ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
-WORKDIR /app
-COPY --from=build /app/apps/web/.next/standalone ./
-COPY --from=build /app/apps/web/.next/static ./.next/static
-COPY --from=build /app/apps/web/public ./public
 EXPOSE 3000
-CMD ["node", "server.js"]
+# запускаем Next напрямую, без npm (чтобы не цеплялся лишний -p)
+CMD ["node","node_modules/next/dist/bin/next","start","-p","3000","-H","0.0.0.0"]
