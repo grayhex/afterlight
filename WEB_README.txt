@@ -1,12 +1,26 @@
-# afterlight — web deployment configs
+# afterlight — web deployment (SPA vs SSR)
 
-These files set up a simple SPA (React/Vite/etc.) front end built with **Node 20** and served by **Nginx** in Kubernetes.
-- Build with GitHub Actions → GHCR image `ghcr.io/grayhex/afterlight-web`.
-- Deploy to k3s namespace `afterlight` with TLS for `afterl.ru` and `www.afterl.ru` via cert-manager (issuer `letsencrypt-prod`).
+Выберите вариант:
+- **SPA (static, Vite/CRA/Nuxt static/Next export)**: используйте `Dockerfile.web`, workflow `docker-web.yml` и манифест `k8s/deploy-web.yaml` (Nginx:80).
+- **SSR (Next.js runtime)**: используйте `Dockerfile.next`, workflow `docker-web-ssr.yml` и манифест `k8s/deploy-web-ssr.yaml` (Node:3000).
 
-If your bundler outputs to a folder other than `dist` (e.g., `build`), change the path in `Dockerfile.web`:
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
-→ to
-COPY --from=build /app/apps/web/build /usr/share/nginx/html
+## Редеплой на сервере (оба варианта)
+```bash
+# первый деплой/обновление манифестов
+kubectl -n afterlight apply -f k8s/deploy-web.yaml        # SPA
+# или
+kubectl -n afterlight apply -f k8s/deploy-web-ssr.yaml    # SSR
 
-For API calls from the front end, point your base URL to `https://api.afterl.ru`.
+kubectl -n afterlight rollout status deploy/afterlight-web
+
+# быстрый редеплой на последний :main
+kubectl -n afterlight rollout restart deploy/afterlight-web
+
+# «по-взрослому» — зафиксироваться на конкретном артефакте
+SHA=<FULL_GITHUB_SHA>
+kubectl -n afterlight set image deploy/afterlight-web   web=ghcr.io/grayhex/afterlight-web:${SHA}
+kubectl -n afterlight rollout status deploy/afterlight-web
+```
+
+Не забудьте в коде фронта указывать base URL API: `https://api.afterl.ru`.
+Если ваш бандлер кладёт сборку в нестандартную папку — поправьте шаг нормализации в `Dockerfile.web`.

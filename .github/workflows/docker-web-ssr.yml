@@ -1,12 +1,12 @@
-name: docker-web (SPA)
+name: docker-web (SSR)
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'apps/web/**'
-      - 'Dockerfile.web'
-      - '.github/workflows/docker-web.yml'
+      - 'Dockerfile.next'
+      - '.github/workflows/docker-web-ssr.yml'
   workflow_dispatch: {}
 
 jobs:
@@ -29,14 +29,14 @@ jobs:
 
       - name: Sanity check
         run: |
-          test -f Dockerfile.web
+          test -f Dockerfile.next
           test -f apps/web/package.json
 
       - name: Build & Push (GHCR)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.web
+          file: Dockerfile.next
           push: true
           tags: |
             ghcr.io/grayhex/afterlight-web:latest

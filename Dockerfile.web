@@ -12,11 +12,12 @@ COPY apps/web ./
 RUN npm run build
 
 # Normalize build output to a single folder (web-out)
-# Supports common SPA outputs:
-# - Vite / most:   dist/
-# - CRA (React):   build/
-# - Nuxt/Nitro:    .output/public/
-RUN set -eux;     mkdir -p /app/apps/web/web-out;     if [ -d "dist" ]; then       cp -a dist/. web-out/;     elif [ -d "build" ]; then       cp -a build/. web-out/;     elif [ -d ".output/public" ]; then       cp -a .output/public/. web-out/;     else       echo "No build output found (expected dist/ or build/ or .output/public)";       ls -la;       exit 1;     fi
+# Supported outputs:
+# - Vite / most:            dist/
+# - CRA (React):            build/
+# - Next.js `next export`:  out/
+# - Nuxt 3 (nitro static):  .output/public/
+RUN set -eux;     mkdir -p /app/apps/web/web-out;     if [ -d "dist" ]; then       cp -a dist/. web-out/;     elif [ -d "build" ]; then       cp -a build/. web-out/;     elif [ -d "out" ]; then       cp -a out/. web-out/;     elif [ -d ".output/public" ]; then       cp -a .output/public/. web-out/;     else       echo "No build output found (expected dist/ or build/ or out/ or .output/public)";       echo "Files in current dir:"; ls -la;       exit 1;     fi
 
 # Runtime stage (Nginx serves static SPA)
 FROM nginx:alpine AS runner
