@@ -32,6 +32,7 @@ jobs:
           context: .
           file: Dockerfile.api          # <-- указываем наш файл
           push: true
+          no-cache: true         # <— добавь временно
           tags: |
             ghcr.io/grayhex/afterlight-api:latest
             ghcr.io/grayhex/afterlight-api:main
