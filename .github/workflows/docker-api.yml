@@ -1,8 +1,6 @@
 name: Build & Push
-
 on:
-  push:
-    branches: [ main ]
+  push: { branches: [ main ] }
   workflow_dispatch: {}
 
 jobs:
@@ -22,16 +20,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Sanity check
+        run: |
+          test -f Dockerfile.api || (echo "Dockerfile.api not found" && exit 1)
+          test -f apps/api/package.json || (echo "apps/api/package.json not found" && exit 1)
+          test -f apps/api/prisma/schema.prisma || (echo "apps/api/prisma/schema.prisma not found" && exit 1)
+
       - name: Build & Push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.api        # <— ВАЖНО: указываем имя файла
+          file: Dockerfile.api          # <-- указываем наш файл
           push: true
           tags: |
             ghcr.io/grayhex/afterlight-api:latest
             ghcr.io/grayhex/afterlight-api:main
-          # (опционально) кэш
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
