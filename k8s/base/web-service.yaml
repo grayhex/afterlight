@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: afterlight-web
-  namespace: afterlight-staging
+  namespace: afterlight
 spec:
   type: ClusterIP
   selector:

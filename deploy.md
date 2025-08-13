@@ -1,106 +1,73 @@
-# AfterLight — Deploy (k3s on VDS, GHCR)
+# AfterLight — Deploy (API + WEB) на k3s (VDS) с GHCR
 
-Цель: собрать Docker‑образы **API** и **WEB**, запушить в **GHCR**, задеплоить в **k3s** (Traefik Ingress), выполнить миграции и пройти smoke через Playground.
-
----
+Цель: собрать Docker‑образы из CI, запушить в GHCR, задеплоить в k3s (Traefik). Namespace: **afterlight**.
 
 ## 0. Предпосылки
-- Домены: `api.afterl.ru` и `app.afterl.ru` указывают на VDS.
-- На VDS установлен **k3s** (Ingress = Traefik по умолчанию).
-- Внешний PostgreSQL/Managed PG доступен и создана БД `afterlight`.
-- Репозиторий: публичный `grayhex/afterlight` (GHCR доступен по GITHUB_TOKEN).
-
----
+- DNS: `api.afterl.ru`, `app.afterl.ru` указывают на VDS.
+- k3s установлен (Traefik ingress по умолчанию).
+- Внешний PostgreSQL доступен.
+- Репозиторий публичный; GHCR доступен по GITHUB_TOKEN.
 
 ## 1. CI → GHCR
-В репозитории два workflow:
-- `.github/workflows/docker-api.yml` → образ `ghcr.io/<owner>/afterlight-api:latest`
-- `.github/workflows/docker-web.yml` → образ `ghcr.io/<owner>/afterlight-web:latest`
+Workflows:
+- `.github/workflows/docker-api.yml` → `ghcr.io/<owner>/afterlight-api:latest`
+- `.github/workflows/docker-web.yml` → `ghcr.io/<owner>/afterlight-web:latest`
 
-> WEB собирается через **Next.js standalone**. Убедитесь, что в `apps/web/next.config.mjs`:
-```js
-/** @type {{}} */
-const nextConfig = { output: 'standalone' };
-export default nextConfig;
-```
-
-Push в `main` запускает сборку и пуш в GHCR.
-
----
+Для WEB требуется Next `output: 'standalone'` в `apps/web/next.config.mjs`.
 
 ## 2. Namespace и секреты
-Один раз:
 ```bash
-kubectl create namespace afterlight-staging || true
-
-kubectl -n afterlight-staging create secret generic api-secrets   --from-literal=DATABASE_URL='postgresql://user:pass@db-host:5432/afterlight?schema=public'   --from-literal=JWT_SECRET='please-change-me'   --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace afterlight || true
+kubectl -n afterlight create secret generic api-secrets \
+  --from-literal=DATABASE_URL='postgresql://user:pass@db-host:5432/afterlight?schema=public' \
+  --from-literal=JWT_SECRET='please-change-me' \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
-
----
 
 ## 3. API
-Примените конфиги/деплой/сервис/ингресс (см. `k8s/base/*api*.yaml`):
 ```bash
-kubectl apply -f k8s/base/api-configmap.yaml
-kubectl apply -f k8s/base/api-deployment.yaml
-kubectl apply -f k8s/base/api-service.yaml
-kubectl apply -f k8s/base/api-ingress.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/api-configmap.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/api-deployment.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/api-service.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/api-ingress.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/migrate-job.yaml
+kubectl -n afterlight logs job/prisma-migrate -f
 ```
 
-Миграции Prisma:
+## 4. WEB
 ```bash
-kubectl apply -f k8s/base/migrate-job.yaml
-kubectl -n afterlight-staging logs job/prisma-migrate -f
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/web-configmap.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/web-deployment.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/web-service.yaml
+kubectl apply -n afterlight -f https://raw.githubusercontent.com/grayhex/afterlight/main/k8s/base/web-ingress.yaml
 ```
 
-Проверки: https://api.afterl.ru/healthz , /readyz
-
----
-
-## 4. WEB (Next.js)
-В репозиторий добавлены:
-- `Dockerfile.web`
-- `.github/workflows/docker-web.yml`
-- `k8s/base/web-configmap.yaml`
-- `k8s/base/web-deployment.yaml`
-- `k8s/base/web-service.yaml`
-- `k8s/base/web-ingress.yaml`
-
-Деплой:
+Проверка:
 ```bash
-kubectl apply -f k8s/base/web-configmap.yaml
-kubectl apply -f k8s/base/web-deployment.yaml
-kubectl apply -f k8s/base/web-service.yaml
-kubectl apply -f k8s/base/web-ingress.yaml
+kubectl -n afterlight rollout status deploy/afterlight-web
+kubectl -n afterlight get deploy afterlight-web -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+kubectl -n afterlight get pods -l app=afterlight-web -o wide
+kubectl -n afterlight logs deploy/afterlight-web --tail=100
 ```
 
-Проверка: https://app.afterl.ru/  и https://app.afterl.ru/playground
-
-> CORS на API должен разрешать `app.afterl.ru`:
+## 5. CORS (API)
 ```ts
 app.enableCors({
-  origin: [/^https?:\/\/(localhost:\\d+|app\.afterl\.ru)$/],
+  origin: [/^https?:\/\/(localhost:\d+|app\.afterl\.ru)$/],
   allowedHeaders: ['Content-Type', 'x-user-id', 'Authorization'],
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
 });
 ```
 
----
+## 6. Smoke‑тест (Playground)
+1) POST /vaults → vaultId  
+2) POST /recipients → recipientId  
+3) POST /blocks (multipart) → blockId  
+4) POST /blocks/{id}/recipients  
+5) POST /orchestration/start  
+6) POST /orchestration/decision (Confirm) до кворума  
+7) (опц.) PUT /blocks/{id}/public
 
-## 5. Smoke сценарий (Playground)
-1. POST /vaults → сохранить id как `vaultId`.
-2. POST /recipients → `recipientId`.
-3. POST /blocks (multipart) → `blockId`.
-4. POST /blocks/{id}/recipients.
-5. (опц.) POST /verifiers/invitations.
-6. POST /orchestration/start.
-7. POST /orchestration/decision (Confirm) до кворума.
-8. (опц.) PUT /blocks/{id}/public.
-
----
-
-## 6. Полезное
-- **404 /playground** — убедитесь, что файл `apps/web/app/playground/page.tsx` в сборке образа (присутствует в репозитории), а образ `afterlight-web` обновлён.
-- **NEXT_PUBLIC_*** — инлайнится при билде фронта. В `web-configmap.yaml` значения дублируем для SSR и сохраняем дефолт в коде.
-- **Traefik** — для NGINX просто смените аннотацию: `kubernetes.io/ingress.class: nginx`.
-- **Rollout**: `kubectl rollout restart deploy/afterlight-web -n afterlight-staging` и аналогично для API.
+## 7. Обновление/роллбэк
+- Обновить: push в main → новый `:latest` → `kubectl -n afterlight rollout restart deploy/afterlight-web`  
+- Роллбэк: `kubectl -n afterlight rollout undo deploy/afterlight-web`

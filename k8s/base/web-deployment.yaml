@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: afterlight-web
-  namespace: afterlight-staging
+  namespace: afterlight
 spec:
   replicas: 1
   selector:
@@ -16,10 +16,10 @@ spec:
       containers:
         - name: web
           image: ghcr.io/grayhex/afterlight-web:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           envFrom:
             - configMapRef:
-                name: web-config
+                name: afterlight-web-config
           ports:
             - name: http
               containerPort: 3000

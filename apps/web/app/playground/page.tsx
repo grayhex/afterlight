@@ -16,7 +16,7 @@ function Field({label, children}: {label: string, children: React.ReactNode}) {
   return (<label className="flex flex-col gap-1 mb-3"><span className="text-sm text-gray-600">{label}</span>{children}</label>);
 }
 function Button({children, ...props}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button {...props} className="px-3 py-2 rounded-lg border hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50" />;
+  return <button {...props} className="px-3 py-2 rounded-lg border hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50">{children}</button>;
 }
 function JsonView({data}: {data: Json}) { if (data == null) return null; return <pre className="text-xs bg-gray-50 rounded p-3 overflow-auto max-h-72">{JSON.stringify(data, null, 2)}</pre>; }
 export default function PlaygroundPage() {
@@ -49,8 +49,8 @@ export default function PlaygroundPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Field label="vaultId"><input className="border rounded px-3 py-2" value={vaultId} onChange={e=>setVaultId(e.target.value)} placeholder="uuid"/></Field>
         <Field label="blockId"><input className="border rounded px-3 py-2" value={blockId} onChange={e=>setBlockId(e.target.value)} placeholder="uuid"/></Field>
-        <Field label="recipientId"><input className="border rounded px-3 py-2" value={recipientId} onChange={e=>setRecipientId(e.target.value)} placeholder="uuid"/></Field>
-        <Field label="verifierId"><input className="border rounded px-3 py-2" value={verifierId} onChange={e=>setVerifierId(e.target.value)} placeholder="uuid"/></Field>
+        <Field label="recipientId"><input className="border rounded px-3 py-2" value={recipientId} onChange={(e)=>setRecipientId(e.target.value)} placeholder="uuid"/></Field>
+        <Field label="verifierId"><input className="border rounded px-3 py-2" value={verifierId} onChange={(e)=>setVerifierId(e.target.value)} placeholder="uuid"/></Field>
       </div>
     </Section>
     <Section title="Health">
@@ -72,18 +72,17 @@ export default function PlaygroundPage() {
       <div className="flex gap-2 items-end">
         <Field label="contact (email/phone)"><input id="rec-contact" className="border rounded px-3 py-2" defaultValue="recipient@example.com"/></Field>
         <Field label="pubkey (optional)"><input id="rec-pubkey" className="border rounded px-3 py-2" placeholder="base64"/></Field>
-        <Button disabled={busy} onClick={async ()=>{ setBusy(true);
-          try { const contact = (document.getElementById('rec-contact') as HTMLInputElement).value;
-            const pubkey = (document.getElementById('rec-pubkey') as HTMLInputElement).value || null;
-            const data = await api('/recipients', { method: 'POST', body: JSON.stringify({ contact, pubkey })});
-            setOut(data); if (data?.id) setRecipientId(data.id);
-          } catch(e:any){ setOut(e); } finally { setBusy(false); } }}>POST /recipients (Create)</Button>
+        <Button disabled={busy} onClick={async ()=>{ setBusy(true); try {
+          const contact = (document.getElementById('rec-contact') as HTMLInputElement).value;
+          const pubkey = (document.getElementById('rec-pubkey') as HTMLInputElement).value || null;
+          const data = await api('/recipients', { method: 'POST', body: JSON.stringify({ contact, pubkey })});
+          setOut(data); if (data?.id) setRecipientId(data.id);
+        } catch(e:any){ setOut(e); } finally { setBusy(false); } }}>POST /recipients (Create)</Button>
       </div>
     </Section>
     <Section title="Blocks (multipart)">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="type"><select id="blk-type" className="border rounded px-3 py-2" defaultValue="text">
-          <option value="text">text</option><option value="file">file</option><option value="url">url</option></select></Field>
+        <Field label="type"><select id="blk-type" className="border rounded px-3 py-2" defaultValue="text"><option value="text">text</option><option value="file">file</option><option value="url">url</option></select></Field>
         <Field label="tags (comma-separated)"><input id="blk-tags" className="border rounded px-3 py-2" defaultValue="pets,care"/></Field>
         <Field label="metadata (JSON string)"><textarea id="blk-meta" className="border rounded px-3 py-2" defaultValue='{"category":"pets","title":"Инструкции по питомцу"}'/></Field>
         <Field label="content (file)"><input id="blk-file" type="file" className="border rounded px-3 py-2"/></Field>
@@ -164,6 +163,6 @@ export default function PlaygroundPage() {
       </div>
     </Section>
     <Section title="Вывод"><JsonView data={out} /></Section>
-    <p className="text-xs text-gray-500 mt-6">Примечание: Playground — вспомогательный UI для ручного теста API. Не содержит авторизации; использует заголовок <code>x-user-id</code>.</p>
+    <p className="text-xs text-gray-500 mt-6">Playground — вспомогательный UI для ручного теста API. Не содержит авторизации; использует заголовок <code>x-user-id</code>.</p>
   </div>);
 }
