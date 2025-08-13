@@ -1,0 +1,12 @@
+ID,Type,Title,Description,Milestone,Priority,AcceptanceCriteria
+BL-1,Epic,MVP Smoke-Ready,Готовность инфраструктуры и health для staging,MVP Smoke-Ready,P0,/healthz 200; CI/CD в GHCR; деплой в k8s; SMTP проверен; SmokeTest проходит
+BL-2,Epic,MVP Core Flows,Сквозной сценарий от создания сейфа до финализации,MVP,P0,Создание сейфа; 3 верификатора; кворум 2; grace 24ч; финализация; HB 365д
+BL-3,Feature,"Публичные ссылки (24ч, CAPTCHA)","Послание миру: noindex, TTL, капча",MVP,P1,"Ссылка активна 24ч, защищена CAPTCHA, по истечении 410 Gone"
+BL-4,Task,Email-шаблоны RU,"Приглашение верификатора, старт/финализация раскрытия, HB",MVP Smoke-Ready,P1,Все шаблоны выверены и подставляют переменные
+BL-5,Task,Юридические документы RU,"ПС и Политика конф., вычитка юристом РФ",MVP,P0,"Черновики утверждены, версия зафиксирована в коде"
+BL-6,Task,Сайт afterl.ru контент,Лендинг и тексты форм в деловом тоне,MVP,P1,"Landing/Forms опубликованы, noindex до публичного запуска"
+BL-7,Task,Heartbeat login,Учёт успешного входа как сигнала активности (365д),MVP,P1,Успешный логин обновляет HB timestamp; влияет на оркестрацию
+BL-8,Task,Audit log,Запись действий (без секретов),MVP,P2,"CRUD аудита, фильтр по сущности/пользователю"
+BL-9,Task,ENV и секреты,Шаблоны и чек-лист окружения,MVP Smoke-Ready,P0,"Все переменные описаны, secrets заведены"
+BL-10,Task,Монетизация — исследование,Варианты лимитов: объём/кол-во/срок хранения,M1,P2,Отчёт и A/B-план по моделям
+BL-11,Task,Проект в GitHub Projects,Setup полей/вьюх/авто-лейблов,MVP Smoke-Ready,P1,"Созданы views: Roadmap, Board, Backlog; авто-метки"

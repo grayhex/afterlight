@@ -1,0 +1,34 @@
+name: Feature request (Product)
+description: Предложение фичи/эпика для Afterlight
+title: "[Feature]: "
+labels: ["feature"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Контекст и проблема
+      description: Что хотим решить, для кого и зачем
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Критерии приёмки
+    validations:
+      required: true
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Милстоун
+      options:
+        - MVP Smoke-Ready
+        - MVP
+        - M1
+        - M2
+        - Фаза 3

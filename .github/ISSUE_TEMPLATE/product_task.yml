@@ -1,0 +1,17 @@
+name: Product task
+description: Продуктовая задача/исследование
+title: "[Task]: "
+labels: ["task"]
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: Что нужно сделать
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of Done
+    validations:
+      required: true
