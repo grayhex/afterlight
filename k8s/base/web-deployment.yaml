@@ -24,13 +24,13 @@ spec:
             - name: http
               containerPort: 3000
           readinessProbe:
-            httpGet: { path: /, port: http }
+            httpGet: { path: /playground, port: http }
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 6
           livenessProbe:
-            httpGet: { path: /, port: http }
+            httpGet: { path: /playground, port: http }
             initialDelaySeconds: 10
             periodSeconds: 20
             timeoutSeconds: 2

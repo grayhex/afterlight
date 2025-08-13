@@ -10,13 +10,19 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+
+      - name: Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+
+      - name: Build & Push WEB (single Dockerfile.web)
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.web
@@ -24,5 +30,8 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/afterlight-web:${{ github.sha }}
             ghcr.io/${{ github.repository_owner }}/afterlight-web:latest
+          provenance: false
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/afterlight-web:cache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/afterlight-web:cache,mode=max
+          build-args: |
+            NEXT_TELEMETRY_DISABLED=1
