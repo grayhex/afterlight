@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: afterlight-web
+  namespace: afterlight-staging
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+    - host: app.afterl.ru
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: afterlight-web
+                port:
+                  number: 8080

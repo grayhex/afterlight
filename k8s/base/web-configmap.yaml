@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  namespace: afterlight-staging
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  NEXT_PUBLIC_API_BASE: "https://api.afterl.ru"
+  NEXT_PUBLIC_DEFAULT_USER_ID: "00000000-0000-4000-8000-000000000001"
