@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import ClientOnly from "src/components/ClientOnly";
 
 type Json = any;
 
@@ -11,10 +12,6 @@ function JsonView({data}:{data:Json}) {
 function trim(u:string){ return u.endsWith("/") ? u.slice(0,-1) : u; }
 
 export default function Playground() {
-  const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
-  if (!ready) return <main className="container">Loading…</main>;
-
   const [baseUrl, setBaseUrl] = useState<string>(process.env.NEXT_PUBLIC_API_BASE || "https://api.afterl.ru");
   const [userId, setUserId]   = useState<string>(process.env.NEXT_PUBLIC_DEFAULT_USER_ID || "00000000-0000-4000-8000-000000000001");
   const [vaultId, setVaultId] = useState<string>("");
@@ -34,7 +31,8 @@ export default function Playground() {
   }
 
   return (
-    <main className="container">
+    <ClientOnly>
+      <main className="container">
       <h1>Playground (MVP)</h1>
 
       <div className="card">
@@ -104,6 +102,7 @@ export default function Playground() {
       </div>
 
       <p className="small">Playground — упрощённый интерфейс для ручного теста API. Авторизации нет; используется заголовок <code>x-user-id</code>.</p>
-    </main>
+      </main>
+    </ClientOnly> || <main className="container">Loading…</main>
   );
 }
