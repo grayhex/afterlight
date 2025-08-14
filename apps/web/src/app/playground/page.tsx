@@ -35,7 +35,7 @@ export default function Playground() {
   }
 
   return (
-    <ClientOnly>
+    <ClientOnly fallback={<main className="container">Loading…</main>}>
       <main className="container">
       <h1>Playground (MVP)</h1>
 
@@ -107,6 +107,6 @@ export default function Playground() {
 
       <p className="small">Playground — упрощённый интерфейс для ручного теста API. Авторизации нет; используется заголовок <code>x-user-id</code>.</p>
       </main>
-    </ClientOnly> || <main className="container">Loading…</main>
+    </ClientOnly>
   );
 }
