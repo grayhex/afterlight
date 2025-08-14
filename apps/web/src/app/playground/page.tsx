@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 
 type Json = any;
+
 function useLocalStorage(key: string, initial: string) {
   const [val, setVal] = useState<string>(() => {
     if (typeof window === 'undefined') return initial;
@@ -11,22 +12,23 @@ function useLocalStorage(key: string, initial: string) {
   useEffect(() => { try { window.localStorage.setItem(key, val); } catch {} }, [key, val]);
   return [val, setVal] as const;
 }
+
 function Section({title, children}: {title: string, children: React.ReactNode}) {
   return (<section style={{border:'1px solid #e5e7eb', borderRadius:12, padding:16, marginBottom:16}}><h2 style={{fontWeight:600, fontSize:18, marginBottom:12}}>{title}</h2>{children}</section>);
 }
+
 function Field({label, children}: {label: string, children: React.ReactNode}) {
   return (<label style={{display:'flex', flexDirection:'column', gap:6, marginBottom:12}}><span style={{fontSize:12, color:'#6b7280'}}>{label}</span>{children}</label>);
 }
+
 function Btn(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const {children, ...rest} = props;
   return <button {...rest} style={{padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:8, background:'white'}}>{children}</button>;
 }
-function JsonView({data}: {data: Json}) { if (data == null) return null; return <pre style={{fontSize:12, background:'#f9fafb', borderRadius:8, padding:12, maxHeight:300, overflow:'auto'}}>{JSON.stringify(data, null, 2)}</pre>; }
-function trimTrailingSlash(u: string) { return u.endsWith('/') ? u.slice(0, -1) : u; }
 
-export const revalidate = false;
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
+function JsonView({data}: {data: Json}) { if (data == null) return null; return <pre style={{fontSize:12, background:'#f9fafb', borderRadius:8, padding:12, maxHeight:300, overflow:'auto'}}>{JSON.stringify(data, null, 2)}</pre>; }
+
+function trimTrailingSlash(u: string) { return u.endsWith('/') ? u.slice(0, -1) : u; }
 
 export default function Playground() {
   const [mounted, setMounted] = useState(false);
