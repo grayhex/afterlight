@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+
 export default function Home() {
   return (
     <main className="container-narrow py-10">
@@ -14,4 +16,5 @@ export default function Home() {
       </div>
     </main>
   );
+  redirect('/wireframes');
 }

@@ -1,4 +1,10 @@
 import { KPI } from "@/components/KPI";
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'AfterLight — Вайрфреймы',
+  description: 'Навигация по разделам прототипа',
+};
 
 export default function Wireframes() {
   return (
