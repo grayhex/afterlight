@@ -2,9 +2,8 @@ export const metadata = { title: 'AfterLight', description: 'MVP playground & wi
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru">
-      <head />
-      <body suppressHydrationWarning={true}>{children}</body>
+    <html lang="ru" suppressHydrationWarning>
+      <body>{children}</body>
     </html>
   );
 }

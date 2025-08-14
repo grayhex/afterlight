@@ -24,7 +24,15 @@ function Btn(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
 function JsonView({data}: {data: Json}) { if (data == null) return null; return <pre style={{fontSize:12, background:'#f9fafb', borderRadius:8, padding:12, maxHeight:300, overflow:'auto'}}>{JSON.stringify(data, null, 2)}</pre>; }
 function trimTrailingSlash(u: string) { return u.endsWith('/') ? u.slice(0, -1) : u; }
 
+export const revalidate = false;
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 export default function Playground() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <div style={{padding:16}}>Loading…</div>;
+
   const defaultBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.afterl.ru';
   const defaultUser = process.env.NEXT_PUBLIC_DEFAULT_USER_ID || '00000000-0000-4000-8000-000000000001';
   const [baseUrl, setBaseUrl] = useLocalStorage('al.baseUrl', defaultBase);
@@ -35,6 +43,8 @@ export default function Playground() {
   const [verifierId, setVerifierId] = useLocalStorage('al.verifierId', '');
   const [out, setOut] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
+  const [nowIso, setNowIso] = useState('');
+  useEffect(() => setNowIso(new Date().toISOString()), []);
 
   async function api(path: string, init: RequestInit & { formData?: FormData } = {}) {
     const url = trimTrailingSlash(baseUrl) + path;
@@ -131,7 +141,7 @@ export default function Playground() {
       <Section title="Public Link for Block">
         <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:16}}>
           <Field label="enabled"><select id="pl-enabled" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} defaultValue="true"><option value="true">true</option><option value="false">false</option></select></Field>
-          <Field label="publish_from (ISO)"><input id="pl-from" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} defaultValue={new Date().toISOString()}/></Field>
+          <Field label="publish_from (ISO)"><input id="pl-from" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} value={nowIso} onChange={(e)=>setNowIso(e.target.value)}/></Field>
           <Field label="publish_until (ISO or empty)"><input id="pl-until" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} placeholder=""/></Field>
           <Field label="max_views (optional)"><input id="pl-max" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} placeholder="10"/></Field>
         </div>

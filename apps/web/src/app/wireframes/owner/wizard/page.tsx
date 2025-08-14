@@ -16,16 +16,20 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 export default function Wizard() {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(()=>setMounted(true), []);
+  if (!mounted) return <main style={{ maxWidth: 800, margin: '0 auto', padding: 16 }}>Loading…</main>;
+
   const sp = useSearchParams();
   const stepRaw = sp?.get('step') ?? '1';
   const stepNum = Number(stepRaw);
   const step = Number.isFinite(stepNum) && stepNum > 0 ? stepNum : 1;
 
   const steps = [
-    { id: 1, title: 'Шаг 1 — Создание сейфа', desc: 'Задайте Quorum N-из-M, heartbeat и grace.' },
+    { id: 1, title: 'Шаг 1 — Создание сейфа', desc: 'Задайте Quorum N‑из‑M, heartbeat и grace.' },
     { id: 2, title: 'Шаг 2 — Категории и блоки', desc: 'Добавьте блоки и назначьте получателей.' },
     { id: 3, title: 'Шаг 3 — Верификаторы', desc: 'Пригласите 3–5 верификаторов и отметьте Primary.' },
-    { id: 4, title: 'Шаг 4 — Dry-run', desc: 'Прогон без выдачи реального контента, проверка уведомлений.' },
+    { id: 4, title: 'Шаг 4 — Dry‑run', desc: 'Прогон без выдачи реального контента, проверка уведомлений.' },
   ] as const;
 
   const current = steps.find((s) => s.id === step) ?? steps[0];
