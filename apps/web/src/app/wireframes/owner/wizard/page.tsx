@@ -1,6 +1,7 @@
 'use client';
 
 // Disable ISR/SSG; force dynamic to avoid prerender issues.
+export const revalidate = 0;
 export const revalidate = false;
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
@@ -19,7 +20,8 @@ function Card({ children }: { children: React.ReactNode }) {
 export default function Wizard() {
   const sp = useSearchParams();
   const stepRaw = sp?.get('step') ?? '1';
-  const step = Number(stepRaw) > 0 ? Number(stepRaw) : 1;
+  const searchParams = useSearchParams();
+  const step = Number(searchParams?.get('step') ?? 1);
 
   const steps = [
     { id: 1, title: 'Шаг 1 — Создание сейфа', desc: 'Задайте Quorum N‑из‑M, heartbeat и grace.' },
