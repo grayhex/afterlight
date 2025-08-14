@@ -44,7 +44,7 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }},push-by-digest=true
+          provenance: false
 
       # WEB image
       - name: Build & push WEB
@@ -52,11 +52,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.next
+          file: ./Dockerfile.web
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
-          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }},push-by-digest=true
+          provenance: false
 
   deploy:
     name: deploy-to-k3s
