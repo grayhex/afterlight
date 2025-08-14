@@ -33,16 +33,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-- name: Build & Push (GHCR)
-  uses: docker/build-push-action@v6
-  with:
-    context: .
-    file: Dockerfile.api
-    push: true
-    no-cache: true              # вкл. на один прогон, чтобы точно пробить кэш
-    tags: |
-      ghcr.io/grayhex/afterlight-api:latest
-      ghcr.io/grayhex/afterlight-api:main
-      ghcr.io/grayhex/afterlight-api:${{ github.sha }}
-    cache-from: type=gha
-    cache-to: type=gha,mode=max
+      - name: Build & Push (GHCR)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          no-cache: true              # вкл. на один прогон, чтобы точно пробить кэш
+          tags: |
+            ghcr.io/grayhex/afterlight-api:latest
+            ghcr.io/grayhex/afterlight-api:main
+            ghcr.io/grayhex/afterlight-api:${{ github.sha }}
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
