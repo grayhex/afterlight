@@ -1,9 +1,17 @@
-export const metadata = { title: 'AfterLight', description: 'MVP playground & wireframes' };
+import "./globals.css";
+import type { ReactNode } from "react";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const metadata = {
+  title: "AfterLight",
+  description: "MVP UI",
+};
+
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        {children}
+      </body>
     </html>
   );
 }
