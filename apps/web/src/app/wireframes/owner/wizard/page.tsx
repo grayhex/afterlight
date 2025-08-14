@@ -1,46 +1,63 @@
 'use client';
+
+// Force dynamic rendering to avoid static prerender at build time.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
+import React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Step } from '@/components/Step';
 
-export default function Wizard(){
-  const step = Number(useSearchParams()?.get('step') ?? 1);
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <main className="container-narrow py-8 space-y-4">
-      <h1 className="text-2xl font-semibold mb-4">Мастер создания сейфа</h1>
-      <Step n={1} title="Базовые настройки">
-        <ul className="list-disc pl-6">
-          <li>Демо‑сейф (флаг)</li>
-          <li>Heartbeat по умолчанию: 60 дней</li>
-          <li>Grace: 24 часа</li>
-        </ul>
-        <div className="mt-3"><a className="btn btn-primary" href="/wireframes/owner/wizard?step=2">Далее</a></div>
-      </Step>
+    <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 16 }}>
+      {children}
+    </div>
+  );
+}
 
-      <Step n={2} title="Категории блоков">
-        <ul className="list-disc pl-6">
-          <li>Домашние животные</li>
-          <li>Доступ к дому/квартире</li>
-          <li>Контакты/телефоны</li>
-          <li>Финансовые инструкции/инвентарь активов (без PIN/карт)</li>
-          <li>Организация похорон</li>
-          <li>Секреты (только после смерти)</li>
-          <li>Публичный блок (опционально)</li>
-        </ul>
-        <div className="mt-3"><a className="btn btn-primary" href="/wireframes/owner/wizard?step=3">Далее</a></div>
-      </Step>
+export default function Wizard() {
+  // useSearchParams is client-only; guard with defaults.
+  const sp = useSearchParams();
+  const stepRaw = sp?.get('step') ?? '1';
+  const step = Number(stepRaw) > 0 ? Number(stepRaw) : 1;
 
-      <Step n={3} title="Приглашение верификаторов">
-        <p>Введите email/телефон; минимум 3, максимум 5. Можно назначить одного Primary.</p>
-        <div className="mt-3"><a className="btn btn-primary" href="/wireframes/owner/wizard?step=4">Далее</a></div>
-      </Step>
+  const steps = [
+    { id: 1, title: 'Шаг 1 — Создание сейфа', desc: 'Задайте Quorum N‑из‑M, heartbeat и grace.' },
+    { id: 2, title: 'Шаг 2 — Категории и блоки', desc: 'Добавьте блоки и назначьте получателей.' },
+    { id: 3, title: 'Шаг 3 — Верификаторы', desc: 'Пригласите 3–5 верификаторов и отметьте Primary.' },
+    { id: 4, title: 'Шаг 4 — Dry‑run', desc: 'Прогон без выдачи контента, проверка уведомлений.' },
+  ] as const;
 
-      <Step n={4} title="Пороги и политика">
-        <ul className="list-disc pl-6">
-          <li>N‑из‑M: по умолчанию 3‑из‑5</li>
-          <li>Поведение при споре: блокировка на 24 часа, перезапуск</li>
-        </ul>
-        <div className="mt-3"><a className="btn btn-primary" href="/wireframes/owner">Готово</a></div>
-      </Step>
+  const current = steps.find(s => s.id === step) ?? steps[0];
+
+  return (
+    <main style={{ maxWidth: 800, margin: '0 auto', padding: 16 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>Мастер создания сейфа</h1>
+
+      <Card>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          {steps.map(s => (
+            <a
+              key={s.id}
+              href={`?step=${s.id}`}
+              style={{
+                padding: '6px 10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: 8,
+                textDecoration: 'none',
+                background: s.id === current.id ? '#eef2ff' : 'white'
+              }}
+            >
+              {s.id}. {s.title}
+            </a>
+          ))}
+        </div>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>{current.title}</h2>
+          <p style={{ color: '#4b5563' }}>{current.desc}</p>
+        </div>
+      </Card>
     </main>
-  )
+  );
 }
