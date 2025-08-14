@@ -3,8 +3,8 @@
 import React, { useEffect, useState } from 'react';
 
 /**
- * Рендерит children только на клиенте после монтирования.
- * Полезно для устранения ошибок гидрации/несовпадения SSR/CSR.
+ * Рендерит детей только после монтирования на клиенте.
+ * Помогает избежать ошибок гидрации (React #418/#423) и расхождений SSR/CSR.
  */
 export default function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
