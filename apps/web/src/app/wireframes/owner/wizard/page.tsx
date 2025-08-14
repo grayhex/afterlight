@@ -1,8 +1,7 @@
 'use client';
 
-// Делает страницу динамической и отключает SSG/ISR
-export const dynamic = 'force-dynamic';
 export const revalidate = false;
+export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
 
 import React from 'react';
@@ -26,7 +25,7 @@ export default function Wizard() {
     { id: 1, title: 'Шаг 1 — Создание сейфа', desc: 'Задайте Quorum N-из-M, heartbeat и grace.' },
     { id: 2, title: 'Шаг 2 — Категории и блоки', desc: 'Добавьте блоки и назначьте получателей.' },
     { id: 3, title: 'Шаг 3 — Верификаторы', desc: 'Пригласите 3–5 верификаторов и отметьте Primary.' },
-    { id: 4, title: 'Шаг 4 — Dry-run', desc: 'Прогон без выдачи контента, проверка уведомлений.' },
+    { id: 4, title: 'Шаг 4 — Dry-run', desc: 'Прогон без выдачи реального контента, проверка уведомлений.' },
   ] as const;
 
   const current = steps.find((s) => s.id === step) ?? steps[0];
