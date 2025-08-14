@@ -23,6 +23,10 @@ function Btn(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
 }
 function JsonView({data}: {data: Json}) { if (data == null) return null; return <pre style={{fontSize:12, background:'#f9fafb', borderRadius:8, padding:12, maxHeight:300, overflow:'auto'}}>{JSON.stringify(data, null, 2)}</pre>; }
 
+function trimTrailingSlash(u: string) {
+  return u.endsWith('/') ? u.slice(0, -1) : u;
+}
+
 export default function Playground() {
   const defaultBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.afterl.ru';
   const defaultUser = process.env.NEXT_PUBLIC_DEFAULT_USER_ID || '00000000-0000-4000-8000-000000000001';
@@ -34,8 +38,9 @@ export default function Playground() {
   const [verifierId, setVerifierId] = useLocalStorage('al.verifierId', '');
   const [out, setOut] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
+
   async function api(path: string, init: RequestInit & { formData?: FormData } = {}) {
-    const url = baseUrl.replace(/\\/$/, '') + path;
+    const url = trimTrailingSlash(baseUrl) + path;
     const headers: Record<string,string> = { 'x-user-id': userId };
     if (!init.formData) headers['Content-Type'] = 'application/json';
     const res = await fetch(url, { method: 'GET', ...init, headers: { ...(init.headers as any), ...headers }, body: init.formData ? init.formData : init.body });
@@ -43,6 +48,7 @@ export default function Playground() {
     try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
     if (!res.ok) throw { status: res.status, data }; return data;
   }
+
   return (<div style={{maxWidth:960, margin:'0 auto', padding:16}}>
     <h1 style={{fontSize:24, fontWeight:700, marginBottom:16}}>AfterLight — Playground (MVP)</h1>
 
@@ -93,7 +99,7 @@ export default function Playground() {
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:16}}>
         <Field label="type"><select id="blk-type" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} defaultValue="text"><option value="text">text</option><option value="file">file</option><option value="url">url</option></select></Field>
         <Field label="tags (comma-separated)"><input id="blk-tags" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} defaultValue="pets,care"/></Field>
-        <Field label="metadata (JSON string)"><textarea id="blk-meta" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} defaultValue='{"category":"pets","title":"Инструкции по питомцу"}'/></Field>
+        <Field label="metadata (JSON string)"><textarea id="blk-meta" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}} defaultValue='{\"category\":\"pets\",\"title\":\"Инструкции по питомцу\"}'/></Field>
         <Field label="content (file)"><input id="blk-file" type="file" style={{border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px'}}/></Field>
       </div>
       <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
