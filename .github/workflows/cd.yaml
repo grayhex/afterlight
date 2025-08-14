@@ -1,0 +1,85 @@
+name: cd
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  packages: write   # нужно для push в GHCR
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: grayhex
+  IMAGE_API: afterlight-api
+  IMAGE_WEB: afterlight-web
+
+jobs:
+  build:
+    name: build-and-push
+    runs-on: ubuntu-latest
+    outputs:
+      api_digest: ${{ steps.api_build.outputs.digest }}
+      web_digest: ${{ steps.web_build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # API image
+      - name: Build & push API
+        id: api_build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.api
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }},push-by-digest=true
+
+      # WEB image
+      - name: Build & push WEB
+        id: web_build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.next
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }},push-by-digest=true
+
+  deploy:
+    name: deploy-to-k3s
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Write kubeconfig from secret
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_AFTERLIGHT }}" > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Set images on deployments
+        env:
+          API_DIGEST: ${{ needs.build.outputs.api_digest }}
+          WEB_DIGEST: ${{ needs.build.outputs.web_digest }}
+          NS: afterlight
+        run: |
+          # Узкие места: имена контейнеров в деплойментах!
+          kubectl -n $NS set image deploy/afterlight-api api=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}@${API_DIGEST}
+          kubectl -n $NS set image deploy/afterlight-web web=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}@${WEB_DIGEST}
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n afterlight rollout status deploy/afterlight-api
+          kubectl -n afterlight rollout status deploy/afterlight-web
