@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import ClientOnly from "src/components/ClientOnly";
 
 type Json = any;
@@ -18,6 +18,10 @@ export default function Playground() {
   const [blockId, setBlockId] = useState<string>("");
   const [out, setOut] = useState<Json>(null);
   const [busy, setBusy] = useState(false);
+
+  const typeRef = useRef<HTMLSelectElement>(null);
+  const metaRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   async function api(path:string, init: RequestInit & {formData?: FormData} = {}){
     const url = trim(baseUrl) + path;
@@ -74,9 +78,9 @@ export default function Playground() {
         <h3>Blocks (multipart)</h3>
         <div className="grid grid-2">
           <label>vaultId<input className="input" value={vaultId} onChange={e=>setVaultId(e.target.value)} /></label>
-          <label>type<select id="blk-type" className="input" defaultValue="text"><option value="text">text</option><option value="file">file</option><option value="url">url</option></select></label>
-          <label>metadata (JSON)<textarea id="blk-meta" className="input">{'{"category":"pets"}'}</textarea></label>
-          <label>file<input id="blk-file" type="file" className="input" /></label>
+          <label>type<select id="blk-type" ref={typeRef} className="input" defaultValue="text"><option value="text">text</option><option value="file">file</option><option value="url">url</option></select></label>
+          <label>metadata (JSON)<textarea id="blk-meta" ref={metaRef} className="input">{'{"category":"pets"}'}</textarea></label>
+          <label>file<input id="blk-file" ref={fileRef} type="file" className="input" /></label>
         </div>
         <div style={{marginTop:8}}>
           <button disabled={busy || !vaultId} className="btn" onClick={async()=>{
@@ -84,9 +88,9 @@ export default function Playground() {
             try {
               const fd = new FormData();
               fd.append("vault_id", vaultId);
-              fd.append("type", (document.getElementById("blk-type") as HTMLSelectElement).value);
-              fd.append("metadata", (document.getElementById("blk-meta") as HTMLTextAreaElement).value);
-              const fin = document.getElementById("blk-file") as HTMLInputElement;
+              fd.append("type", typeRef.current?.value || "");
+              fd.append("metadata", metaRef.current?.value || "");
+              const fin = fileRef.current;
               if (fin?.files && fin.files.length) fd.append("content", fin.files[0]);
               const b = await api("/blocks", { method: "POST", formData: fd });
               setOut(b); if (b?.id) setBlockId(b.id);
