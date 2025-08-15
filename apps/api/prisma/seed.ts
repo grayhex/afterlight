@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client'
+import { Logger } from '@nestjs/common'
+
 const prisma = new PrismaClient()
 
 async function main() {
@@ -46,11 +48,11 @@ async function main() {
     })
   }
 
-  console.log('Seed complete')
+  Logger.log('Seed complete')
 }
 
 main().catch(e => {
-  console.error(e)
+  Logger.error(e)
   process.exit(1)
 }).finally(async () => {
   await prisma.$disconnect()
