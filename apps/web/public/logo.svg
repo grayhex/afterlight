@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="180" height="36" viewBox="0 0 180 36" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="6" width="36" height="24" rx="6" fill="url(#g)" opacity="0.9"/>
+  <path d="M10 12h16v2H12v8h10v2H10z" fill="white" opacity="0.95"/>
+  <text x="48" y="24" font-family="Inter,ui-sans-serif,system-ui" font-weight="700" font-size="20" fill="#e5e7eb">AfterLight</text>
+</svg>
