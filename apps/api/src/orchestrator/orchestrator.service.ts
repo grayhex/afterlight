@@ -59,7 +59,7 @@ export class OrchestratorService {
     return event;
   }
 
-  private async recomputeAndTransition(eventId: string) {
+  private async recomputeAndTransition(eventId: string, now = new Date()) {
     const ev = await this.prisma.verificationEvent.findUnique({
       where: { id: eventId },
       include: { vault: true },
@@ -67,11 +67,56 @@ export class OrchestratorService {
     if (!ev) throw new NotFoundException('Event not found');
 
     const [confirms, denies] = await Promise.all([
-      this.prisma.verificationDecision.count({ where: { verificationEventId: ev.id, decision: 'Confirm' as any } }),
-      this.prisma.verificationDecision.count({ where: { verificationEventId: ev.id, decision: 'Deny' as any } }),
+      this.prisma.verificationDecision.count({
+        where: { verificationEventId: ev.id, decision: 'Confirm' as any },
+      }),
+      this.prisma.verificationDecision.count({
+        where: { verificationEventId: ev.id, decision: 'Deny' as any },
+      }),
     ]);
 
     const quorum = ev.quorumRequired ?? (ev as any).vault?.quorumThreshold ?? 3;
+    const ageMs = now.getTime() - new Date(ev.createdAt).getTime();
+
+    // Grace → Finalized
+    if (ev.state === ('Grace' as any)) {
+      const graceHours = (ev as any).vault?.graceHours ?? 24;
+      if (ageMs >= graceHours * 3600 * 1000) {
+        await this.prisma.verificationEvent.update({
+          where: { id: ev.id },
+          data: { state: 'Finalized' as any },
+        });
+        await this.prisma.vault.update({
+          where: { id: ev.vaultId },
+          data: { status: 'Released' as any },
+        });
+        const owner = await this.prisma.user.findUnique({ where: { id: ev.vault.userId } });
+        if (owner?.email) {
+          await this.notify.enqueueEmail(ev.vaultId, owner.email, {
+            subject: 'AfterLight: процесс завершён',
+            text: 'Раскрытие инициировано (MVP без контента).',
+          });
+        }
+        await this.notify.flushEmailQueue();
+        return { state: 'Finalized', confirms, denies, quorum };
+      }
+    }
+
+    // Disputed lock expiry → new Submitted
+    if (ev.state === ('Disputed' as any)) {
+      if (ageMs >= 24 * 3600 * 1000) {
+        await this.prisma.verificationEvent.create({
+          data: {
+            vaultId: ev.vaultId,
+            state: 'Submitted' as any,
+            quorumRequired:
+              (ev as any).quorumRequired ?? (ev as any).vault?.quorumThreshold ?? 3,
+          },
+        });
+        return { state: 'Submitted', confirms, denies, quorum };
+      }
+      return { state: 'Disputed', confirms, denies, quorum };
+    }
 
     if (confirms > 0 && denies > 0) {
       if (ev.state !== ('Disputed' as any)) {
@@ -79,7 +124,9 @@ export class OrchestratorService {
           where: { id: ev.id },
           data: { state: 'Disputed' as any },
         });
-        const owner = await this.prisma.user.findUnique({ where: { id: ev.vault.userId } });
+        const owner = await this.prisma.user.findUnique({
+          where: { id: ev.vault.userId },
+        });
         if (owner?.email) {
           await this.notify.enqueueEmail(ev.vaultId, owner.email, {
             subject: 'AfterLight: спор подтверждений',
@@ -97,33 +144,73 @@ export class OrchestratorService {
           where: { id: ev.id },
           data: { state: 'QuorumReached' as any },
         });
+        const owner = await this.prisma.user.findUnique({
+          where: { id: ev.vault.userId },
+        });
+        const verifiers = await this.prisma.vaultVerifier.findMany({
+          where: { vaultId: ev.vaultId, roleStatus: 'Active' as any },
+          include: { verifier: true },
+        });
+        if (owner?.email) {
+          await this.notify.enqueueEmail(ev.vaultId, owner.email, {
+            subject: 'AfterLight: Кворум достигнут',
+            text: 'Кворум подтверждений достигнут.',
+          });
+        }
+        for (const vv of verifiers) {
+          const to = vv.verifier?.contact;
+          if (to)
+            await this.notify.enqueueEmail(ev.vaultId, to, {
+              subject: 'AfterLight: Кворум достигнут',
+              text: 'Кворум подтверждений достигнут.',
+            });
+        }
+        await this.notify.flushEmailQueue();
+        return { state: 'QuorumReached', confirms, denies, quorum };
       }
-      if (ev.state !== ('Grace' as any)) {
+      if (ev.state === ('QuorumReached' as any)) {
         await this.prisma.verificationEvent.update({
           where: { id: ev.id },
           data: { state: 'Grace' as any },
         });
-        await this.prisma.vault.update({ where: { id: ev.vaultId }, data: { status: 'PendingGrace' as any } });
-        const owner = await this.prisma.user.findUnique({ where: { id: ev.vault.userId } });
+        await this.prisma.vault.update({
+          where: { id: ev.vaultId },
+          data: { status: 'PendingGrace' as any },
+        });
+        const owner = await this.prisma.user.findUnique({
+          where: { id: ev.vault.userId },
+        });
         const verifiers = await this.prisma.vaultVerifier.findMany({
           where: { vaultId: ev.vaultId, roleStatus: 'Active' as any },
           include: { verifier: true },
         });
         const graceHours = (ev as any).vault?.graceHours ?? 24;
-        const until = new Date(Date.now() + graceHours * 3600 * 1000).toISOString();
-        if (owner?.email) await this.notify.enqueueEmail(ev.vaultId, owner.email, { subject: 'AfterLight: Grace period', text: `Начался grace‑период. Завершение не ранее ${until}.` });
+        const until = new Date(now.getTime() + graceHours * 3600 * 1000).toISOString();
+        if (owner?.email)
+          await this.notify.enqueueEmail(ev.vaultId, owner.email, {
+            subject: 'AfterLight: Grace period',
+            text: `Начался grace‑период. Завершение не ранее ${until}.`,
+          });
         for (const vv of verifiers) {
           const to = vv.verifier?.contact;
-          if (to) await this.notify.enqueueEmail(ev.vaultId, to, { subject: 'AfterLight: Кворум достигнут', text: `Кворум подтверждений достигнут. Идёт grace‑период до ${until}.` });
+          if (to)
+            await this.notify.enqueueEmail(ev.vaultId, to, {
+              subject: 'AfterLight: Grace period',
+              text: `Начался grace‑период до ${until}.`,
+            });
         }
         await this.notify.flushEmailQueue();
+        return { state: 'Grace', confirms, denies, quorum };
       }
       return { state: 'Grace', confirms, denies, quorum };
     }
 
     const next: VState = confirms > 0 ? 'Confirming' : 'Submitted';
     if (ev.state !== (next as any)) {
-      await this.prisma.verificationEvent.update({ where: { id: ev.id }, data: { state: next as any } });
+      await this.prisma.verificationEvent.update({
+        where: { id: ev.id },
+        data: { state: next as any },
+      });
     }
     return { state: next, confirms, denies, quorum };
   }
@@ -167,48 +254,19 @@ export class OrchestratorService {
       });
     }
 
-    return this.recomputeAndTransition(active.id);
+    return this.recomputeAndTransition(active.id, new Date());
   }
-
-  async sweepTimers(now = new Date()) {
+  
+  async processTimers(now = new Date()) {
     let finalized = 0, unlocked = 0;
 
-    const graceList = await this.prisma.verificationEvent.findMany({
-      where: { state: 'Grace' as any },
-      include: { vault: true },
+    const events = await this.prisma.verificationEvent.findMany({
+      where: { state: { in: ['QuorumReached', 'Grace', 'Disputed'] as any } },
     });
-    for (const ev of graceList) {
-      const graceHours = (ev as any).vault?.graceHours ?? 24;
-      const ageMs = now.getTime() - new Date(ev.createdAt).getTime();
-      if (ageMs >= graceHours * 3600 * 1000) {
-        await this.prisma.verificationEvent.update({ where: { id: ev.id }, data: { state: 'Finalized' as any } });
-        await this.prisma.vault.update({ where: { id: ev.vaultId }, data: { status: 'Released' as any } });
-        const owner = await this.prisma.user.findUnique({ where: { id: ev.vault.userId } });
-        if (owner?.email) await this.notify.enqueueEmail(ev.vaultId, owner.email, { subject: 'AfterLight: процесс завершён', text: 'Раскрытие инициировано (MVP без контента).' });
-        finalized++;
-      }
-    }
-
-    const disputedList = await this.prisma.verificationEvent.findMany({
-      where: { state: 'Disputed' as any },
-      include: { vault: true },
-    });
-    for (const ev of disputedList) {
-      const ageMs = now.getTime() - new Date(ev.createdAt).getTime();
-      if (ageMs >= 24 * 3600 * 1000) {
-        await this.prisma.verificationEvent.create({
-          data: {
-            vaultId: ev.vaultId,
-            state: 'Submitted' as any,
-            quorumRequired: (ev as any).quorumRequired ?? (ev as any).vault?.quorumThreshold ?? 3,
-          },
-        });
-        unlocked++;
-      }
-    }
-
-    if (finalized + unlocked > 0) {
-      await this.notify.flushEmailQueue();
+    for (const ev of events) {
+      const res = await this.recomputeAndTransition(ev.id, now);
+      if (ev.state === ('Disputed' as any) && res.state === 'Submitted') unlocked++;
+      if (res.state === 'Finalized') finalized++;
     }
 
     return { finalized, unlocked };
