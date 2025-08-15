@@ -1,6 +1,8 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 
+export const dynamic = 'force-dynamic';
+
 async function getConfig() {
   const filePath = path.join(process.cwd(), 'src', 'config', 'landing.json');
   const data = await fs.readFile(filePath, 'utf-8');

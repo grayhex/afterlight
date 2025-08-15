@@ -1,5 +1,9 @@
 import { promises as fs } from 'fs';
 import path from 'path';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+export const dynamic = 'force-dynamic';
 
 const configPath = path.join(process.cwd(), 'src', 'config', 'landing.json');
 
@@ -37,6 +41,9 @@ export default async function AdminPage() {
     };
 
     await fs.writeFile(configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
+    revalidatePath('/');
+    revalidatePath('/adm');
+    redirect('/adm');
   }
 
   return (
