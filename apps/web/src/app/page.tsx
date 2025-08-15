@@ -149,7 +149,7 @@ function Docs(){
     <section id="docs" className="bg-slate-950 text-slate-100 border-t border-white/5">
       <div className={`${ctn} py-14`}>
         <h2 className="text-2xl md:text-3xl font-semibold">Документация и исходники</h2>
-        <p className="text-сlate-300 mt-2">Спецификации, архитектура, API и планы релизов в репозитории.</p>
+        <p className="text-slate-300 mt-2">Спецификации, архитектура, API и планы релизов в репозитории.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a className={`${btn} bg-white/10 text-slate-100 hover:bg-white/20`} href="https://github.com/grayhex/afterlight/tree/main/docs" target="_blank" rel="noreferrer">
             <Github className="h-4 w-4"/> Документы в GitHub
@@ -168,11 +168,11 @@ function Dev(){
     <section id="dev" className="bg-slate-900 text-slate-100 border-t border-white/5">
       <div className={`${ctn} py-14`}>
         <h2 className="text-2xl md:text-3xl font-semibold">Отладка и системные страницы</h2>
-        <p className="text-сlate-300 mt-2">Служебные разделы для тестов и мониторинга.</p>
+        <p className="text-slate-300 mt-2">Служебные разделы для тестов и мониторинга.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a className={`${btn} bg-indigo-500 text-white hover:bg-indigo-400`} href="/playground"><Play className="h-4 w-4"/> Playground</a>
-          <a className={`${btn} bg-white/10 text-сlate-100 hover:bg-white/20`} href="https://api.afterl.ru/healthz" target="_blank" rel="noreferrer">Healthz</a>
-          <a className={`${btn} bg-white/10 text-сlate-100 hover:bg-white/20`} href="https://api.afterl.ru/docs" target="_blank" rel="noreferrer">Swagger (если включён)</a>
+          <a className={`${btn} bg-white/10 text-slate-100 hover:bg-white/20`} href="https://api.afterl.ru/healthz" target="_blank" rel="noreferrer">Healthz</a>
+          <a className={`${btn} bg-white/10 text-slate-100 hover:bg-white/20`} href="https://api.afterl.ru/docs" target="_blank" rel="noreferrer">Swagger (если включён)</a>
         </div>
       </div>
     </section>
