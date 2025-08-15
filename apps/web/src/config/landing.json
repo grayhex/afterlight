@@ -1,0 +1,12 @@
+{
+  "title": "Afterlight",
+  "subtitle": "Идёт разработка с\u00a0помощью искусственного интеллекта",
+  "description": "Скоро здесь появится серьёзный проект.",
+  "bgColor": "#000000",
+  "textColor": "#10a37f",
+  "links": [
+    { "text": "GitHub", "href": "https://github.com/retrotink/afterlight" },
+    { "text": "/dev", "href": "/dev" },
+    { "text": "@retrotink", "href": "https://t.me/retrotink" }
+  ]
+}
