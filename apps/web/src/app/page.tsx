@@ -1,5 +1,7 @@
+"use client";
+
 import React from "react";
-import { motion } from "framer-motion";
+import { motion } from "@/lib/motion";
 import { Shield, HeartPulse, Users, Share2, FileLock, Link2, Github, Play, KeyRound, Sparkles, Mail, Settings, ShieldCheck, User } from "lucide-react";
 
 /**
