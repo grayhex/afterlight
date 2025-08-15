@@ -18,9 +18,6 @@ jobs:
   build:
     name: build-and-push
     runs-on: ubuntu-latest
-    outputs:
-      api_digest: ${{ steps.api_build.outputs.digest }}
-      web_digest: ${{ steps.web_build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,26 +33,22 @@ jobs:
 
       # API image
       - name: Build & push API
-        id: api_build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.api
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
           provenance: false
 
       # WEB image
       - name: Build & push WEB
-        id: web_build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile.web
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
           provenance: false
 
   deploy:
@@ -78,15 +71,22 @@ jobs:
           kubectl config current-context
 
       - name: Set images on deployments
-        env:
-          API_DIGEST: ${{ needs.build.outputs.api_digest }}
-          WEB_DIGEST: ${{ needs.build.outputs.web_digest }}
         run: |
-          # Узкие места: имена контейнеров в деплойментах!
-          kubectl -n $NS set image deploy/afterlight-api api=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}@${API_DIGEST}
-          kubectl -n $NS set image deploy/afterlight-web web=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}@${WEB_DIGEST}
+          kubectl -n $NS set image deploy/afterlight-api api=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${GITHUB_SHA}
+          kubectl -n $NS set image deploy/afterlight-web web=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${GITHUB_SHA}
 
       - name: Wait for rollout
         run: |
           kubectl -n $NS rollout status deploy/afterlight-api
           kubectl -n $NS rollout status deploy/afterlight-web
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          kubectl -n $NS describe deploy/afterlight-api || true
+          kubectl -n $NS describe deploy/afterlight-web || true
+          kubectl -n $NS describe pods -l app=afterlight-api || true
+          kubectl -n $NS describe pods -l app=afterlight-web || true
+          kubectl -n $NS logs deploy/afterlight-api --all-containers --tail=100 || true
+          kubectl -n $NS logs deploy/afterlight-web --all-containers --tail=100 || true
+          kubectl -n $NS get events --sort-by='.lastTimestamp' | tail -n 20 || true
