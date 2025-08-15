@@ -125,6 +125,7 @@ model Vault {
   blocks                 Block[]
   verifiers              VaultVerifier[]
   events                 VerificationEvent[]
+  invitations            VerifierInvitation[]
   heartbeat              Heartbeat?
   notifications          Notification[]
   recoveryShares         RecoveryShare[]
@@ -211,6 +212,20 @@ model VaultVerifier {
   @@map("vault_verifier")
   // Примечание: ограничение «только один is_primary=true на сейф»
   // сделаем частичным уникальным индексом в отдельной миграции SQL.
+}
+
+model VerifierInvitation {
+  id       String   @id @default(uuid()) @db.Uuid @map("id")
+  vaultId  String   @db.Uuid @map("vault_id")
+  email    String   @map("email")
+  token    String   @map("token")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vault Vault @relation(fields: [vaultId], references: [id])
+
+  @@index([vaultId], map: "ix_verifier_invitation_vault_id")
+  @@map("verifier_invitation")
 }
 
 model VerificationEvent {
