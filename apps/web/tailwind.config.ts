@@ -1,23 +1,14 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss';
 
 export default {
-  content: ["./src/**/*.{ts,tsx}"],
+  darkMode: 'class',
+  content: [
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
   theme: {
-    extend: {
-      colors: {
-        ink: "#0f172a",
-        mist: "#e2e8f0",
-        sky: "#38bdf8",
-        leaf: "#34d399",
-        rose: "#fb7185"
-      },
-      boxShadow: {
-        soft: "0 6px 30px rgba(2,6,23,0.08)"
-      },
-      borderRadius: {
-        xl2: "1rem"
-      }
-    },
+    extend: {},
   },
   plugins: [],
 } satisfies Config;

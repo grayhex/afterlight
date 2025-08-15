@@ -1,19 +1,13 @@
-"use client";
-
 import React from "react";
-import { motion } from "@/lib/motion";
+import { motion } from "framer-motion";
 import { Shield, HeartPulse, Users, Share2, FileLock, Link2, Github, Play, KeyRound, Sparkles, Mail, Settings, ShieldCheck, User } from "lucide-react";
 
 /**
  * AfterLight Landing (FINAL)
  * - Серый фон, контрастный текст
  * - Лого из /logo.svg (если файла нет — текст)
- * - DEV‑раздел с Playground/healthz/Swagger
- * - Главное меню: Владелец / Верификатор / Админка
- * 
- * Пути:
- *   apps/web/src/app/page.tsx  ← этот файл
- *   apps/web/public/logo.svg   ← логотип
+ * - DEV-раздел с Playground/healthz/Swagger
+ * - Основное меню: Владелец / Верификатор / Админка
  */
 
 const bg = "bg-gradient-to-b from-[#111418] via-[#151a20] to-[#1b2129]";
@@ -60,14 +54,14 @@ function Nav() {
 
 function Hero(){
   return (
-    <section className={`${bg} text-slate-100 relative overflow-hidden`}> 
-      <div className={`${ctn} py-16 md:py-24`}> 
+    <section className={`${bg} text-slate-100 relative overflow-hidden`}>
+      <div className={`${ctn} py-16 md:py-24`}>
         <motion.h1 initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} transition={{duration:.6}} className="text-3xl md:text-5xl font-semibold tracking-tight">
           Цифровой «сейф на случай непредвиденного»
         </motion.h1>
         <motion.p initial={{opacity:0, y:10}} animate={{opacity:1, y:0}} transition={{delay:.1, duration:.6}} className="mt-4 max-w-2xl text-slate-300">
           Храните инструкции и материалы, назначайте получателей и верификаторов. 
-          Раскрытие — только по правилу N‑из‑M + heartbeat и grace‑period.
+          Раскрытие — только по правилу N-из-M + heartbeat и grace-period.
         </motion.p>
         <motion.div initial={{opacity:0}} animate={{opacity:1}} transition={{delay:.2}} className="mt-8 flex flex-wrap gap-3">
           <a href="#how" className={`${btn} bg-indigo-500 text-white hover:bg-indigo-400`}>
@@ -85,10 +79,10 @@ function Hero(){
 
 function HowItWorks(){
   const steps = [
-    {icon: <Users className="h-5 w-5"/>, title: "Роли", text: "Назначьте получателей и 3–5 верификаторов (N‑из‑M)."},
+    {icon: <Users className="h-5 w-5"/>, title: "Роли", text: "Назначьте получателей и 3–5 верификаторов (N-из-M)."},
     {icon: <FileLock className="h-5 w-5"/>, title: "Блоки", text: "Создавайте блоки (текст/файл/url), назначайте адресатов."},
     {icon: <HeartPulse className="h-5 w-5"/>, title: "Триггеры", text: "Heartbeat таймаут + подтверждения верификаторов."},
-    {icon: <Share2 className="h-5 w-5"/>, title: "Раскрытие", text: "Grace‑окно, затем адресная выдача и/или публичная ссылка."},
+    {icon: <Share2 className="h-5 w-5"/>, title: "Раскрытие", text: "Grace-окно, затем адресная выдача и/или публичная ссылка."},
   ];
   return (
     <section id="how" className="bg-slate-950 text-slate-100 border-t border-white/5">
@@ -110,7 +104,7 @@ function HowItWorks(){
 
 function Features(){
   const feats = [
-    {icon:<Shield className="h-5 w-5"/>, title:"N‑из‑M политики", text:"Порог подтверждений на уровне сейфа, Primary Verifier (опция)."},
+    {icon:<Shield className="h-5 w-5"/>, title:"N-из-M политики", text:"Порог подтверждений на уровне сейфа, Primary Verifier (опция)."},
     {icon:<KeyRound className="h-5 w-5"/>, title:"Клиентское шифрование", text:"Контент шифруется на стороне клиента (сервер видит метаданные)."},
     {icon:<HeartPulse className="h-5 w-5"/>, title:"Heartbeat & Grace", text:"Таймаут неактивности + финальное окно ожидания."},
     {icon:<Share2 className="h-5 w-5"/>, title:"Публичные блоки", text:"Перссылки с окном публикации и отзывом."},
@@ -138,8 +132,8 @@ function Security(){
       <div className={`${ctn} py-14`}>
         <h2 className="text-2xl md:text-3xl font-semibold">Безопасность</h2>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          <li className="card"><b>Шифрование</b>: клиентская сторона (AES‑GCM/ChaCha, Ed25519 для подписей). Сервер хранит метаданные.</li>
-          <li className="card"><b>Роли и права</b>: N‑из‑M подтверждений, Primary Verifier (опционально), аудит событий.</li>
+          <li className="card"><b>Шифрование</b>: клиентская сторона (AES-GCM/ChaCha, Ed25519 для подписей). Сервер хранит метаданные.</li>
+          <li className="card"><b>Роли и права</b>: N-из-M подтверждений, Primary Verifier (опционально), аудит событий.</li>
           <li className="card"><b>Опубликование</b>: контролируемые публичные ссылки с окнами действия и отзывом.</li>
           <li className="card"><b>Инфраструктура</b>: контейнеры, изолированное хранилище, мониторинг.</li>
         </ul>
@@ -153,7 +147,7 @@ function Docs(){
     <section id="docs" className="bg-slate-950 text-slate-100 border-t border-white/5">
       <div className={`${ctn} py-14`}>
         <h2 className="text-2xl md:text-3xl font-semibold">Документация и исходники</h2>
-        <p className="text-slate-300 mt-2">Спецификации, архитектура, API и планы релизов в репозитории.</p>
+        <p className="text-сlate-300 mt-2">Спецификации, архитектура, API и планы релизов в репозитории.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a className={`${btn} bg-white/10 text-slate-100 hover:bg-white/20`} href="https://github.com/grayhex/afterlight/tree/main/docs" target="_blank" rel="noreferrer">
             <Github className="h-4 w-4"/> Документы в GitHub
@@ -172,11 +166,11 @@ function Dev(){
     <section id="dev" className="bg-slate-900 text-slate-100 border-t border-white/5">
       <div className={`${ctn} py-14`}>
         <h2 className="text-2xl md:text-3xl font-semibold">Отладка и системные страницы</h2>
-        <p className="text-slate-300 mt-2">Служебные разделы для тестов и мониторинга.</p>
+        <p className="text-сlate-300 mt-2">Служебные разделы для тестов и мониторинга.</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <a className={`${btn} bg-indigo-500 text-white hover:bg-indigo-400`} href="/playground"><Play className="h-4 w-4"/> Playground</a>
-          <a className={`${btn} bg-white/10 text-slate-100 hover:bg-white/20`} href="https://api.afterl.ru/healthz" target="_blank" rel="noreferrer">Healthz</a>
-          <a className={`${btn} bg-white/10 text-slate-100 hover:bg-white/20`} href="https://api.afterl.ru/docs" target="_blank" rel="noreferrer">Swagger (если включён)</a>
+          <a className={`${btn} bg-white/10 text-сlate-100 hover:bg-white/20`} href="https://api.afterl.ru/healthz" target="_blank" rel="noreferrer">Healthz</a>
+          <a className={`${btn} bg-white/10 text-сlate-100 hover:bg-white/20`} href="https://api.afterl.ru/docs" target="_blank" rel="noreferrer">Swagger (если включён)</a>
         </div>
       </div>
     </section>
