@@ -35,6 +35,51 @@ Afterlight — это минималистичный backend‑сервис дл
 - Нет отправки e‑mail/уведомлений и нет хранения бинарных файлов (только метаданные/ссылки).
 - Публичные блоки выдают содержимое по ссылке, но без тонкой политики доступа и TTL.
 
+## Технологический стек
+- **Backend:** NestJS (TypeScript), Prisma, PostgreSQL.
+- **Frontend:** Next.js 14, React 18, Tailwind CSS, Framer Motion, lucide-react.
+- **Инфраструктура:** Docker, Kubernetes/k3s, GitHub Actions, GHCR.
+
+## Архитектура
+Монорепозиторий состоит из двух приложений:
+- `apps/api` — REST API на NestJS с Prisma и PostgreSQL, со Swagger UI и health‑пробами.
+- `apps/web` — фронтенд на Next.js, предоставляет landing и административный интерфейс.
+Оба сервиса упакованы в Docker‑образы и разворачиваются в Kubernetes.
+
+## CI/CD
+- `.github/workflows/ci.yml` — сборка и проверка API (npm ci, Prisma validate, Nest build).
+- `.github/workflows/cd.yaml` — публикация Docker‑образов в GHCR и деплой на k3s.
+- `.github/workflows/db-migrate.yml` и `db-seed.yml` — ручные миграции и заполнение БД.
+
+## Деплой на k3s
+1. Соберите и запушьте образы `afterlight-api` и `afterlight-web` (делает workflow `cd.yaml`).
+2. На сервере k3s примените манифесты и секреты:
+```bash
+kubectl apply -f k8s/base/namespace.yaml
+kubectl -n afterlight create secret generic api-secrets \
+  --from-literal=DATABASE_URL='postgresql://user:pass@db:5432/afterlight?schema=public' \
+  --from-literal=JWT_SECRET='please-change-me'
+kubectl apply -f k8s/base/api-configmap.yaml
+kubectl apply -f k8s/base/api-deployment.yaml
+kubectl apply -f k8s/base/api-service.yaml
+kubectl apply -f k8s/base/api-ingress.yaml
+kubectl apply -f k8s/base/web-configmap.yaml
+kubectl apply -f k8s/base/web-deployment.yaml
+kubectl apply -f k8s/base/web-service.yaml
+kubectl apply -f k8s/base/web-ingress.yaml
+kubectl apply -f k8s/base/migrate-job.yaml
+kubectl -n afterlight logs job/prisma-migrate -f
+```
+3. Проверка: `GET https://<host>/healthz` и `GET https://<host>/readyz`.
+
+## Последние изменения
+- Обновлён Dockerfile API: использование `npm ci` с lockfile.
+- Добавлен middleware авторизации для `/adm`, конфигурация landing вынесена в ENV.
+- Реализована поддержка `mk`-wrapped ключей и добавлены сервисные тесты.
+- Проведён рефакторинг логирования и чистка временных файлов.
+- Веб-интерфейс переработан: новый дизайн landing, иконки, выбор цветов и админ‑панель.
+- Исправлено сохранение публичных ссылок и добавлены тесты их персистентности.
+
 ---
 
 ## Roadmap
