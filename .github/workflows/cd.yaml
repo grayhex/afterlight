@@ -70,6 +70,7 @@ jobs:
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBECONFIG_AFTERLIGHT }}" > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
 
       - name: Check kubectl and kubeconfig
         run: |
