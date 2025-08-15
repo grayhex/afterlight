@@ -83,17 +83,23 @@ export class BlocksService {
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');
 
     const r = await this.prisma.recipient.findUnique({ where: { id: dto.recipient_id } });
-    if (!r) throw new BadRequestException('Recipient not found');
+    if (!r) throw new NotFoundException('Recipient not found');
+
+    const wrapped = dto.dek_wrapped_for_recipient?.trim();
+    if (!wrapped) throw new BadRequestException('dek_wrapped_for_recipient must not be empty');
+    if (!wrapped.includes('.') && !/^[A-Za-z0-9+/]+={0,2}$/.test(wrapped)) {
+      throw new BadRequestException('dek_wrapped_for_recipient must be base64 or JWE');
+    }
 
     const br = await this.prisma.blockRecipient.upsert({
       where: { blockId_recipientId: { blockId, recipientId: dto.recipient_id } },
       create: {
         blockId,
         recipientId: dto.recipient_id,
-        dekWrappedForRecipient: dto.dek_wrapped_for_recipient,
+        dekWrappedForRecipient: wrapped,
       },
       update: {
-        dekWrappedForRecipient: dto.dek_wrapped_for_recipient,
+        dekWrappedForRecipient: wrapped,
       },
       include: { recipient: true },
     });

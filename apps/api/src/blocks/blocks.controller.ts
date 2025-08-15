@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Delete, Param, Body, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { BlocksService } from './blocks.service';
 import { CreateBlockDto } from './dto/create-block.dto';
 import { AssignRecipientDto } from './dto/assign-recipient.dto';
@@ -38,14 +38,21 @@ export class BlocksController {
   }
 
   @Get(':id/recipients')
-  listRecipients(@CurrentUserId() userId: string, @Param('id') id: string) {
+  @ApiOperation({ summary: 'List recipients assigned to a block' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  listRecipients(
+    @CurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.service.listRecipients(userId, id);
   }
 
   @Post(':id/recipients')
+  @ApiOperation({ summary: 'Assign a recipient to a block' })
+  @ApiParam({ name: 'id', format: 'uuid' })
   assignRecipient(
     @CurrentUserId() userId: string,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignRecipientDto,
   ) {
     return this.service.assignRecipient(userId, id, dto);
