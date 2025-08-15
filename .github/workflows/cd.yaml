@@ -60,7 +60,7 @@ jobs:
 
   deploy:
     name: deploy-to-k3s
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux]  # или добавить собственные метки раннера
     needs: build
     steps:
       - name: Write kubeconfig from secret
