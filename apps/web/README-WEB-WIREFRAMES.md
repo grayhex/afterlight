@@ -14,11 +14,9 @@
 
 ## Навигация
 - `/` — приветствие
-- `/wireframes` — хаб
-- `/wireframes/owner` — кабинет владельца
-- `/wireframes/owner/wizard` — мастер создания сейфа
-- `/wireframes/verifier` — кабинет верификатора
-- `/wireframes/recipient` — вид получателя
-- `/wireframes/demo` — демо‑сценарий состояний
+- `/wireframes` — хаб со ссылками
+- `/wireframes/owner` — кабинет владельца (заглушка)
+- `/wireframes/verifier` — кабинет верификатора (заглушка)
+- `/wireframes/recipient` — вид получателя (заглушка)
 
 Tailwind уже подключён; UI — условный, с акцентом на структуру и потоки.
