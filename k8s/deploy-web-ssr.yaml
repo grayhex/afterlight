@@ -23,6 +23,7 @@ spec:
       - name: web
         image: ghcr.io/grayhex/afterlight-web:latest
         imagePullPolicy: Always
+        command: ["node", "server.js"]
         env:
         - name: PORT
           value: "3000"
