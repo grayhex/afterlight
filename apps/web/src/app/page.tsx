@@ -1,17 +1,10 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { FaTelegramPlane, FaGithub, FaCode } from 'react-icons/fa';
+import { getLandingConfig } from '@/lib/landing';
 
 export const dynamic = 'force-dynamic';
 
-async function getConfig() {
-  const filePath = path.join(process.cwd(), 'src', 'config', 'landing.json');
-  const data = await fs.readFile(filePath, 'utf-8');
-  return JSON.parse(data);
-}
-
-export default async function Home() {
-  const config = await getConfig();
+export default function Home() {
+  const config = getLandingConfig();
 
   return (
     <main
