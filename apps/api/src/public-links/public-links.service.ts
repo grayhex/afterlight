@@ -25,13 +25,23 @@ export class PublicLinksService {
   async upsert(userId: string, blockId: string, dto: UpdatePublicLinkDto) {
     const b = await this.ensureOwner(userId, blockId);
 
-    const publishFrom = dto.publish_from ? new Date(dto.publish_from) : new Date();
-    const publishUntil = dto.publish_until ? new Date(dto.publish_until) : null;
+    const existing = await this.prisma.publicLink.findUnique({ where: { blockId } });
+
+    const publishFrom =
+      dto.publish_from !== undefined
+        ? new Date(dto.publish_from)
+        : existing?.publishFrom ?? new Date();
+    const publishUntil =
+      dto.publish_until !== undefined
+        ? dto.publish_until === null
+          ? null
+          : new Date(dto.publish_until)
+        : existing?.publishUntil ?? null;
+    const maxViews =
+      dto.max_views !== undefined ? dto.max_views : existing?.maxViews ?? null;
     if (publishUntil && publishUntil <= publishFrom) {
       throw new BadRequestException('publish_until must be after publish_from');
     }
-
-    const existing = await this.prisma.publicLink.findUnique({ where: { blockId } });
 
     let token: string | null = null;
     let tokenHash: string | undefined = undefined;
@@ -50,14 +60,14 @@ export class PublicLinksService {
           publishFrom,
           publishUntil,
           tokenHash: tokenHash ?? (existing as any)?.tokenHash,
-          maxViews: dto.max_views ?? null,
+          maxViews,
           viewsCount: 0,
         },
         update: {
           enabled: dto.enabled,
-          publishFrom,
-          publishUntil,
-          maxViews: dto.max_views ?? null,
+          ...(dto.publish_from !== undefined ? { publishFrom } : {}),
+          ...(dto.publish_until !== undefined ? { publishUntil } : {}),
+          ...(dto.max_views !== undefined ? { maxViews } : {}),
         },
       });
 
