@@ -209,6 +209,40 @@ paths:
       summary: Assign recipient
       responses:
         '201': { description: Created }
+  /blocks/{id}/public:
+    get:
+      summary: Get public link settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicLink'
+    put:
+      summary: Enable or update public link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicLinkUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicLink'
+    delete:
+      summary: Disable public link
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicLink'
   /verifiers/invitations:
     post:
       summary: Invite verifier
