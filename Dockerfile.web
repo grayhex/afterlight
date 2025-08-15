@@ -3,10 +3,10 @@ FROM node:20-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache python3 make g++ && corepack enable
 
-# install deps (no lockfile in repo)
-COPY apps/web/package.json ./apps/web/
+# install deps
+COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
 WORKDIR /app/apps/web
-RUN npm install --no-fund --no-audit
+RUN npm ci --no-fund --no-audit
 
 # copy source separately for better layer caching
 COPY apps/web/ .
