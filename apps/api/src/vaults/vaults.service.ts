@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/co
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVaultDto } from './dto/create-vault.dto';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class VaultsService {
@@ -34,6 +35,7 @@ export class VaultsService {
       graceHours: 24,
       isDemo: false,
     };
+    const mkWrapped = randomBytes(32).toString('base64');
     return this.prisma.vault.create({
       data: {
         userId,
@@ -43,7 +45,7 @@ export class VaultsService {
         heartbeatTimeoutDays: dto.heartbeat_timeout_days ?? defaults.heartbeatTimeoutDays,
         graceHours: dto.grace_hours ?? defaults.graceHours,
         isDemo: dto.is_demo ?? defaults.isDemo,
-        mkWrapped: 'TODO:mk_wrapped',
+        mkWrapped,
       },
     });
   }
