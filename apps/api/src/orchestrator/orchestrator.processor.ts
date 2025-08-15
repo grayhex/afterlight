@@ -17,7 +17,7 @@ export class OrchestratorProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async tick() {
-    const res = await this.orchestrator.sweepTimers(new Date());
+    const res = await this.orchestrator.processTimers(new Date());
     if (res.finalized || res.unlocked) {
       this.logger.log(`Sweep: finalized=${res.finalized} unlocked=${res.unlocked}`);
     }
