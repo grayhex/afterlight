@@ -29,6 +29,15 @@ export class NotificationsService {
     });
   }
 
+  async sendVerifierInvitation(vaultId: string, to: string, token: string) {
+    const link = `https://example.com/verifiers/invitations/${token}/accept`;
+    await this.enqueueEmail(vaultId, to, {
+      subject: 'AfterLight: приглашение доверителя',
+      text: `Вас пригласили стать доверителем. Перейдите по ссылке: ${link}`,
+    });
+    await this.flushEmailQueue();
+  }
+
   async flushEmailQueue(limit = 50) {
     const queued = await this.prisma.notification.findMany({
       where: { channel: 'email' as any, state: 'Queued' as any },

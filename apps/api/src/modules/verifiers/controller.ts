@@ -1,4 +1,4 @@
 // verifiers controller stub — replace with NestJS controllers later
+// GET /verifiers?vault_id
 // POST /verifiers/invitations
-// GET /verifiers/invitations?vault_id
-// POST /verifiers/invitations/{token}/accept
+// POST /verifiers/invitations/{vaultId}/{verifierId}/accept

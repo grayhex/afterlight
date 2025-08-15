@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InviteVerifierDto } from './dto/invite-verifier.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class VerifiersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notify: NotificationsService) {}
 
   async listByVault(vaultId: string) {
     return this.prisma.vaultVerifier.findMany({
@@ -14,7 +15,7 @@ export class VerifiersService {
     });
   }
 
-  async invite(dto: InviteVerifierDto) {
+  async invite(dto: InviteVerifierDto, token: string) {
     const verifier = await this.prisma.verifier.upsert({
       where: { contact: dto.contact },
       update: {},
@@ -36,7 +37,19 @@ export class VerifiersService {
       include: { verifier: true },
     });
 
-    return { invitation: link, token: 'todo-token' };
+    const expiresAt = new Date(Date.now() + (dto.expires_in_hours ?? 168) * 3600 * 1000);
+    await this.prisma.verifierInvitation.create({
+      data: {
+        vaultId: dto.vault_id,
+        email: dto.contact,
+        token,
+        expiresAt,
+      },
+    });
+
+    await this.notify.sendVerifierInvitation(dto.vault_id, dto.contact, token);
+
+    return { invitation: link, token };
   }
 
   async acceptInvitation(vaultId: string, verifierId: string) {

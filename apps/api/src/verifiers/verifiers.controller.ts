@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { randomBytes } from 'crypto';
 import { VerifiersService } from './verifiers.service';
 import { InviteVerifierDto } from './dto/invite-verifier.dto';
 
@@ -16,7 +17,8 @@ export class VerifiersController {
 
   @Post('invitations')
   invite(@Body() dto: InviteVerifierDto) {
-    return this.service.invite(dto);
+    const token = randomBytes(24).toString('hex');
+    return this.service.invite(dto, token);
   }
 
   @Post('invitations/:vaultId/:verifierId/accept')
