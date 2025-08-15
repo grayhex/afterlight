@@ -1,4 +1,11 @@
-:root { --bg: #ffffff; --fg: #111827; --muted:#6b7280; --card:#f9fafb; }
+:root {
+  --bg: #ffffff;
+  --fg: #111827;
+  --muted: #6b7280;
+  --card: #f9fafb;
+  --brand-bg: #0e1116;
+  --brand-bg-2: #0b0e12;
+}
 * { box-sizing: border-box; }
 html, body { padding:0; margin:0; background:var(--bg); color:var(--fg); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji','Segoe UI Emoji' }
 a { color: inherit; text-decoration: none; }

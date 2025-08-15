@@ -12,10 +12,22 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ru">
-      <body className="flex min-h-screen flex-col">
+      <body
+        className="flex min-h-screen flex-col text-slate-100"
+        style={{ backgroundColor: "var(--brand-bg, #0e1116)" }}
+      >
         <Header />
         <Navigation />
-        <main className="container flex-1 py-4">{children}</main>
+        <main
+          className="flex-1"
+          style={{
+            backgroundColor: "var(--brand-bg, #0e1116)",
+            backgroundImage:
+              "radial-gradient(1000px 500px at 75% 10%, rgba(56,189,248,0.10), transparent)",
+          }}
+        >
+          <div className="container py-4">{children}</div>
+        </main>
         <Footer />
       </body>
     </html>
