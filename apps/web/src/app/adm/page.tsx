@@ -1,39 +1,32 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { getLandingConfig, saveLandingConfig, type LandingConfig } from '@/lib/landing';
 
 export const dynamic = 'force-dynamic';
 
-const configPath = path.join(process.cwd(), 'src', 'config', 'landing.json');
-
-async function readConfig() {
-  const data = await fs.readFile(configPath, 'utf-8');
-  return JSON.parse(data);
-}
-
-export default async function AdminPage() {
-  const config = await readConfig();
+export default function AdminPage() {
+  const config = getLandingConfig();
 
   async function saveConfig(formData: FormData) {
     'use server';
 
-    const newConfig = {
-      title: String(formData.get('title') || ''),
-      subtitle: String(formData.get('subtitle') || ''),
-      description: String(formData.get('description') || ''),
-      bgColor: String(formData.get('bgColor') || '#000000'),
-      titleColor: String(formData.get('titleColor') || '#ffffff'),
-      subtitleColor: String(formData.get('subtitleColor') || '#ffffff'),
-      descriptionColor: String(formData.get('descriptionColor') || '#ffffff'),
+    const newConfig: LandingConfig = {
+      title: (formData.get('title') as string) || '',
+      subtitle: (formData.get('subtitle') as string) || '',
+      description: (formData.get('description') as string) || '',
+      bgColor: (formData.get('bgColor') as string) || '#000000',
+      titleColor: (formData.get('titleColor') as string) || '#ffffff',
+      subtitleColor: (formData.get('subtitleColor') as string) || '#ffffff',
+      descriptionColor:
+        (formData.get('descriptionColor') as string) || '#ffffff',
       links: {
-        telegram: String(formData.get('telegram') || ''),
-        github: String(formData.get('github') || ''),
-        dev: String(formData.get('dev') || ''),
+        telegram: (formData.get('telegram') as string) || '',
+        github: (formData.get('github') as string) || '',
+        dev: (formData.get('dev') as string) || '',
       },
     };
 
-    await fs.writeFile(configPath, JSON.stringify(newConfig, null, 2), 'utf-8');
+    await saveLandingConfig(newConfig);
     revalidatePath('/');
     revalidatePath('/adm');
     redirect('/adm');
