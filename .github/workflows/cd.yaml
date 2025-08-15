@@ -69,6 +69,11 @@ jobs:
           echo "${{ secrets.KUBECONFIG_AFTERLIGHT }}" > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
 
+      - name: Check kubectl and kubeconfig
+        run: |
+          kubectl version --client
+          kubectl config current-context
+
       - name: Set images on deployments
         env:
           API_DIGEST: ${{ needs.build.outputs.api_digest }}
