@@ -62,6 +62,8 @@ jobs:
     name: deploy-to-k3s
     runs-on: self-hosted
     needs: build
+    env:
+      NS: afterlight-staging
     steps:
       - name: Write kubeconfig from secret
         run: |
@@ -73,7 +75,6 @@ jobs:
         env:
           API_DIGEST: ${{ needs.build.outputs.api_digest }}
           WEB_DIGEST: ${{ needs.build.outputs.web_digest }}
-          NS: afterlight
         run: |
           # Узкие места: имена контейнеров в деплойментах!
           kubectl -n $NS set image deploy/afterlight-api api=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}@${API_DIGEST}
@@ -81,5 +82,5 @@ jobs:
 
       - name: Wait for rollout
         run: |
-          kubectl -n afterlight rollout status deploy/afterlight-api
-          kubectl -n afterlight rollout status deploy/afterlight-web
+          kubectl -n $NS rollout status deploy/afterlight-api
+          kubectl -n $NS rollout status deploy/afterlight-web
