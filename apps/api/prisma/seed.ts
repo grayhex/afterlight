@@ -1,7 +1,14 @@
 import { PrismaClient } from '@prisma/client'
 import { Logger } from '@nestjs/common'
+import { randomBytes, scryptSync } from 'crypto'
 
 const prisma = new PrismaClient()
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString('hex')
+  const hash = scryptSync(password, salt, 64).toString('hex')
+  return `${salt}:${hash}`
+}
 
 async function main() {
   await prisma.plan.upsert({
@@ -47,6 +54,25 @@ async function main() {
       create: { key: t.key, locale: 'ru', subject: t.subject, body: t.body }
     })
   }
+
+  await prisma.adminUser.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
+      email: 'admin@example.com',
+      passwordHash: hashPassword('afterlpass'),
+      role: 'Ops'
+    }
+  })
+
+  await prisma.user.upsert({
+    where: { email: 'test1@example.com' },
+    update: {},
+    create: {
+      email: 'test1@example.com',
+      passkeyPub: hashPassword('pass1')
+    }
+  })
 
   Logger.log('Seed complete')
 }
