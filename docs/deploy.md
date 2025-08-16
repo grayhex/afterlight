@@ -69,5 +69,8 @@ app.enableCors({
 7) (опц.) PUT /blocks/{id}/public
 
 ## 7. Обновление/роллбэк
-- Обновить: push в main → новый `:latest` → `kubectl -n afterlight rollout restart deploy/afterlight-web`  
+- Обновить: push в main → новый `:latest` → `kubectl -n afterlight rollout restart deploy/afterlight-web`
 - Роллбэк: `kubectl -n afterlight rollout undo deploy/afterlight-web`
+
+## 8. Как запускать сид
+Сид запускается вручную через workflow `seed` с подтверждением `prod`.
