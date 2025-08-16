@@ -10,3 +10,5 @@ BL-8,Task,Audit log,Запись действий (без секретов),MVP,
 BL-9,Task,ENV и секреты,Шаблоны и чек-лист окружения,MVP Smoke-Ready,P0,"Все переменные описаны, secrets заведены"
 BL-10,Task,Монетизация — исследование,Варианты лимитов: объём/кол-во/срок хранения,M1,P2,Отчёт и A/B-план по моделям
 BL-11,Task,Проект в GitHub Projects,Setup полей/вьюх/авто-лейблов,MVP Smoke-Ready,P1,"Созданы views: Roadmap, Board, Backlog; авто-метки"
+BL-12,Task,Устойчивость readiness,Ограничение ожидания и логирование ошибок в /readyz,MVP Smoke-Ready,P0,"/readyz отвечает 503 за <5с при недоступной БД"
+BL-13,Task,Graceful shutdown NestJS,Включить app.enableShutdownHooks для корректного SIGTERM,MVP Smoke-Ready,P0,"Старые поды завершаются без зависаний"
