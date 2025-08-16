@@ -1,8 +1,17 @@
-import { Controller, Get } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Logger,
+  Res,
+} from '@nestjs/common';
+import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller()
 export class HealthController {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(private prisma: PrismaService) {}
 
   @Get('/healthz')
@@ -15,12 +24,20 @@ export class HealthController {
   }
 
   @Get('/readyz')
-  async readyz() {
+  async readyz(@Res({ passthrough: true }) res: Response) {
+    const timeoutMs = 3000;
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await Promise.race([
+        this.prisma.$queryRaw`SELECT 1`,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), timeoutMs),
+        ),
+      ]);
       return { status: 'ready' };
     } catch (e) {
-      return { status: 'not_ready', error: String(e) };
+      this.logger.error('Readiness check failed', e as Error);
+      res.status(HttpStatus.SERVICE_UNAVAILABLE);
+      return { status: 'not_ready' };
     }
   }
 }
