@@ -14,7 +14,7 @@ spec:
       containers:
         - name: api
           image: ghcr.io/grayhex/afterlight-api:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           envFrom:
             - configMapRef: { name: api-config }
             - secretRef: { name: api-secrets }
