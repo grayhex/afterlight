@@ -20,13 +20,10 @@ WORKDIR /app/apps/api
 COPY --from=deps /app/apps/api/node_modules ./node_modules
 
 # исходники API
-COPY apps/api ./ 
+COPY apps/api ./
 
-# Prisma Client под Debian/OpenSSL 3.0
-RUN npx prisma generate --schema=./prisma/schema.prisma
-
-# сборка NestJS (если скрипт другой — поменяй)
-RUN npm run build
+# Prisma Client под Debian/OpenSSL 3.0 + сборка, чтобы seed попал в dist
+RUN npx prisma generate --schema=./prisma/schema.prisma && npm run build
 
 # оставляем только prod-зависимости
 RUN npm prune --omit=dev
