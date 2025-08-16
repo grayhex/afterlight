@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # минимальный рантайм
+COPY --from=build /app/apps/api/package*.json ./
 COPY --from=build /app/apps/api/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./dist
 COPY --from=build /app/apps/api/prisma ./prisma
@@ -50,4 +51,4 @@ ENV HOST=0.0.0.0
 EXPOSE 3000
 
 ENTRYPOINT ["/usr/bin/tini","--"]
-CMD ["node","dist/main.js"]
+CMD ["node","dist/src/main.js"]
