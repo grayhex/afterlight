@@ -3,6 +3,15 @@ name: cd
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE*"
+      - "CODE_OF_CONDUCT*"
+      - "CONTRIBUTING*"
+      - "LICENSE*"
+      - "CHANGELOG*"
 
 permissions:
   contents: read
@@ -13,6 +22,9 @@ env:
   IMAGE_OWNER: grayhex
   IMAGE_API: afterlight-api
   IMAGE_WEB: afterlight-web
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -55,6 +67,7 @@ jobs:
     name: deploy-to-k3s
     runs-on: self-hosted  # или добавить собственные метки раннера
     needs: build
+    if: ${{ !contains(github.event.head_commit.message, '[skip cd]') }}
     env:
       NS: afterlight
     steps:
