@@ -41,6 +41,10 @@ jobs:
             DB_SECRET=$(kubectl -n "$NS" get deploy afterlight-api -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].envFrom[0].secretRef.name}')
             DB_KEY=DATABASE_URL
           fi
+          if [ -z "${DB_SECRET}" ]; then
+            echo "Could not detect secret with DATABASE_URL from deployment afterlight-api" >&2
+            exit 1
+          fi
           echo "img=${IMG}" >> $GITHUB_OUTPUT
           echo "db_secret=${DB_SECRET}" >> $GITHUB_OUTPUT
           echo "db_key=${DB_KEY}" >> $GITHUB_OUTPUT
