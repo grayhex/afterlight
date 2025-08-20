@@ -15,13 +15,14 @@ on:
 
 permissions:
   contents: read
-  packages: write   # нужно для push в GHCR
+  packages: write
 
 env:
   REGISTRY: ghcr.io
   IMAGE_OWNER: grayhex
   IMAGE_API: afterlight-api
   IMAGE_WEB: afterlight-web
+
 concurrency:
   group: cd-${{ github.ref }}
   cancel-in-progress: true
@@ -32,7 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -43,7 +43,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # API image
       - name: Build & push API
         uses: docker/build-push-action@v6
         with:
@@ -53,7 +52,6 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
           provenance: false
 
-      # WEB image
       - name: Build & push WEB
         uses: docker/build-push-action@v6
         with:
@@ -65,7 +63,7 @@ jobs:
 
   deploy:
     name: deploy-to-k3s
-    runs-on: self-hosted  # или добавить собственные метки раннера
+    runs-on: self-hosted
     needs: build
     if: ${{ !contains(github.event.head_commit.message, '[skip cd]') }}
     env:
@@ -73,9 +71,9 @@ jobs:
     steps:
       - name: Write kubeconfig from secret
         run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG_AFTERLIGHT }}" > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          mkdir -p "$HOME/.kube"
+          printf "%s" "${{ secrets.KUBECONFIG_AFTERLIGHT }}" > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
 
       - name: Check kubectl and kubeconfig
@@ -83,13 +81,40 @@ jobs:
           kubectl version --client
           kubectl config current-context
 
-      - name: Set images on deployments
+      - name: Deploy API & WEB (set image or restart)
+        env:
+          NEW_API: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
+          NEW_WEB: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
         run: |
-          kubectl -n $NS set image deploy/afterlight-api api=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${GITHUB_SHA}
-          kubectl -n $NS set image deploy/afterlight-web web=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${GITHUB_SHA}
+          set -euo pipefail
+
+          echo "=== API ==="
+          CUR_API=$(kubectl -n "$NS" get deploy/afterlight-api -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].image}')
+          echo "Current: $CUR_API"
+          echo "New:     $NEW_API"
+          if [ "$CUR_API" = "$NEW_API" ]; then
+            echo "Image unchanged -> rollout restart (API)"
+            kubectl -n "$NS" rollout restart deploy/afterlight-api
+          else
+            echo "Updating image (API)"
+            kubectl -n "$NS" set image deploy/afterlight-api api="$NEW_API"
+          fi
+
+          echo "=== WEB ==="
+          CUR_WEB=$(kubectl -n "$NS" get deploy/afterlight-web -o jsonpath='{.spec.template.spec.containers[?(@.name=="web")].image}')
+          echo "Current: $CUR_WEB"
+          echo "New:     $NEW_WEB"
+          if [ "$CUR_WEB" = "$NEW_WEB" ]; then
+            echo "Image unchanged -> rollout restart (WEB)"
+            kubectl -n "$NS" rollout restart deploy/afterlight-web
+          else
+            echo "Updating image (WEB)"
+            kubectl -n "$NS" set image deploy/afterlight-web web="$NEW_WEB"
+          fi
 
       - name: Wait for rollout
         run: |
+          set -e
           kubectl -n $NS rollout status deploy/afterlight-api
           kubectl -n $NS rollout status deploy/afterlight-web
 
@@ -100,6 +125,6 @@ jobs:
           kubectl -n $NS describe deploy/afterlight-web || true
           kubectl -n $NS describe pods -l app=afterlight-api || true
           kubectl -n $NS describe pods -l app=afterlight-web || true
-          kubectl -n $NS logs deploy/afterlight-api --all-containers --tail=100 || true
-          kubectl -n $NS logs deploy/afterlight-web --all-containers --tail=100 || true
-          kubectl -n $NS get events --sort-by='.lastTimestamp' | tail -n 20 || true
+          kubectl -n $NS logs deploy/afterlight-api --all-containers --tail=200 || true
+          kubectl -n $NS logs deploy/afterlight-web --all-containers --tail=200 || true
+          kubectl -n $NS get events --sort-by='.lastTimestamp' | tail -n 50 || true
