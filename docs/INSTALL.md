@@ -342,7 +342,32 @@ kubectl -n afterlight run migrate --rm -it   --image=ghcr.io/grayhex/afterlight:
 
 ---
 
-## 9) Траблшутинг
+## 9) Роли и авторизация
+
+В системе используются роли:
+- **Owner** — создаёт и управляет сейфами.
+- **Verifier** — подтверждает события, связанные с сейфом.
+- **Recipient** — получает данные из сейфа после подтверждения.
+- **Admin** — управляет сервисом через админ‑панель `/adm`.
+
+### Перезапуск seed
+Для повторного заполнения БД запустите workflow `seed`:
+```bash
+gh workflow run seed -f confirm=prod
+```
+
+### Basic-auth
+Доступ к `/adm` защищён Basic‑auth. Формат заголовка:
+
+```
+Authorization: Basic <base64(email:password)>
+```
+
+Используйте email и пароль администратора из таблицы `user` (поле `role` = `Admin`).
+
+---
+
+## 10) Траблшутинг
 
 - Проверка k3s: `sudo journalctl -u k3s -f`, `kubectl get events -A`.
 - Сертификаты: `kubectl -n cert-manager logs deploy/cert-manager -f`.
