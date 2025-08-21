@@ -1,18 +1,31 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
+import { scryptAsync } from '@noble/hashes/scrypt';
+import { randomBytes, bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString('hex');
-  const hash = scryptSync(password, salt, 64).toString('hex');
-  return `${salt}:${hash}`;
+function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
 }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  const [salt, storedHash] = hash.split(':');
+const params = { N: 16384, r: 8, p: 1, dkLen: 64 } as const;
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  const key = await scryptAsync(new TextEncoder().encode(password), salt, params);
+  return `${bytesToHex(salt)}:${bytesToHex(key)}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const [saltHex, hashHex] = stored.split(':');
+  if (!saltHex || !hashHex) return false;
+  const salt = hexToBytes(saltHex);
+  const hash = hexToBytes(hashHex);
   try {
-    const hashed = scryptSync(password, salt, 64);
-    const stored = Buffer.from(storedHash, 'hex');
-    return timingSafeEqual(hashed, stored);
+    const derived = await scryptAsync(new TextEncoder().encode(password), salt, params);
+    return equalBytes(derived, hash);
   } catch {
     return false;
   }
 }
+

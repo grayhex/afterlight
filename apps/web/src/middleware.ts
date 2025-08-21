@@ -31,10 +31,10 @@ export async function middleware(req: NextRequest) {
   const [login, password] = decoded.split(':');
   if (!login || !password) return unauthorized();
 
-  const admin = await prisma.adminUser.findUnique({ where: { email: login } });
-  if (!admin || admin.role !== 'Admin') return unauthorized();
+  const admin = await prisma.user.findUnique({ where: { email: login } });
+  if (!admin || admin.role !== 'Admin' || !admin.passwordHash) return unauthorized();
 
-  if (!verifyPassword(password, admin.passwordHash)) return unauthorized();
+  if (!(await verifyPassword(password, admin.passwordHash))) return unauthorized();
 
   return NextResponse.next();
 }
