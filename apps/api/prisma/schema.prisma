@@ -90,17 +90,24 @@ enum ActorType {
   System
 }
 
+enum UserRole {
+  User
+  Admin
+}
+
 //* ===== Models ===== *
 
 model User {
-  id            String   @id @default(uuid()) @db.Uuid @map("id")
-  email         String   @unique
-  phone         String?
-  passkeyPub    String?  @map("passkey_pub")
-  twoFaEnabled  Boolean  @default(false) @map("two_fa_enabled")
-  locale        String   @default("ru-RU")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid()) @map("id") @db.Uuid
+  email        String   @unique
+  phone        String?
+  passwordHash String?  @map("password_hash")
+  passkeyPub   String?  @map("passkey_pub")
+  twoFaEnabled Boolean  @default(false) @map("two_fa_enabled")
+  role         UserRole @default(User)
+  locale       String   @default("ru-RU")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   vaults        Vault[]
   subscriptions Subscription[]
@@ -109,74 +116,74 @@ model User {
 }
 
 model Vault {
-  id                     String       @id @default(uuid()) @db.Uuid @map("id")
-  userId                 String       @db.Uuid @map("user_id")
-  status                 VaultStatus  @default(Active)
-  quorumThreshold        Int          @default(3)  @map("quorum_threshold")
-  maxVerifiers           Int          @default(5)  @map("max_verifiers")
-  heartbeatTimeoutDays   Int          @default(60) @map("heartbeat_timeout_days")
-  graceHours             Int          @default(24) @map("grace_hours")
-  isDemo                 Boolean      @default(false) @map("is_demo")
-  mkWrapped              String       @map("mk_wrapped")
-  createdAt              DateTime     @default(now()) @map("created_at")
-  updatedAt              DateTime     @updatedAt @map("updated_at")
+  id                   String      @id @default(uuid()) @map("id") @db.Uuid
+  userId               String      @map("user_id") @db.Uuid
+  status               VaultStatus @default(Active)
+  quorumThreshold      Int         @default(3) @map("quorum_threshold")
+  maxVerifiers         Int         @default(5) @map("max_verifiers")
+  heartbeatTimeoutDays Int         @default(60) @map("heartbeat_timeout_days")
+  graceHours           Int         @default(24) @map("grace_hours")
+  isDemo               Boolean     @default(false) @map("is_demo")
+  mkWrapped            String      @map("mk_wrapped")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
 
-  user                   User         @relation(fields: [userId], references: [id])
-  blocks                 Block[]
-  verifiers              VaultVerifier[]
-  events                 VerificationEvent[]
-  invitations            VerifierInvitation[]
-  heartbeat              Heartbeat?
-  notifications          Notification[]
-  recoveryShares         RecoveryShare[]
+  user           User                 @relation(fields: [userId], references: [id])
+  blocks         Block[]
+  verifiers      VaultVerifier[]
+  events         VerificationEvent[]
+  invitations    VerifierInvitation[]
+  heartbeat      Heartbeat?
+  notifications  Notification[]
+  recoveryShares RecoveryShare[]
 
   @@index([userId], map: "ix_vault_user_id")
   @@map("vault")
 }
 
 model Block {
-  id           String    @id @default(uuid()) @db.Uuid @map("id")
-  vaultId      String    @db.Uuid @map("vault_id")
-  type         BlockType
-  dekWrapped   String    @map("dek_wrapped")
-  metadata     Json?
-  tags         String[]  // postgres text[]
-  size         BigInt?
-  checksum     String?
-  isPublic     Boolean   @default(false) @map("is_public")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+  id         String    @id @default(uuid()) @map("id") @db.Uuid
+  vaultId    String    @map("vault_id") @db.Uuid
+  type       BlockType
+  dekWrapped String    @map("dek_wrapped")
+  metadata   Json?
+  tags       String[] // postgres text[]
+  size       BigInt?
+  checksum   String?
+  isPublic   Boolean   @default(false) @map("is_public")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
-  vault        Vault     @relation(fields: [vaultId], references: [id])
-  recipients   BlockRecipient[]
-  publicLink   PublicLink?
+  vault      Vault            @relation(fields: [vaultId], references: [id])
+  recipients BlockRecipient[]
+  publicLink PublicLink?
 
   @@index([vaultId], map: "ix_block_vault_id")
   @@map("block")
 }
 
 model Recipient {
-  id                  String   @id @default(uuid()) @db.Uuid @map("id")
-  contact             String   @unique 
-  pubkey              String?
-  verificationStatus  String   @default("Invited") @map("verification_status")
-  createdAt           DateTime @default(now()) @map("created_at")
+  id                 String   @id @default(uuid()) @map("id") @db.Uuid
+  contact            String   @unique
+  pubkey             String?
+  verificationStatus String   @default("Invited") @map("verification_status")
+  createdAt          DateTime @default(now()) @map("created_at")
 
-  blocks              BlockRecipient[]
+  blocks BlockRecipient[]
 
   @@index([contact], map: "ix_recipient_contact")
   @@map("recipient")
 }
 
 model BlockRecipient {
-  blockId                 String   @db.Uuid @map("block_id")
-  recipientId             String   @db.Uuid @map("recipient_id")
-  dekWrappedForRecipient  String   @map("dek_wrapped_for_recipient")
-  createdAt               DateTime @default(now()) @map("created_at")
+  blockId                String   @map("block_id") @db.Uuid
+  recipientId            String   @map("recipient_id") @db.Uuid
+  dekWrappedForRecipient String   @map("dek_wrapped_for_recipient")
+  createdAt              DateTime @default(now()) @map("created_at")
 
-  block                   Block     @relation(fields: [blockId], references: [id])
-  recipient               Recipient @relation(fields: [recipientId], references: [id])
+  block     Block     @relation(fields: [blockId], references: [id])
+  recipient Recipient @relation(fields: [recipientId], references: [id])
 
   @@id([blockId, recipientId])
   @@index([recipientId], map: "ix_block_recipient_recipient_id")
@@ -184,8 +191,8 @@ model BlockRecipient {
 }
 
 model Verifier {
-  id        String   @id @default(uuid()) @db.Uuid @map("id")
-  contact   String   @unique   // <— добавили @unique
+  id        String   @id @default(uuid()) @map("id") @db.Uuid
+  contact   String   @unique // <— добавили @unique
   pubkey    String?
   kycLevel  KycLevel @default(None) @map("kyc_level")
   createdAt DateTime @default(now()) @map("created_at")
@@ -196,29 +203,28 @@ model Verifier {
   @@map("verifier")
 }
 
-
 model VaultVerifier {
-  vaultId    String             @db.Uuid @map("vault_id")
-  verifierId String             @db.Uuid @map("verifier_id")
+  vaultId    String             @map("vault_id") @db.Uuid
+  verifierId String             @map("verifier_id") @db.Uuid
   roleStatus VerifierRoleStatus @default(Invited) @map("role_status")
   isPrimary  Boolean            @default(false) @map("is_primary")
   addedAt    DateTime           @default(now()) @map("added_at")
 
   vault    Vault    @relation(fields: [vaultId], references: [id])
   verifier Verifier @relation(fields: [verifierId], references: [id])
+  // Примечание: ограничение «только один is_primary=true на сейф»
+  // сделаем частичным уникальным индексом в отдельной миграции SQL.
 
   @@id([vaultId, verifierId])
   @@index([verifierId], map: "ix_vault_verifier_verifier_id")
   @@map("vault_verifier")
-  // Примечание: ограничение «только один is_primary=true на сейф»
-  // сделаем частичным уникальным индексом в отдельной миграции SQL.
 }
 
 model VerifierInvitation {
-  id       String   @id @default(uuid()) @db.Uuid @map("id")
-  vaultId  String   @db.Uuid @map("vault_id")
-  email    String   @map("email")
-  token    String   @map("token")
+  id        String   @id @default(uuid()) @map("id") @db.Uuid
+  vaultId   String   @map("vault_id") @db.Uuid
+  email     String   @map("email")
+  token     String   @map("token")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -229,8 +235,8 @@ model VerifierInvitation {
 }
 
 model VerificationEvent {
-  id             String            @id @default(uuid()) @db.Uuid @map("id")
-  vaultId        String            @db.Uuid @map("vault_id")
+  id             String            @id @default(uuid()) @map("id") @db.Uuid
+  vaultId        String            @map("vault_id") @db.Uuid
   initiator      String?
   state          VerificationState @default(Draft)
   quorumRequired Int               @map("quorum_required")
@@ -239,7 +245,7 @@ model VerificationEvent {
   createdAt      DateTime          @default(now()) @map("created_at")
   finalizedAt    DateTime?         @map("finalized_at")
 
-  vault     Vault                 @relation(fields: [vaultId], references: [id])
+  vault     Vault                  @relation(fields: [vaultId], references: [id])
   decisions VerificationDecision[]
   evidences Evidence[]
 
@@ -249,12 +255,12 @@ model VerificationEvent {
 }
 
 model VerificationDecision {
-  id                  String     @id @default(uuid()) @db.Uuid @map("id")
-  verificationEventId String     @db.Uuid @map("verification_event_id")
-  verifierId          String     @db.Uuid @map("verifier_id")
+  id                  String   @id @default(uuid()) @map("id") @db.Uuid
+  verificationEventId String   @map("verification_event_id") @db.Uuid
+  verifierId          String   @map("verifier_id") @db.Uuid
   decision            Decision
   signature           String?
-  decidedAt           DateTime   @default(now()) @map("decided_at")
+  decidedAt           DateTime @default(now()) @map("decided_at")
 
   event    VerificationEvent @relation(fields: [verificationEventId], references: [id])
   verifier Verifier          @relation(fields: [verifierId], references: [id])
@@ -265,10 +271,10 @@ model VerificationDecision {
 }
 
 model Heartbeat {
-  vaultId    String          @id @db.Uuid @map("vault_id")
-  lastPingAt DateTime        @default(now()) @map("last_ping_at")
-  timeoutDays Int            @default(60) @map("timeout_days")
-  method     HeartbeatMethod @default(manual)
+  vaultId     String          @id @map("vault_id") @db.Uuid
+  lastPingAt  DateTime        @default(now()) @map("last_ping_at")
+  timeoutDays Int             @default(60) @map("timeout_days")
+  method      HeartbeatMethod @default(manual)
 
   vault Vault @relation(fields: [vaultId], references: [id])
 
@@ -276,8 +282,8 @@ model Heartbeat {
 }
 
 model Notification {
-  id        String              @id @default(uuid()) @db.Uuid @map("id")
-  vaultId   String              @db.Uuid @map("vault_id")
+  id        String              @id @default(uuid()) @map("id") @db.Uuid
+  vaultId   String              @map("vault_id") @db.Uuid
   toContact String              @map("to_contact")
   channel   NotificationChannel
   payload   Json
@@ -291,7 +297,7 @@ model Notification {
 }
 
 model AuditLog {
-  id         String    @id @default(uuid()) @db.Uuid @map("id")
+  id         String    @id @default(uuid()) @map("id") @db.Uuid
   actorType  ActorType @map("actor_type")
   actorId    String    @map("actor_id")
   action     String
@@ -306,10 +312,10 @@ model AuditLog {
 }
 
 model RecoveryShare {
-  id          String  @id @default(uuid()) @db.Uuid @map("id")
-  vaultId     String  @db.Uuid @map("vault_id")
-  shareIndex  Int     @map("share_index")
-  shareCipher String  @map("share_cipher")
+  id          String @id @default(uuid()) @map("id") @db.Uuid
+  vaultId     String @map("vault_id") @db.Uuid
+  shareIndex  Int    @map("share_index")
+  shareCipher String @map("share_cipher")
 
   vault Vault @relation(fields: [vaultId], references: [id])
 
@@ -318,7 +324,7 @@ model RecoveryShare {
 }
 
 model Plan {
-  id     String  @id @default(uuid()) @db.Uuid @map("id")
+  id     String   @id @default(uuid()) @map("id") @db.Uuid
   tier   PlanTier
   limits Json
 
@@ -328,9 +334,9 @@ model Plan {
 }
 
 model Subscription {
-  id               String             @id @default(uuid()) @db.Uuid @map("id")
-  userId           String             @db.Uuid @map("user_id")
-  planId           String             @db.Uuid @map("plan_id")
+  id               String             @id @default(uuid()) @map("id") @db.Uuid
+  userId           String             @map("user_id") @db.Uuid
+  planId           String             @map("plan_id") @db.Uuid
   status           SubscriptionStatus
   currentPeriodEnd DateTime           @map("current_period_end")
 
@@ -343,14 +349,14 @@ model Subscription {
 }
 
 model PublicLink {
-  id           String   @id @default(uuid()) @db.Uuid @map("id")
-  blockId      String   @db.Uuid @map("block_id")
+  id           String    @id @default(uuid()) @map("id") @db.Uuid
+  blockId      String    @map("block_id") @db.Uuid
   enabled      Boolean
-  publishFrom  DateTime @map("publish_from")
+  publishFrom  DateTime  @map("publish_from")
   publishUntil DateTime? @map("publish_until")
-  tokenHash    String   @map("token_hash")
+  tokenHash    String    @map("token_hash")
   maxViews     Int?
-  viewsCount   Int      @default(0) @map("views_count")
+  viewsCount   Int       @default(0) @map("views_count")
 
   block Block @relation(fields: [blockId], references: [id])
 
@@ -359,8 +365,8 @@ model PublicLink {
 }
 
 model Evidence {
-  id                  String   @id @default(uuid()) @db.Uuid @map("id")
-  verificationEventId String   @db.Uuid @map("verification_event_id")
+  id                  String   @id @default(uuid()) @map("id") @db.Uuid
+  verificationEventId String   @map("verification_event_id") @db.Uuid
   type                String
   ref                 String
   hash                String?
@@ -373,7 +379,7 @@ model Evidence {
 }
 
 model Setting {
-  id    String @id @default(uuid()) @db.Uuid @map("id")
+  id    String @id @default(uuid()) @map("id") @db.Uuid
   key   String @unique
   value Json
 
@@ -381,7 +387,7 @@ model Setting {
 }
 
 model SiteContent {
-  id     String @id @default(uuid()) @db.Uuid @map("id")
+  id     String @id @default(uuid()) @map("id") @db.Uuid
   key    String
   locale String @default("ru")
   data   Json
@@ -391,7 +397,7 @@ model SiteContent {
 }
 
 model EmailTemplate {
-  id      String @id @default(uuid()) @db.Uuid @map("id")
+  id      String @id @default(uuid()) @map("id") @db.Uuid
   key     String
   locale  String @default("ru")
   subject String
