@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { scryptSync, timingSafeEqual } from 'crypto';
+
+const prisma = new PrismaClient();
 
 function unauthorized() {
   return new NextResponse('Unauthorized', {
@@ -7,7 +11,7 @@ function unauthorized() {
   });
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const auth = req.headers.get('authorization');
   if (!auth) return unauthorized();
 
@@ -24,14 +28,26 @@ export function middleware(req: NextRequest) {
     return unauthorized();
   }
 
-  const [user, password] = decoded.split(':');
-  const expected = process.env.ADMIN_PASSWORD || 'admin';
-  const allowedUsers = new Set(['admin', 'admin@example.com']);
+  const [login, password] = decoded.split(':');
+  if (!login || !password) return unauthorized();
 
-  if (user && allowedUsers.has(user) && password === expected) {
-    return NextResponse.next();
+  const admin = await prisma.adminUser.findUnique({ where: { email: login } });
+  if (!admin || admin.role !== 'Admin') return unauthorized();
+
+  if (!verifyPassword(password, admin.passwordHash)) return unauthorized();
+
+  return NextResponse.next();
+}
+
+function verifyPassword(password: string, hash: string): boolean {
+  const [salt, storedHash] = hash.split(':');
+  try {
+    const hashed = scryptSync(password, salt, 64);
+    const stored = Buffer.from(storedHash, 'hex');
+    return timingSafeEqual(hashed, stored);
+  } catch {
+    return false;
   }
-  return unauthorized();
 }
 
 export const config = {
