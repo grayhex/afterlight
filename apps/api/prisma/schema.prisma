@@ -378,18 +378,6 @@ model Evidence {
   @@map("evidence")
 }
 
-model AdminUser {
-  id           String   @id @default(uuid()) @map("id") @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         String   @default("Ops")
-  twoFaEnabled Boolean  @default(false) @map("two_fa_enabled")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  @@map("admin_user")
-}
-
 model Setting {
   id    String @id @default(uuid()) @map("id") @db.Uuid
   key   String @unique

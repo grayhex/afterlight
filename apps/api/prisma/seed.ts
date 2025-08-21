@@ -55,16 +55,6 @@ async function main() {
     })
   }
 
-  await prisma.adminUser.upsert({
-    where: { email: 'admin@example.com' },
-    update: {},
-    create: {
-      email: 'admin@example.com',
-      passwordHash: hashPassword('afterlpass'),
-      role: 'Ops'
-    }
-  })
-
   await prisma.user.upsert({
     where: { email: 'test1@example.com' },
     update: {},
