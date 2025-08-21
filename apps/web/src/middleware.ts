@@ -3,13 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(req: NextRequest) {
   const basicAuth = req.headers.get('authorization');
   const expected = process.env.ADMIN_PASSWORD || 'admin';
+  const allowedUsers = ['admin', 'admin@example.com'];
 
   if (basicAuth) {
     const [scheme, encoded] = basicAuth.split(' ');
     if (scheme === 'Basic') {
-      const decoded = Buffer.from(encoded, 'base64').toString();
+      const decoded =
+        typeof atob === 'function'
+          ? atob(encoded)
+          : Buffer.from(encoded, 'base64').toString('utf8');
       const [user, password] = decoded.split(':');
-      if (user === 'admin' && password === expected) {
+      if (allowedUsers.includes(user) && password === expected) {
         return NextResponse.next();
       }
     }
