@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { scryptSync, timingSafeEqual } from 'crypto';
+import { verifyPassword } from '@/lib/password';
 
 const prisma = new PrismaClient();
 
@@ -37,17 +37,6 @@ export async function middleware(req: NextRequest) {
   if (!verifyPassword(password, admin.passwordHash)) return unauthorized();
 
   return NextResponse.next();
-}
-
-function verifyPassword(password: string, hash: string): boolean {
-  const [salt, storedHash] = hash.split(':');
-  try {
-    const hashed = scryptSync(password, salt, 64);
-    const stored = Buffer.from(storedHash, 'hex');
-    return timingSafeEqual(hashed, stored);
-  } catch {
-    return false;
-  }
 }
 
 export const config = {
