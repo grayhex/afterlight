@@ -1,20 +1,19 @@
 import { PrismaClient } from '@prisma/client'
 import { Logger } from '@nestjs/common'
-import { randomBytes, scryptSync, timingSafeEqual } from 'crypto'
+import { scryptAsync } from '@noble/hashes/scrypt'
+import { randomBytes, bytesToHex } from '@noble/hashes/utils'
 
 const prisma = new PrismaClient()
 
-function hashPassword(password: string): string {
-  const salt = randomBytes(16).toString('hex')
-  const hash = scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${hash}`
-}
-
-function verifyPassword(password: string, storedHash: string): boolean {
-  const [salt, hash] = storedHash.split(':')
-  const hashedBuffer = scryptSync(password, salt, 64)
-  const hashBuffer = Buffer.from(hash, 'hex')
-  return timingSafeEqual(hashedBuffer, hashBuffer)
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16)
+  const key = await scryptAsync(new TextEncoder().encode(password), salt, {
+    N: 16384,
+    r: 8,
+    p: 1,
+    dkLen: 64,
+  })
+  return `${bytesToHex(salt)}:${bytesToHex(key)}`
 }
 
 async function main() {
@@ -67,7 +66,7 @@ async function main() {
     update: {},
     create: {
       email: 'admin@example.com',
-      passwordHash: hashPassword('admin'),
+      passwordHash: await hashPassword('admin'),
       role: 'Admin'
     }
   })
@@ -77,7 +76,7 @@ async function main() {
     update: {},
     create: {
       email: 'test1@example.com',
-      passwordHash: hashPassword('pass1'),
+      passwordHash: await hashPassword('pass1'),
       role: 'User'
     }
   })

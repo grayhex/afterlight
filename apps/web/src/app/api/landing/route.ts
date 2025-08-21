@@ -32,9 +32,9 @@ async function isAuthorized(req: Request): Promise<boolean> {
   }
   const [login, password] = decoded.split(':');
   if (!login || !password) return false;
-  const admin = await prisma.adminUser.findUnique({ where: { email: login } });
-  if (!admin || admin.role !== 'Admin') return false;
-  return verifyPassword(password, admin.passwordHash);
+  const admin = await prisma.user.findUnique({ where: { email: login } });
+  if (!admin || admin.role !== 'Admin' || !admin.passwordHash) return false;
+  return await verifyPassword(password, admin.passwordHash);
 }
 
 export async function GET(request: Request) {
