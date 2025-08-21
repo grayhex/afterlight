@@ -3,19 +3,22 @@ FROM node:20-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache python3 make g++ && corepack enable
 
-# install deps
+# install deps for api and web
+COPY apps/api/package.json apps/api/package-lock.json ./apps/api/
 COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
-WORKDIR /app/apps/web
-RUN npm ci --no-fund --no-audit
+RUN npm ci --prefix apps/api --no-fund --no-audit \
+    && npm ci --prefix apps/web --no-fund --no-audit
 
 # copy source separately for better layer caching
-COPY apps/web/ .
+COPY apps/api ./apps/api
+COPY apps/web ./apps/web
 
 # ensure public exists even if empty in repo
-RUN mkdir -p public
+RUN mkdir -p apps/web/public
 
 # build Next (standalone output is set in next.config.mjs)
 ENV NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app/apps/web
 RUN npm run build
 
 # ---------- runtime ----------
