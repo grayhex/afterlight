@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { verifyPassword } from '@/lib/password';
-
-const prisma = new PrismaClient();
+// Prisma cannot run in Edge middleware; use API route instead
 
 function unauthorized() {
   return new NextResponse('Unauthorized', {
@@ -15,26 +12,16 @@ export async function middleware(req: NextRequest) {
   const auth = req.headers.get('authorization');
   if (!auth) return unauthorized();
 
-  const [scheme, encoded] = auth.split(' ');
-  if (scheme !== 'Basic' || !encoded) return unauthorized();
-
-  let decoded: string;
   try {
-    decoded =
-      typeof atob === 'function'
-        ? atob(encoded)
-        : Buffer.from(encoded, 'base64').toString('utf8');
+    const res = await fetch(new URL('/api/landing', req.url), {
+      headers: { authorization: auth },
+      // ensure fresh auth check
+      cache: 'no-store',
+    });
+    if (res.status !== 200) return unauthorized();
   } catch {
     return unauthorized();
   }
-
-  const [login, password] = decoded.split(':');
-  if (!login || !password) return unauthorized();
-
-  const admin = await prisma.user.findUnique({ where: { email: login } });
-  if (!admin || admin.role !== 'Admin' || !admin.passwordHash) return unauthorized();
-
-  if (!(await verifyPassword(password, admin.passwordHash))) return unauthorized();
 
   return NextResponse.next();
 }

@@ -37,6 +37,11 @@ async function isAuthorized(req: Request): Promise<boolean> {
   return await verifyPassword(password, admin.passwordHash);
 }
 
+export async function HEAD(request: Request) {
+  if (!(await isAuthorized(request))) return unauthorized();
+  return new NextResponse(null, { status: 200 });
+}
+
 export async function GET(request: Request) {
   if (!(await isAuthorized(request))) return unauthorized();
   const config = getLandingConfig();
