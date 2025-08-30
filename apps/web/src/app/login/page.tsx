@@ -48,7 +48,7 @@ export default function LoginPage() {
         ),
       );
 
-      router.push('/dev');
+      router.push('/');
     } catch {
       setError('Ошибка соединения');
     }

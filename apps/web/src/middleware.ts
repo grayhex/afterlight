@@ -10,25 +10,51 @@ function unauthorized() {
 }
 
 export async function middleware(req: NextRequest) {
-  const authCookie = req.cookies.get('auth');
-  if (!authCookie) return unauthorized();
-  const auth = `Basic ${authCookie.value}`;
+  const { pathname } = req.nextUrl;
 
-  try {
-    const res = await httpClient('/landing', {
-      headers: { authorization: auth },
-      // ensure fresh auth check
-      cache: 'no-store',
-      base: req.url,
-    });
-    if (res.status !== 200) return unauthorized();
-  } catch {
-    return unauthorized();
+  if (pathname.startsWith('/adm')) {
+    const authCookie = req.cookies.get('auth');
+    if (!authCookie) return unauthorized();
+    const auth = `Basic ${authCookie.value}`;
+
+    try {
+      const res = await httpClient('/landing', {
+        headers: { authorization: auth },
+        cache: 'no-store',
+        base: req.url,
+      });
+      if (res.status !== 200) return unauthorized();
+    } catch {
+      return unauthorized();
+    }
+
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith('/owner') || pathname.startsWith('/verifier')) {
+    try {
+      const res = await httpClient('/auth/me', {
+        method: 'GET',
+        cache: 'no-store',
+        base: req.url,
+      });
+      if (res.ok) return NextResponse.next();
+    } catch {
+      // ignore
+    }
+    return NextResponse.redirect(new URL('/login', req.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/adm', '/adm/:path*'],
+  matcher: [
+    '/adm',
+    '/adm/:path*',
+    '/owner',
+    '/owner/:path*',
+    '/verifier',
+    '/verifier/:path*',
+  ],
 };

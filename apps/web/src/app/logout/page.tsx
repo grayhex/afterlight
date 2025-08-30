@@ -16,7 +16,7 @@ export default function LogoutPage() {
         // ignore errors
       }
       auth.logout();
-      router.replace('/dev');
+      router.replace('/');
     })();
   }, [router]);
 
