@@ -1,6 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import Header from '@/components/header';
+import Footer from '@/components/footer';
 import { getLandingConfig } from '@/lib/landing';
 import { Inter } from 'next/font/google';
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <Header bgColor={config.headerBgColor} textColor={config.headerTextColor} />
         <main className="flex-grow">{children}</main>
+        <Footer links={config.links} />
       </body>
     </html>
   );

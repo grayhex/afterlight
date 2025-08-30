@@ -1,15 +1,12 @@
 
-import FooterLinks from "@/components/footer-links";
 import FeatureCard from "@/components/feature-card";
 import FaqItem from "@/components/faq-item";
-import { getLandingConfig } from "@/lib/landing";
 import { Lock, Users, Activity, Link as LinkIcon } from "lucide-react";
 
 
 export const dynamic = 'force-dynamic';
 
 export default function Home() {
-  const config = getLandingConfig();
   const features = [
     {
       icon: <Lock className="feature-icon mb-2 h-6 w-6 text-accent" />,
@@ -31,16 +28,28 @@ export default function Home() {
 
   const faqs = [
     {
-      q: "Как обеспечивается безопасность?",
-      a: "Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные и технические метаданные.",
+      q: 'Как обеспечивается безопасность?',
+      a: 'Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные и технические метаданные.',
     },
     {
-      q: "Как подтверждается событие?",
-      a: "Двое из трёх доверенных людей подтверждают событие. После этого запускается раскрытие сейфа.",
+      q: 'Как подтверждается событие?',
+      a: 'Двое из трёх доверенных людей подтверждают событие. После этого запускается раскрытие сейфа.',
     },
     {
-      q: "Есть ли контроль времени?",
-      a: "У вас сутки на финальные действия, а окно «я на связи» длится год.",
+      q: 'Есть ли контроль времени?',
+      a: 'У вас сутки на финальные действия, а окно «я на связи» длится год.',
+    },
+    {
+      q: 'Какие события поддерживаются?',
+      a: 'На старте доступны события: смерть и недееспособность.',
+    },
+    {
+      q: 'Сколько длится grace-период?',
+      a: 'После подтверждения события есть 24 часа до раскрытия сейфа.',
+    },
+    {
+      q: 'Сколько живёт публичная ссылка?',
+      a: 'Ссылка активна 24 часа, защищена CAPTCHA и удаляется после истечения срока.',
     },
   ];
   return (
@@ -54,7 +63,7 @@ export default function Home() {
       </p>
 
       <section className="mb-8">
-        <h2 className="mb-4 text-2xl font-semibold">Фичи</h2>
+        <h2 className="mb-4 text-2xl font-semibold">Ключевые возможности</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {features.map((f, i) => (
             <FeatureCard key={i} icon={f.icon} text={f.text} delay={i * 0.1} />
@@ -74,7 +83,7 @@ export default function Home() {
 
       <section className="mb-6">
         <h2 className="text-2xl font-semibold mb-4">FAQ</h2>
-        <div className="space-y-4">
+        <div className="max-h-64 space-y-4 overflow-y-auto rounded border bg-white p-4">
           {faqs.map((f, i) => (
             <FaqItem key={i} question={f.q} answer={f.a} delay={i * 0.1} />
           ))}
@@ -85,7 +94,6 @@ export default function Home() {
         Содержимое шифруется на вашем устройстве. Мы храним только
         зашифрованные данные и технические метаданные.
       </p>
-      <FooterLinks links={config.links} />
     </div>
   );
 }

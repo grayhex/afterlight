@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/shared/auth/useAuth';
-import { User, ShieldCheck, Shield, LogIn, LogOut } from 'lucide-react';
+import { User, ShieldCheck, LogIn, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 
@@ -31,7 +31,7 @@ export default function Header({ bgColor, textColor }: HeaderProps) {
           >
             <Link href="/owner" className="flex items-center gap-1" style={linkStyle}>
               <User className="h-4 w-4" />
-              <span>Кабинет владельца</span>
+              <span>Кабинет пользователя</span>
             </Link>
           </motion.li>
           <motion.li
@@ -43,17 +43,6 @@ export default function Header({ bgColor, textColor }: HeaderProps) {
             <Link href="/verifier" className="flex items-center gap-1" style={linkStyle}>
               <ShieldCheck className="h-4 w-4" />
               <span>Кабинет верификатора</span>
-            </Link>
-          </motion.li>
-          <motion.li
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Link href="/adm" className="flex items-center gap-1" style={linkStyle}>
-              <Shield className="h-4 w-4" />
-              <span>Админка</span>
             </Link>
           </motion.li>
         </ul>
