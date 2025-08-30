@@ -1,79 +1,107 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useAuth } from '@/shared/auth/useAuth';
-import { User, ShieldCheck, LogIn, LogOut } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useAuth } from "@/shared/auth/useAuth";
+import {
+  User,
+  ShieldCheck,
+  LogIn,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+import { motion } from "framer-motion";
 
-
-interface HeaderProps {
-  bgColor: string;
-  textColor: string;
-}
-
-export default function Header({ bgColor, textColor }: HeaderProps) {
+export default function Header() {
   const { role } = useAuth();
+  const [open, setOpen] = useState(false);
 
-  const linkStyle = { color: textColor } as React.CSSProperties;
+  const mainLinks = [
+    {
+      href: "/owner",
+      label: "Кабинет пользователя",
+      icon: <User className="h-4 w-4" />,
+    },
+    {
+      href: "/verifier",
+      label: "Кабинет верификатора",
+      icon: <ShieldCheck className="h-4 w-4" />,
+    },
+  ];
+
+  const authLinks =
+    role === "guest"
+      ? [{ href: "/login", label: "Войти", icon: <LogIn className="h-4 w-4" /> }]
+      : [{ href: "/logout", label: "Выйти", icon: <LogOut className="h-4 w-4" /> }];
+
+  const NavItem = ({
+    href,
+    label,
+    icon,
+  }: { href: string; label: string; icon: ReactNode }) => (
+    <motion.div
+      className="relative flex items-center gap-1"
+      initial="rest"
+      whileHover="hover"
+      animate="rest"
+    >
+      <Link
+        href={href}
+        className="text-sm font-body uppercase text-white"
+      >
+        {icon}
+        <span>{label}</span>
+      </Link>
+      <motion.span
+        variants={{ rest: { scaleX: 0 }, hover: { scaleX: 1 } }}
+        transition={{ duration: 0.3 }}
+        className="absolute left-0 -bottom-0.5 h-px w-full origin-left bg-bodaghee-accent"
+      />
+    </motion.div>
+  );
 
   return (
-    <header style={{ backgroundColor: bgColor }}>
-      <nav className="container mx-auto flex items-center p-4">
-        <Link href="/" className="text-xl font-bold" style={linkStyle}>
+    <header className="sticky top-0 z-50 bg-bodaghee-bg/80">
+      <nav className="container mx-auto flex items-center justify-between p-4">
+        <Link href="/" className="text-xl font-bold text-white">
           Afterlight
         </Link>
-        <ul className="flex flex-1 justify-center gap-4">
-          <motion.li
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Link href="/owner" className="flex items-center gap-1" style={linkStyle}>
-              <User className="h-4 w-4" />
-              <span>Кабинет пользователя</span>
-            </Link>
-          </motion.li>
-          <motion.li
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Link href="/verifier" className="flex items-center gap-1" style={linkStyle}>
-              <ShieldCheck className="h-4 w-4" />
-              <span>Кабинет верификатора</span>
-            </Link>
-          </motion.li>
-        </ul>
-        <ul className="flex gap-4">
-          {role === 'guest' ? (
-            <motion.li
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              whileHover={{ scale: 1.05 }}
-            >
-              <Link href="/login" className="flex items-center gap-1" style={linkStyle}>
-                <LogIn className="h-4 w-4" />
-                <span>Войти</span>
-              </Link>
-            </motion.li>
+        <div className="hidden flex-1 justify-center gap-6 md:flex">
+          {mainLinks.map((l) => (
+            <NavItem key={l.href} {...l} />
+          ))}
+        </div>
+        <div className="hidden gap-6 md:flex">
+          {authLinks.map((l) => (
+            <NavItem key={l.href} {...l} />
+          ))}
+        </div>
+        <button
+          className="md:hidden"
+          aria-label="Toggle menu"
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? (
+            <X className="h-6 w-6 text-white" />
           ) : (
-            <motion.li
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              whileHover={{ scale: 1.05 }}
-            >
-              <Link href="/logout" className="flex items-center gap-1" style={linkStyle}>
-                <LogOut className="h-4 w-4" />
-                <span>Выйти</span>
-              </Link>
-            </motion.li>
+            <Menu className="h-6 w-6 text-white" />
           )}
-        </ul>
+        </button>
       </nav>
+      {open && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          className="md:hidden bg-bodaghee-bg/80"
+        >
+          <div className="container mx-auto flex flex-col items-center gap-4 p-4">
+            {[...mainLinks, ...authLinks].map((l) => (
+              <NavItem key={l.href} {...l} />
+            ))}
+          </div>
+        </motion.div>
+      )}
     </header>
   );
 }
