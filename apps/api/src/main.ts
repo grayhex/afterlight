@@ -4,10 +4,21 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaService } from './prisma/prisma.service';
 import { AuthGuard } from './auth/guards/auth.guard';
+import helmet from 'helmet';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+
+  const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.enableCors({ origin: corsOrigins, credentials: true });
+
+  app.use(helmet());
+  app.use(json({ limit: process.env.JSON_BODY_LIMIT || '100kb' }));
 
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,

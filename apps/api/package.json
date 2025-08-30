@@ -24,7 +24,8 @@
     "jsonwebtoken": "^9.0.2",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "helmet": "^7.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
