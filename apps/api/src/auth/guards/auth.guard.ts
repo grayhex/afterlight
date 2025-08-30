@@ -16,7 +16,7 @@ export class AuthGuard implements CanActivate {
     const cookies = (req.headers['cookie'] || '')
       .split(';')
       .map((c: string) => c.trim().split('='))
-      .reduce((acc: Record<string, string>, [k, v]) => {
+      .reduce((acc: Record<string, string>, [k, v]: [string, string]) => {
         if (k && v) acc[k] = decodeURIComponent(v);
         return acc;
       }, {} as Record<string, string>);
