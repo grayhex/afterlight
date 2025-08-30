@@ -1,11 +1,17 @@
-import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
+import Header from '@/components/header';
+import Footer from '@/components/footer';
 
-export default function DevLayout({ children }: { children: ReactNode }) {
+export const metadata: Metadata = {
+  title: 'Dev Area',
+};
+
+export default function DevLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header />
-      <main className="flex-1">{children}</main>
-      <footer />
+      <Header />
+      <main className="flex-grow">{children}</main>
+      <Footer />
     </div>
   );
 }

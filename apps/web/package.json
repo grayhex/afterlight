@@ -7,7 +7,7 @@
     "prebuild": "npm run prisma:generate",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint --no-error-on-unmatched-pattern",
+    "lint": "next lint",
     "prisma:generate": "cd ../api && npx prisma generate && cp -r node_modules/.prisma ../web/node_modules/ && cp -r node_modules/@prisma ../web/node_modules/",
     "openapi": "openapi-typescript ../api/openapi.json -o src/api.ts"
   },
