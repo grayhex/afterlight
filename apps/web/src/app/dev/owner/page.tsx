@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { httpClient } from "@/shared/api/httpClient";
+import { useAuth } from "@/shared/auth/useAuth";
 
 export default function OwnerPage() {
+  const { role } = useAuth();
   const [vaults, setVaults] = useState<any[]>([]);
   const [vaultsLoading, setVaultsLoading] = useState(false);
   const [vaultsError, setVaultsError] = useState<string | null>(null);
@@ -24,11 +26,12 @@ export default function OwnerPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (role !== "owner") return;
     async function loadVaults() {
       setVaultsLoading(true);
       setVaultsError(null);
       try {
-        const res = await httpClient("/vaults");
+        const res = await httpClient("/vaults", { method: "GET" });
         const data = await res.json();
         setVaults(data);
       } catch (e) {
@@ -38,14 +41,15 @@ export default function OwnerPage() {
       }
     }
     loadVaults();
-  }, []);
+  }, [role]);
 
   useEffect(() => {
+    if (role !== "owner") return;
     async function loadVerifiers() {
       setVerifiersLoading(true);
       setVerifiersError(null);
       try {
-        const res = await httpClient("/verifiers");
+        const res = await httpClient("/verifiers", { method: "GET" });
         const data = await res.json();
         setVerifiers(data);
       } catch (e) {
@@ -55,7 +59,7 @@ export default function OwnerPage() {
       }
     }
     loadVerifiers();
-  }, []);
+  }, [role]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -105,6 +109,9 @@ export default function OwnerPage() {
       setInviting(false);
     }
   };
+  if (role !== "owner") {
+    return <div className="p-6">Доступ запрещён</div>;
+  }
 
   return (
     <div className="p-6">

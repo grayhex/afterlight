@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { httpClient } from '@/shared/api/httpClient';
+import { useAuth } from '@/shared/auth/useAuth';
 
 interface VerificationEvent {
   id: string;
@@ -12,21 +14,23 @@ interface VerificationEvent {
 }
 
 export default function VerifierPage() {
+  const { role } = useAuth();
   const [events, setEvents] = useState<VerificationEvent[]>([]);
 
   useEffect(() => {
-    fetch('/verification-events')
+    if (role !== 'verifier') return;
+    httpClient('/verification-events', { method: 'GET' })
       .then(res => res.json())
       .then(setEvents)
       .catch(() => {});
-  }, []);
+  }, [role]);
 
   const updateEvent = (evt: VerificationEvent) => {
     setEvents(prev => prev.map(e => (e.id === evt.id ? evt : e)));
   };
 
   const handleAction = async (id: string, action: 'confirm' | 'deny') => {
-    const res = await fetch(`/verification-events/${id}/${action}`, {
+    const res = await httpClient(`/verification-events/${id}/${action}`, {
       method: 'POST',
     });
 
@@ -48,6 +52,10 @@ export default function VerifierPage() {
       </div>
     );
   };
+
+  if (role !== 'verifier') {
+    return <div className="p-6">Доступ запрещён</div>;
+  }
 
   return (
     <div className="p-6 space-y-4">
