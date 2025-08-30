@@ -56,7 +56,7 @@ function renderMarkdown(md: string) {
 }
 
 export default function PoliciesPage() {
-  const base = path.join(process.cwd(), 'docs/policies');
+  const base = path.resolve(process.cwd(), 'docs', 'policies');
   const terms = fs.readFileSync(path.join(base, 'Terms-draft-RU.md'), 'utf-8');
   const privacy = fs.readFileSync(
     path.join(base, 'PrivacyPolicy-draft-RU.md'),
