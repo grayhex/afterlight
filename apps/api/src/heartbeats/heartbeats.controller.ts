@@ -1,14 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { HeartbeatsService } from './heartbeats.service';
 import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto';
 import { HeartbeatPingDto } from './dto/ping.dto';
 import { CurrentUser } from '../common/current-user.decorator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('heartbeats')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller()
 export class HeartbeatsController {
   constructor(private readonly service: HeartbeatsService) {}

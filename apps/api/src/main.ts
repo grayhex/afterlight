@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaService } from './prisma/prisma.service';
+import { AuthGuard } from './auth/guards/auth.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,6 +14,8 @@ async function bootstrap() {
     transform: true,
     forbidUnknownValues: false,
   }));
+
+  app.useGlobalGuards(app.get(AuthGuard));
 
   const config = new DocumentBuilder()
     .setTitle('AfterLight API')

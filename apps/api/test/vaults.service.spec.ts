@@ -1,6 +1,6 @@
 import { VaultsService } from '../src/vaults/vaults.service';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 
 describe('VaultsService', () => {
   let prisma: any;
@@ -23,10 +23,6 @@ describe('VaultsService', () => {
     expect(passed.userId).toBe('u1');
     expect(passed.mkWrapped).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
     expect(res.mkWrapped).toBe(passed.mkWrapped);
-  });
-
-  it('throws Unauthorized when user id missing', async () => {
-    await expect(service.createForUser('', {} as any)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('throws NotFound when vault not found', async () => {

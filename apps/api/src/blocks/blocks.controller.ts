@@ -1,14 +1,12 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 import { BlocksService } from './blocks.service';
 import { CreateBlockDto } from './dto/create-block.dto';
 import { AssignRecipientDto } from './dto/assign-recipient.dto';
 import { CurrentUser } from '../common/current-user.decorator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('blocks')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('blocks')
 export class BlocksController {
   constructor(private readonly service: BlocksService) {}
