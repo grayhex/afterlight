@@ -4,9 +4,11 @@ import { BlocksService } from './blocks.service';
 import { CreateBlockDto } from './dto/create-block.dto';
 import { AssignRecipientDto } from './dto/assign-recipient.dto';
 import { CurrentUser } from '../common/current-user.decorator';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('blocks')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('blocks')
 export class BlocksController {
   constructor(private readonly service: BlocksService) {}

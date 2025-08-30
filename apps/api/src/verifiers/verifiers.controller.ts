@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { randomBytes } from 'crypto';
 import { VerifiersService } from './verifiers.service';
 import { InviteVerifierDto } from './dto/invite-verifier.dto';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('verifiers')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('verifiers')
 export class VerifiersController {
   constructor(private readonly service: VerifiersService) {}

@@ -4,9 +4,11 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDto } from './dto/user.dto';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('users')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('users')
 export class UsersController {
   constructor(private readonly service: UsersService) {}

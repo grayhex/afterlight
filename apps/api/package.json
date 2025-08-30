@@ -6,7 +6,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "seed": "ts-node prisma/seed.ts",
-    "test": "jest"
+    "test": "jest",
+    "openapi": "ts-node src/openapi.ts"
   },
   "prisma": {
     "seed": "node dist/prisma/seed.js"
