@@ -6,7 +6,7 @@ import FeatureCard from '@/components/feature-card';
 import FaqItem from '@/components/faq-item';
 import Stats from '@/components/stats';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Lock, Users, Activity, Link as LinkIcon } from 'lucide-react';
+import { Lock, Users, Activity, Link as LinkIcon, Shield } from 'lucide-react';
 
 const NetworkMesh = dynamic(() => import('@/components/network-mesh'), { ssr: false });
 
@@ -28,6 +28,10 @@ export default function Home() {
     {
       icon: <LinkIcon className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent" />,
       text: 'Публичные ссылки на блоки живут 24 часа и защищены CAPTCHA.',
+    },
+    {
+      icon: <Shield className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent" />,
+      text: 'Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные и технические метаданные.',
     },
   ];
 
@@ -91,7 +95,7 @@ export default function Home() {
         transition={reduceMotion ? undefined : { duration: 0.4 }}
       >
         <h2 className="mb-4 text-2xl font-semibold">Преимущества</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {features.map((f, i) => (
             <FeatureCard key={i} icon={f.icon} text={f.text} delay={i * 0.1} />
           ))}
@@ -116,16 +120,12 @@ export default function Home() {
         transition={reduceMotion ? undefined : { duration: 0.4 }}
       >
         <h2 className="mb-4 text-2xl font-semibold">FAQ</h2>
-        <div className="max-h-64 space-y-4 overflow-y-auto rounded border border-bodaghee-accent/20 bg-bodaghee-bg p-4 text-white">
+        <div className="space-y-4">
           {faqs.map((f, i) => (
             <FaqItem key={i} question={f.q} answer={f.a} delay={i * 0.1} />
           ))}
         </div>
       </motion.section>
-
-      <p className="mx-auto mb-16 max-w-2xl px-4 text-sm text-white/70 sm:px-8">
-        Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные и технические метаданные.
-      </p>
     </div>
   );
 }
