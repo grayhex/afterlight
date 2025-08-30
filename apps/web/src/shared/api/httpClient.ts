@@ -6,7 +6,7 @@ interface HttpClientOptions extends RequestInit {
 
 export async function httpClient(
   path: string,
-  { base, ...init }: HttpClientOptions = {}
+  { base, ...init }: HttpClientOptions = {},
 ) {
   const basePath = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
   const finalPath = path.startsWith('/') ? path : `/${path}`;
@@ -14,9 +14,28 @@ export async function httpClient(
     ? new URL(`${basePath}${finalPath}`, base).toString()
     : `${basePath}${finalPath}`;
   try {
-    return await fetch(url, { ...init, credentials: 'include' });
+    const res = await fetch(url, {
+      credentials: 'include',
+      method: init.method ?? 'POST',
+      ...init,
+    });
+
+    if (path === '/auth/login' && res.ok && typeof window !== 'undefined') {
+      try {
+        const data = await res.clone().json();
+        const role = data?.role;
+        if (role === 'owner' || role === 'verifier') {
+          window.localStorage.setItem('role', role);
+        }
+      } catch {
+        // ignore JSON parse errors
+      }
+    }
+
+    return res;
   } catch (error) {
     console.error('HTTP request failed', error);
     throw error;
   }
 }
+
