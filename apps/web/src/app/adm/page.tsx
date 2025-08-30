@@ -15,10 +15,22 @@ export default function AdminPage() {
       subtitle: (formData.get('subtitle') as string) || '',
       description: (formData.get('description') as string) || '',
       bgColor: (formData.get('bgColor') as string) || '#000000',
+      headerBgColor:
+        (formData.get('headerBgColor') as string) || '#f3f4f6',
+      headerTextColor:
+        (formData.get('headerTextColor') as string) || '#111827',
       titleColor: (formData.get('titleColor') as string) || '#ffffff',
       subtitleColor: (formData.get('subtitleColor') as string) || '#ffffff',
       descriptionColor:
         (formData.get('descriptionColor') as string) || '#ffffff',
+      buttonPrimaryBgColor:
+        (formData.get('buttonPrimaryBgColor') as string) || '#2563eb',
+      buttonPrimaryTextColor:
+        (formData.get('buttonPrimaryTextColor') as string) || '#ffffff',
+      buttonSecondaryBorderColor:
+        (formData.get('buttonSecondaryBorderColor') as string) || '#2563eb',
+      buttonSecondaryTextColor:
+        (formData.get('buttonSecondaryTextColor') as string) || '#2563eb',
       links: {
         telegram: (formData.get('telegram') as string) || '',
         github: (formData.get('github') as string) || '',
@@ -73,10 +85,55 @@ export default function AdminPage() {
             />
           </div>
         </label>
-        <div className="flex gap-4">
+        <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-1">
             <span>Цвет фона</span>
             <input type="color" name="bgColor" defaultValue={config.bgColor} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span>Шапка: фон и текст</span>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                name="headerBgColor"
+                defaultValue={config.headerBgColor}
+              />
+              <input
+                type="color"
+                name="headerTextColor"
+                defaultValue={config.headerTextColor}
+              />
+            </div>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span>Кнопка: фон и текст</span>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                name="buttonPrimaryBgColor"
+                defaultValue={config.buttonPrimaryBgColor}
+              />
+              <input
+                type="color"
+                name="buttonPrimaryTextColor"
+                defaultValue={config.buttonPrimaryTextColor}
+              />
+            </div>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span>Вторичная кнопка: рамка и текст</span>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                name="buttonSecondaryBorderColor"
+                defaultValue={config.buttonSecondaryBorderColor}
+              />
+              <input
+                type="color"
+                name="buttonSecondaryTextColor"
+                defaultValue={config.buttonSecondaryTextColor}
+              />
+            </div>
           </label>
         </div>
         <label className="flex flex-col gap-1">

@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { getLandingConfig } from "@/lib/landing";
+
+export const dynamic = 'force-dynamic';
 
 export default function DevHome() {
+  const config = getLandingConfig();
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-8">
       <h1 className="mb-4 text-3xl font-bold">
@@ -25,13 +29,21 @@ export default function DevHome() {
       <div className="mb-8 flex flex-col gap-4 sm:flex-row">
         <Link
           href="/dev/owner"
-          className="rounded bg-blue-600 px-4 py-2 text-center text-white"
+          className="rounded px-4 py-2 text-center"
+          style={{
+            backgroundColor: config.buttonPrimaryBgColor,
+            color: config.buttonPrimaryTextColor,
+          }}
         >
           Создать сейф
         </Link>
         <Link
           href="/dev/how"
-          className="rounded border border-blue-600 px-4 py-2 text-center text-blue-600"
+          className="rounded border px-4 py-2 text-center"
+          style={{
+            borderColor: config.buttonSecondaryBorderColor,
+            color: config.buttonSecondaryTextColor,
+          }}
         >
           Как это работает
         </Link>
