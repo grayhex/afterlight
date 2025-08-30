@@ -1,4 +1,4 @@
-import { FaTelegramPlane, FaGithub, FaCode } from 'react-icons/fa';
+import FooterLinks from '@/components/footer-links';
 import { getLandingConfig } from '@/lib/landing';
 
 export const dynamic = 'force-dynamic';
@@ -25,17 +25,7 @@ export default function Home() {
           {config.description}
         </p>
       </div>
-      <div className="fixed bottom-6 left-1/2 flex -translate-x-1/2 gap-6">
-        <a href={config.links.telegram} aria-label="Telegram">
-          <FaTelegramPlane className="h-6 w-6" />
-        </a>
-        <a href={config.links.github} aria-label="GitHub">
-          <FaGithub className="h-6 w-6" />
-        </a>
-        <a href={config.links.dev} aria-label="Dev build">
-          <FaCode className="h-6 w-6" />
-        </a>
-      </div>
+      <FooterLinks links={config.links} />
     </main>
   );
 }
