@@ -14,7 +14,6 @@
   "dependencies": {
     "@noble/hashes": "^1.8.0",
     "@prisma/client": "^5.17.0",
-    "framer-motion": "^12.23.12",
     "lucide-react": "^0.539.0",
     "next": "14.2.5",
     "react": "18.3.1",

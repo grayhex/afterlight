@@ -1,33 +1,55 @@
-import Link from "next/link";
 import FooterLinks from "@/components/footer-links";
 import { getLandingConfig } from "@/lib/landing";
+import { Lock, Users, Activity, Link as LinkIcon } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 
 export default function Home() {
   const config = getLandingConfig();
+  const features = [
+    {
+      icon: Lock,
+      text: "Клиентское шифрование: мы не видим содержимое ваших сейфов.",
+    },
+    {
+      icon: Users,
+      text: "Кворум 2 из 3 верификаторов подтверждает событие.",
+    },
+    {
+      icon: Activity,
+      text: "Heartbeat: год без входа запускает процесс вручения.",
+    },
+    {
+      icon: LinkIcon,
+      text: "Публичные ссылки на блоки живут 24 часа и защищены CAPTCHA.",
+    },
+  ];
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-8">
       <h1 className="mb-4 text-3xl font-bold">
-        Afterlight — цифровой сейф на случай непредвидимого
+        Afterlight — цифровое завещание под вашим контролем
       </h1>
       <p className="mb-6 text-lg">
-        Подготовьте важные данные заранее. Доступ к ним откроется вашим близким
-        только при подтверждённом событии.
+        Сохраните зашифрованные инструкции и файлы, которые увидят ваши
+        доверенные люди после подтверждённого события.
       </p>
-      <ul className="mb-8 list-disc space-y-2 pl-5">
-        <li>Клиентское шифрование: мы не видим содержимое ваших сейфов.</li>
-        <li>Простой кворум: 2 из 3 доверенных людей подтверждают событие.</li>
-        <li>
-          Контроль времени: сутки на финальные действия, год — окно «я на
-          связи».
-        </li>
-        <li>
-          Публичное «послание миру»: опционально, по ссылке на 24 часа с
-          CAPTCHA.
-        </li>
-      </ul>
-      {/* Call-to-action buttons removed per design update */}
+
+      <section className="mb-8">
+        <h2 className="mb-4 text-2xl font-semibold">Фичи</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {features.map((f, i) => (
+            <div
+              key={i}
+              className="feature-card card-fade"
+              style={{ animationDelay: `${i * 0.1}s` }}
+            >
+              <f.icon className="feature-icon mb-2 h-6 w-6 text-accent" />
+              <p className="text-sm">{f.text}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <h2 className="mb-4 text-2xl font-semibold">Как это работает (3 шага)</h2>
       <ol className="mb-6 list-decimal space-y-2 pl-5">
         <li>Создайте сейф и добавьте 3 верификаторов.</li>
@@ -37,7 +59,35 @@ export default function Home() {
           24 часа доступ будет открыт.
         </li>
       </ol>
-      <p className="text-sm text-gray-600">
+
+      <section className="mb-6">
+        <h2 className="text-2xl font-semibold mb-4">FAQ</h2>
+        <div className="space-y-4">
+          <div className="card-fade">
+            <h3 className="font-medium">Как обеспечивается безопасность?</h3>
+            <p>
+              Содержимое шифруется на вашем устройстве. Мы храним только
+              зашифрованные данные и технические метаданные.
+            </p>
+          </div>
+          <div className="card-fade" style={{ animationDelay: "0.1s" }}>
+            <h3 className="font-medium">Как подтверждается событие?</h3>
+            <p>
+              Двое из трёх доверенных людей подтверждают событие. После этого
+              запускается раскрытие сейфа.
+            </p>
+          </div>
+          <div className="card-fade" style={{ animationDelay: "0.2s" }}>
+            <h3 className="font-medium">Есть ли контроль времени?</h3>
+            <p>
+              У вас сутки на финальные действия, а окно «я на связи» длится
+              год.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <p className="text-sm text-gray-500">
         Содержимое шифруется на вашем устройстве. Мы храним только
         зашифрованные данные и технические метаданные.
       </p>
