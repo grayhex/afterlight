@@ -40,7 +40,7 @@ const defaultConfig: LandingConfig = {
     telegram: 'https://t.me/retrotink',
     github: 'https://github.com/retrotink/afterlight',
     // route for development layout
-    dev: '/dev',
+    dev: '/',
   },
 };
 
