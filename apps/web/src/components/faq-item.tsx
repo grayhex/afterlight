@@ -12,7 +12,7 @@ export default function FaqItem({ question, answer, delay = 0 }: Props) {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      className="card-fade rounded bg-bodaghee-teal p-4 text-bodaghee-navy"
+      className="card-fade rounded bg-bodaghee-bg p-4 text-white"
       initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 10 }}
       whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
       viewport={{ once: true }}

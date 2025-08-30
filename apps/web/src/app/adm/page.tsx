@@ -56,7 +56,7 @@ export default function AdminPage() {
             <input
               name="title"
               defaultValue={config.title}
-              className="flex-1 rounded border p-2 text-bodaghee-navy"
+              className="flex-1 rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
             <input type="color" name="titleColor" defaultValue={config.titleColor} />
           </div>
@@ -67,7 +67,7 @@ export default function AdminPage() {
             <input
               name="subtitle"
               defaultValue={config.subtitle}
-              className="flex-1 rounded border p-2 text-bodaghee-navy"
+              className="flex-1 rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
             <input type="color" name="subtitleColor" defaultValue={config.subtitleColor} />
           </div>
@@ -78,7 +78,7 @@ export default function AdminPage() {
             <input
               name="description"
               defaultValue={config.description}
-              className="flex-1 rounded border p-2 text-bodaghee-navy"
+              className="flex-1 rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
             <input
               type="color"
@@ -144,7 +144,7 @@ export default function AdminPage() {
               name="telegram"
               defaultValue={config.links.telegram}
               placeholder="URL"
-              className="rounded border p-2 text-bodaghee-navy"
+              className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
         </label>
         <label className="flex flex-col gap-1">
@@ -153,7 +153,7 @@ export default function AdminPage() {
               name="github"
               defaultValue={config.links.github}
               placeholder="URL"
-              className="rounded border p-2 text-bodaghee-navy"
+              className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
         </label>
         <label className="flex flex-col gap-1">
@@ -162,7 +162,7 @@ export default function AdminPage() {
               name="dev"
               defaultValue={config.links.dev}
               placeholder="URL"
-              className="rounded border p-2 text-bodaghee-navy"
+              className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
         </label>
         <label className="flex flex-col gap-1">
@@ -171,7 +171,7 @@ export default function AdminPage() {
               name="policies"
               defaultValue={config.links.policies}
               placeholder="URL"
-              className="rounded border p-2 text-bodaghee-navy"
+              className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
         </label>
         <label className="flex flex-col gap-1">
@@ -180,10 +180,10 @@ export default function AdminPage() {
               name="contacts"
               defaultValue={config.links.contacts}
               placeholder="URL"
-              className="rounded border p-2 text-bodaghee-navy"
+              className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50"
             />
         </label>
-        <button type="submit" className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy">
+        <button type="submit" className="rounded border border-bodaghee-accent bg-bodaghee-bg px-4 py-2 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg">
           Сохранить
         </button>
       </form>

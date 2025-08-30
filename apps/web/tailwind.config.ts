@@ -1,5 +1,4 @@
 import type { Config } from 'tailwindcss';
-import colors from 'tailwindcss/colors';
 
 export default {
   darkMode: 'class',
@@ -7,10 +6,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        'bodaghee-navy': '#203549',
-        'bodaghee-teal': '#92CBDB',
-        'bodaghee-lime': '#DCFD35',
-        gray: colors.neutral,
+        'bodaghee-bg': '#040319',
+        'bodaghee-accent': '#92CBDB',
+        white: '#FFFFFF',
       },
       keyframes: {
         'card-fade': {

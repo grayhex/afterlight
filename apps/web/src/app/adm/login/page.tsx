@@ -44,19 +44,19 @@ export default function AdminLoginPage() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded border p-2 text-bodaghee-navy"
+          className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent"
         />
         <input
           type="password"
           placeholder="Пароль"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded border p-2 text-bodaghee-navy"
+          className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent"
         />
-        {error && <p className="text-bodaghee-lime">{error}</p>}
+        {error && <p className="text-bodaghee-accent">{error}</p>}
         <button
           type="submit"
-          className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy"
+          className="rounded border border-bodaghee-accent bg-bodaghee-bg px-4 py-2 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
         >
           Войти
         </button>

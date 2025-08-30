@@ -22,7 +22,7 @@ export default function Stats({ items }: { items: Stat[] }) {
           viewport={{ once: true }}
           transition={reduceMotion ? undefined : { duration: 0.4, delay: i * 0.1 }}
         >
-          <div className="font-numeric text-3xl font-bold text-bodaghee-lime">
+          <div className="font-numeric text-3xl font-bold text-bodaghee-accent">
             {reduceMotion ? (
               <span>
                 {s.value}
@@ -32,7 +32,7 @@ export default function Stats({ items }: { items: Stat[] }) {
               <CountUp end={s.value} suffix={s.suffix} duration={1.2} />
             )}
           </div>
-          <p className="text-sm text-bodaghee-navy">{s.label}</p>
+          <p className="text-sm text-white">{s.label}</p>
         </motion.div>
       ))}
     </div>
