@@ -11,6 +11,11 @@ import { OrchestratorModule } from './orchestrator/orchestrator.module';
 import { HeartbeatsModule } from './heartbeats/heartbeats.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { PlansModule } from './plans/plans.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { RecoverySharesModule } from './recovery-shares/recovery-shares.module';
 
 @Module({
 imports: [
@@ -26,6 +31,11 @@ imports: [
   NotificationsModule,
   OrchestratorModule,
   HealthModule,
+  UsersModule,
+  PlansModule,
+  SubscriptionsModule,
+  AuditLogsModule,
+  RecoverySharesModule,
 ],
 })
 export class AppModule {}
