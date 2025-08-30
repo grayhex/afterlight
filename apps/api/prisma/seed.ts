@@ -62,20 +62,20 @@ async function main() {
   }
 
   await prisma.user.upsert({
-    where: { email: 'admin@example.com' },
+    where: { email: 'admin@afterl.ru' },
     update: {},
     create: {
-      email: 'admin@example.com',
-      passwordHash: await hashPassword('admin'),
+      email: 'admin@afterl.ru',
+      passwordHash: await hashPassword('S3cret!Admin2024'),
       role: 'Admin'
     }
   })
 
   await prisma.user.upsert({
-    where: { email: 'test1@example.com' },
+    where: { email: 'test1@afterl.ru' },
     update: {},
     create: {
-      email: 'test1@example.com',
+      email: 'test1@afterl.ru',
       passwordHash: await hashPassword('pass1'),
       role: 'User'
     }
