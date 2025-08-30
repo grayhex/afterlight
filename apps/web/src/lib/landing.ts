@@ -27,7 +27,8 @@ const defaultConfig: LandingConfig = {
   subtitle: 'Идёт разработка с\u00a0помощью искусственного интеллекта',
   description: 'Скоро здесь появится серьёзный проект.',
   bgColor: '#000000',
-  headerBgColor: '#f3f4f6',
+  // Use a slightly darker gray so the header isn't as bright
+  headerBgColor: '#e5e7eb',
   headerTextColor: '#111827',
   titleColor: '#10a37f',
   subtitleColor: '#ffffff',

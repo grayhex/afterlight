@@ -27,28 +27,7 @@ export default function Home() {
           CAPTCHA.
         </li>
       </ul>
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row">
-        <Link
-          href="/owner"
-          className="rounded px-4 py-2 text-center"
-          style={{
-            backgroundColor: config.buttonPrimaryBgColor,
-            color: config.buttonPrimaryTextColor,
-          }}
-        >
-          Создать сейф
-        </Link>
-        <Link
-          href="/how"
-          className="rounded border px-4 py-2 text-center"
-          style={{
-            borderColor: config.buttonSecondaryBorderColor,
-            color: config.buttonSecondaryTextColor,
-          }}
-        >
-          Как это работает
-        </Link>
-      </div>
+      {/* Call-to-action buttons removed per design update */}
       <h2 className="mb-4 text-2xl font-semibold">Как это работает (3 шага)</h2>
       <ol className="mb-6 list-decimal space-y-2 pl-5">
         <li>Создайте сейф и добавьте 3 верификаторов.</li>
