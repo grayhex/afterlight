@@ -4,6 +4,7 @@ import { NotFoundException } from '@nestjs/common';
 
 describe('VaultsService', () => {
   let prisma: any;
+  let audit: any;
   let service: VaultsService;
 
   beforeEach(() => {
@@ -13,7 +14,8 @@ describe('VaultsService', () => {
         findFirst: jest.fn(),
       },
     } as any;
-    service = new VaultsService(prisma);
+    audit = { log: jest.fn() };
+    service = new VaultsService(prisma, audit);
   });
 
   it('creates vault with generated mk_wrapped', async () => {

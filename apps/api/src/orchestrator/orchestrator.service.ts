@@ -1,6 +1,8 @@
 import { Injectable, BadRequestException, ConflictException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../audit/audit.service';
+import { ActorType } from '@prisma/client';
 
 type VState = 'Draft'|'Submitted'|'Confirming'|'Disputed'|'QuorumReached'|'HeartbeatTimeout'|'Grace'|'Finalized';
 type VDecision = 'Confirm'|'Deny';
@@ -8,7 +10,7 @@ type VDecision = 'Confirm'|'Deny';
 @Injectable()
 export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
-  constructor(private prisma: PrismaService, private notify: NotificationsService) {}
+  constructor(private prisma: PrismaService, private notify: NotificationsService, private audit: AuditService) {}
 
   private async getVaultOrThrow(userId: string, vaultId: string) {
     const v = await this.prisma.vault.findUnique({ where: { id: vaultId } });
@@ -40,6 +42,7 @@ export class OrchestratorService {
         quorumRequired: (vault as any).quorumThreshold ?? 3,
       },
     });
+    await this.audit.log(ActorType.User, userId, 'orchestrator_start', 'VerificationEvent', event.id);
 
     const verifiers = await this.prisma.vaultVerifier.findMany({
       where: { vaultId, roleStatus: 'Active' as any },
@@ -215,7 +218,7 @@ export class OrchestratorService {
     return { state: next, confirms, denies, quorum };
   }
 
-  async decide(vaultId: string, verifierId: string, decision: VDecision, signature?: string) {
+  async decide(actorId: string, vaultId: string, verifierId: string, decision: VDecision, signature?: string) {
     const frozen = await this.prisma.verificationEvent.findFirst({
       where: { vaultId, state: 'Disputed' as any },
       orderBy: { createdAt: 'desc' },
@@ -253,7 +256,13 @@ export class OrchestratorService {
         },
       });
     }
-
+    await this.audit.log(
+      ActorType.Verifier,
+      actorId,
+      `orchestrator_decide:${decision}`,
+      'VerificationEvent',
+      active.id,
+    );
     return this.recomputeAndTransition(active.id, new Date());
   }
   

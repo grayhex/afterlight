@@ -3,10 +3,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateVaultDto } from './dto/create-vault.dto';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
 import { randomBytes } from 'crypto';
+import { AuditService } from '../audit/audit.service';
+import { ActorType } from '@prisma/client';
 
 @Injectable()
 export class VaultsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService) {}
 
   async listForUser(userId: string, cursor?: string, limit = 50) {
     const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
@@ -33,7 +35,7 @@ export class VaultsService {
       isDemo: false,
     };
     const mkWrapped = randomBytes(32).toString('base64');
-    return this.prisma.vault.create({
+    const vault = await this.prisma.vault.create({
       data: {
         userId,
         status: 'Active',
@@ -45,6 +47,9 @@ export class VaultsService {
         mkWrapped,
       },
     });
+
+    await this.audit.log(ActorType.User, userId, 'vault_create', 'Vault', vault.id);
+    return vault;
   }
 
   async updateSettings(userId: string, id: string, dto: UpdateVaultSettingsDto) {
@@ -70,6 +75,7 @@ export class VaultsService {
         ...(dto.grace_hours !== undefined ? { graceHours: dto.grace_hours } : {}),
       },
     });
+    await this.audit.log(ActorType.User, userId, 'vault_update_settings', 'Vault', id);
     return updated;
   }
 }

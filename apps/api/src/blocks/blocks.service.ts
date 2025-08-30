@@ -2,10 +2,12 @@ import { Injectable, BadRequestException, ForbiddenException, NotFoundException 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBlockDto } from './dto/create-block.dto';
 import { AssignRecipientDto } from './dto/assign-recipient.dto';
+import { AuditService } from '../audit/audit.service';
+import { ActorType } from '@prisma/client';
 
 @Injectable()
 export class BlocksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService) {}
 
   private async ensureVaultOwner(userId: string, vaultId: string) {
     const v = await this.prisma.vault.findFirst({ where: { id: vaultId, userId } });
@@ -45,7 +47,7 @@ export class BlocksService {
       metadata = dto.metadata;
     }
 
-    return this.prisma.block.create({
+    const block = await this.prisma.block.create({
       data: {
         vaultId: v.id,
         type: dto.type as any,
@@ -57,6 +59,8 @@ export class BlocksService {
         isPublic: dto.is_public ?? false,
       },
     });
+    await this.audit.log(ActorType.User, userId, 'block_create', 'Block', block.id);
+    return block;
   }
 
   async softDelete(userId: string, id: string) {
@@ -64,6 +68,7 @@ export class BlocksService {
     if (!b || b.deletedAt) throw new NotFoundException('Block not found');
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');
     await this.prisma.block.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.audit.log(ActorType.User, userId, 'block_soft_delete', 'Block', id);
   }
 
   async listRecipients(userId: string, blockId: string) {
@@ -103,6 +108,7 @@ export class BlocksService {
       },
       include: { recipient: true },
     });
+    await this.audit.log(ActorType.User, userId, 'block_assign_recipient', 'Block', blockId);
     return br;
   }
 }
