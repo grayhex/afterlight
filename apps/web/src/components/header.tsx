@@ -29,27 +29,31 @@ export default function Header() {
             <Link href="/dev">Главная</Link>
           </li>
           <li>
-            <a href="#how">Как это работает</a>
+            <Link href="/dev/how">Как это работает</Link>
           </li>
           <li>
-            <a href="#policies">Политики</a>
+            <Link href="/dev/policies">Политики</Link>
           </li>
           <li>
-            <a href="#contacts">Контакты</a>
+            <Link href="/dev/contacts">Контакты</Link>
           </li>
         </ul>
-        <ul className="flex gap-4">
-          {role === 'owner' && (
-            <li>
-              <Link href="/dev/owner">Личный кабинет</Link>
-            </li>
-          )}
-          {role === 'verifier' && (
-            <li>
-              <Link href="/dev/verifier">Кабинет верификатора</Link>
-            </li>
-          )}
-        </ul>
+        {
+          (role === 'owner' || role === 'verifier') && (
+            <ul className="flex gap-4">
+              {role === 'owner' && (
+                <li>
+                  <Link href="/dev/owner">Личный кабинет</Link>
+                </li>
+              )}
+              {role === 'verifier' && (
+                <li>
+                  <Link href="/dev/verifier">Кабинет верификатора</Link>
+                </li>
+              )}
+            </ul>
+          )
+        }
       </nav>
     </header>
   );
