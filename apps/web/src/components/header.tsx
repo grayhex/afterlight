@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useAuth } from '@/shared/auth/useAuth';
 import {
   Home,
   Info,
@@ -13,20 +13,6 @@ import {
   LogOut,
 } from 'lucide-react';
 
-// Simple role detection using localStorage
-// Possible roles: guest (default), owner, verifier
-function useRole() {
-  const [role, setRole] = useState<'guest' | 'owner' | 'verifier'>('guest');
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem('role');
-    if (stored === 'owner' || stored === 'verifier') {
-      setRole(stored);
-    }
-  }, []);
-
-  return role;
-}
 
 interface HeaderProps {
   bgColor: string;
@@ -34,7 +20,7 @@ interface HeaderProps {
 }
 
 export default function Header({ bgColor, textColor }: HeaderProps) {
-  const role = useRole();
+  const { role } = useAuth();
 
   const linkStyle = { color: textColor } as React.CSSProperties;
 
