@@ -6,6 +6,8 @@ dist
 # Env
 .env
 .env.*
+# Allow example env file
+!.env.example
 # Logs
 npm-debug.log*
 pnpm-debug.log*
