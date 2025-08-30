@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { httpClient } from './shared/api/httpClient';
 // Prisma cannot run in Edge middleware; use API route instead
 
 function unauthorized() {
@@ -14,10 +15,11 @@ export async function middleware(req: NextRequest) {
   const auth = `Basic ${authCookie.value}`;
 
   try {
-    const res = await fetch(new URL('/api/landing', req.url), {
+    const res = await httpClient('/landing', {
       headers: { authorization: auth },
       // ensure fresh auth check
       cache: 'no-store',
+      base: req.url,
     });
     if (res.status !== 200) return unauthorized();
   } catch {

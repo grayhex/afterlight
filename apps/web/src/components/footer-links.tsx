@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import { httpClient } from '../shared/api/httpClient';
 import {
   FaTelegramPlane,
   FaGithub,
@@ -28,7 +29,7 @@ export default function FooterLinks({ links }: { links: Links }) {
     setError('');
     const encoded = btoa(`${email}:${password}`);
     try {
-      const res = await fetch('/api/landing', {
+      const res = await httpClient('/landing', {
         method: 'HEAD',
         headers: { Authorization: `Basic ${encoded}` },
       });
