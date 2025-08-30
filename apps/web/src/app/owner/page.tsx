@@ -111,15 +111,15 @@ export default function OwnerPage() {
   };
   if (role !== "owner") {
     return <div className="p-6">Доступ запрещён</div>;
-  }
+    }
 
-  return (
+    return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Личный кабинет</h1>
+      <h1 className="mb-4 text-2xl">Личный кабинет</h1>
 
       <div className="mb-4">
         <button
-          className="rounded bg-blue-600 px-4 py-2 text-white"
+          className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy"
           onClick={() => setShowModal(true)}
         >
           Новый сейф
@@ -127,7 +127,7 @@ export default function OwnerPage() {
       </div>
 
       {vaultsLoading && <p>Загрузка...</p>}
-      {vaultsError && <p className="text-red-500">{vaultsError}</p>}
+        {vaultsError && <p className="text-bodaghee-lime">{vaultsError}</p>}
       {!vaultsLoading && !vaultsError && (
         <table className="min-w-full border text-sm">
           <thead>
@@ -150,9 +150,9 @@ export default function OwnerPage() {
       )}
 
       <div className="mt-8">
-        <h2 className="text-xl font-bold mb-2">Верификаторы</h2>
+        <h2 className="mb-2 text-xl">Верификаторы</h2>
         {verifiersLoading && <p>Загрузка...</p>}
-        {verifiersError && <p className="text-red-500">{verifiersError}</p>}
+        {verifiersError && <p className="text-bodaghee-lime">{verifiersError}</p>}
         {!verifiersLoading && !verifiersError && (
           <ul className="mb-4 list-disc pl-5">
             {verifiers.map((v: any, idx: number) => (
@@ -164,35 +164,35 @@ export default function OwnerPage() {
         <div className="flex gap-2">
           <input
             type="email"
-            className="border p-2 flex-grow"
+            className="flex-grow border p-2 text-bodaghee-navy"
             placeholder="email"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
           />
           <button
-            className="rounded bg-blue-600 px-4 py-2 text-white"
+            className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy"
             onClick={handleInvite}
             disabled={inviting}
           >
             Пригласить
           </button>
         </div>
-        {inviteError && <p className="text-red-500 mt-2">{inviteError}</p>}
+          {inviteError && <p className="mt-2 text-bodaghee-lime">{inviteError}</p>}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Новый сейф</h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-bodaghee-navy/50">
+          <div className="w-full max-w-md rounded bg-bodaghee-teal p-6 text-bodaghee-navy">
+            <h2 className="mb-4 text-xl">Новый сейф</h2>
             <div className="space-y-2">
-              <input
-                className="w-full border p-2"
-                placeholder="Название сейфа"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+                <input
+                  className="w-full border p-2 text-bodaghee-navy"
+                  placeholder="Название сейфа"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
               <textarea
-                className="w-full border p-2"
+                className="w-full border p-2 text-bodaghee-navy"
                 placeholder="Описание (необязательно)"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -201,7 +201,7 @@ export default function OwnerPage() {
                 <input
                   key={idx}
                   type="email"
-                  className="w-full border p-2"
+                  className="w-full border p-2 text-bodaghee-navy"
                   placeholder={`Верификатор ${idx + 1} (e-mail)`}
                   value={email}
                   onChange={(e) => {
@@ -211,7 +211,7 @@ export default function OwnerPage() {
                   }}
                 />
               ))}
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-bodaghee-navy/70">
                 Добавьте три человека, которым вы доверяете. Доступ откроется при
                 подтверждении двух из них.
               </p>
@@ -219,18 +219,18 @@ export default function OwnerPage() {
                 type="number"
                 min={1}
                 max={3}
-                className="w-full border p-2"
+                className="w-full border p-2 text-bodaghee-navy"
                 value={quorum}
                 onChange={(e) => setQuorum(Number(e.target.value))}
               />
             </div>
-            {createError && <p className="text-red-500 mt-2">{createError}</p>}
+              {createError && <p className="mt-2 text-bodaghee-lime">{createError}</p>}
             <div className="mt-4 flex justify-end gap-2">
-              <button className="px-4 py-2" onClick={() => setShowModal(false)}>
-                Отмена
-              </button>
-              <button
-                className="rounded bg-blue-600 px-4 py-2 text-white"
+                <button className="px-4 py-2" onClick={() => setShowModal(false)}>
+                  Отмена
+                </button>
+                <button
+                className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy"
                 onClick={handleCreate}
                 disabled={creating}
               >

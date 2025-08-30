@@ -2,24 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-  --color-bg: #0a0a0a;
-  --color-card: #1a1a1a;
-  --color-text: #f5f5f5;
-  --color-accent: #6366f1;
-}
-
 html,
 body {
   min-height: 100%;
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  @apply bg-bodaghee-teal text-bodaghee-navy font-body;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  @apply text-bodaghee-lime underline-offset-4 hover:underline;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply font-heading text-bodaghee-navy;
 }
 
 @keyframes card-fade {
@@ -44,20 +48,8 @@ body {
   }
 }
 
-.feature-card {
-  background-color: var(--color-card);
-  border: 1px solid #262626;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  transition: border-color 0.2s;
-}
-
 .card-fade {
   animation: card-fade 0.6s ease both;
-}
-
-.feature-card:hover {
-  border-color: var(--color-accent);
 }
 
 .feature-icon {
@@ -65,6 +57,14 @@ body {
   transition: transform 0.2s;
 }
 
-.feature-card:hover .feature-icon {
-  transform: scale(1.1);
+@layer utilities {
+  .font-heading {
+    font-family: var(--font-heading), sans-serif;
+  }
+  .font-body {
+    font-family: var(--font-body), sans-serif;
+  }
+  .font-numeric {
+    font-family: var(--font-numeric), sans-serif;
+  }
 }

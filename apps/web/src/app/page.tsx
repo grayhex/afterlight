@@ -9,19 +9,19 @@ export const dynamic = 'force-dynamic';
 export default function Home() {
   const features = [
     {
-      icon: <Lock className="feature-icon mb-2 h-6 w-6 text-accent" />,
+      icon: <Lock className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
       text: "Клиентское шифрование: мы не видим содержимое ваших сейфов.",
     },
     {
-      icon: <Users className="feature-icon mb-2 h-6 w-6 text-accent" />,
+      icon: <Users className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
       text: "Кворум 2 из 3 верификаторов подтверждает событие.",
     },
     {
-      icon: <Activity className="feature-icon mb-2 h-6 w-6 text-accent" />,
+      icon: <Activity className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
       text: "Heartbeat: год без входа запускает процесс вручения.",
     },
     {
-      icon: <LinkIcon className="feature-icon mb-2 h-6 w-6 text-accent" />,
+      icon: <LinkIcon className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
       text: "Публичные ссылки на блоки живут 24 часа и защищены CAPTCHA.",
     },
   ];
@@ -83,14 +83,14 @@ export default function Home() {
 
       <section className="mb-6">
         <h2 className="text-2xl font-semibold mb-4">FAQ</h2>
-        <div className="max-h-64 space-y-4 overflow-y-auto rounded border bg-white p-4">
+        <div className="max-h-64 space-y-4 overflow-y-auto rounded border border-bodaghee-navy/20 bg-bodaghee-teal p-4 text-bodaghee-navy">
           {faqs.map((f, i) => (
             <FaqItem key={i} question={f.q} answer={f.a} delay={i * 0.1} />
           ))}
         </div>
       </section>
 
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-bodaghee-navy/70">
         Содержимое шифруется на вашем устройстве. Мы храним только
         зашифрованные данные и технические метаданные.
       </p>

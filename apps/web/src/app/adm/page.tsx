@@ -48,7 +48,7 @@ export default function AdminPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center p-6">
-      <h1 className="mb-4 text-2xl font-bold">Настройки титульной страницы</h1>
+      <h1 className="mb-4 text-2xl">Настройки титульной страницы</h1>
       <form action={saveConfig} className="flex w-full max-w-xl flex-col gap-4">
         <label className="flex flex-col gap-1">
           <span>Название проекта</span>
@@ -56,7 +56,7 @@ export default function AdminPage() {
             <input
               name="title"
               defaultValue={config.title}
-              className="flex-1 rounded p-2 text-black"
+              className="flex-1 rounded border p-2 text-bodaghee-navy"
             />
             <input type="color" name="titleColor" defaultValue={config.titleColor} />
           </div>
@@ -67,7 +67,7 @@ export default function AdminPage() {
             <input
               name="subtitle"
               defaultValue={config.subtitle}
-              className="flex-1 rounded p-2 text-black"
+              className="flex-1 rounded border p-2 text-bodaghee-navy"
             />
             <input type="color" name="subtitleColor" defaultValue={config.subtitleColor} />
           </div>
@@ -78,7 +78,7 @@ export default function AdminPage() {
             <input
               name="description"
               defaultValue={config.description}
-              className="flex-1 rounded p-2 text-black"
+              className="flex-1 rounded border p-2 text-bodaghee-navy"
             />
             <input
               type="color"
@@ -140,50 +140,50 @@ export default function AdminPage() {
         </div>
         <label className="flex flex-col gap-1">
           <span>Ссылка Telegram</span>
-          <input
-            name="telegram"
-            defaultValue={config.links.telegram}
-            placeholder="URL"
-            className="rounded p-2 text-black"
-          />
+            <input
+              name="telegram"
+              defaultValue={config.links.telegram}
+              placeholder="URL"
+              className="rounded border p-2 text-bodaghee-navy"
+            />
         </label>
         <label className="flex flex-col gap-1">
           <span>Ссылка GitHub</span>
-          <input
-            name="github"
-            defaultValue={config.links.github}
-            placeholder="URL"
-            className="rounded p-2 text-black"
-          />
+            <input
+              name="github"
+              defaultValue={config.links.github}
+              placeholder="URL"
+              className="rounded border p-2 text-bodaghee-navy"
+            />
         </label>
         <label className="flex flex-col gap-1">
           <span>Ссылка dev build</span>
-          <input
-            name="dev"
-            defaultValue={config.links.dev}
-            placeholder="URL"
-            className="rounded p-2 text-black"
-          />
+            <input
+              name="dev"
+              defaultValue={config.links.dev}
+              placeholder="URL"
+              className="rounded border p-2 text-bodaghee-navy"
+            />
         </label>
         <label className="flex flex-col gap-1">
           <span>Ссылка на политики</span>
-          <input
-            name="policies"
-            defaultValue={config.links.policies}
-            placeholder="URL"
-            className="rounded p-2 text-black"
-          />
+            <input
+              name="policies"
+              defaultValue={config.links.policies}
+              placeholder="URL"
+              className="rounded border p-2 text-bodaghee-navy"
+            />
         </label>
         <label className="flex flex-col gap-1">
           <span>Ссылка для контактов</span>
-          <input
-            name="contacts"
-            defaultValue={config.links.contacts}
-            placeholder="URL"
-            className="rounded p-2 text-black"
-          />
+            <input
+              name="contacts"
+              defaultValue={config.links.contacts}
+              placeholder="URL"
+              className="rounded border p-2 text-bodaghee-navy"
+            />
         </label>
-        <button type="submit" className="rounded bg-green-600 px-4 py-2 text-white">
+        <button type="submit" className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy">
           Сохранить
         </button>
       </form>
