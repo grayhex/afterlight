@@ -5,9 +5,13 @@ import {
   Logger,
   Res,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
+@ApiTags('health')
+@ApiErrorResponses()
 @Controller()
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);

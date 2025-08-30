@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PublicLinksService } from './public-links.service';
 import { UpdatePublicLinkDto } from './dto/update-public-link.dto';
 import { CurrentUser } from '../common/current-user.decorator';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('public-links')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('blocks/:id/public')
 export class PublicLinksController {
   constructor(private readonly service: PublicLinksService) {}

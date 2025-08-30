@@ -4,9 +4,11 @@ import { VaultsService } from './vaults.service';
 import { CreateVaultDto } from './dto/create-vault.dto';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
 import { CurrentUser } from '../common/current-user.decorator';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('vaults')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('vaults')
 export class VaultsController {
   constructor(private readonly service: VaultsService) {}

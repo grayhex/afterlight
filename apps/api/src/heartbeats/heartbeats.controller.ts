@@ -4,9 +4,11 @@ import { HeartbeatsService } from './heartbeats.service';
 import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto';
 import { HeartbeatPingDto } from './dto/ping.dto';
 import { CurrentUser } from '../common/current-user.decorator';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('heartbeats')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller()
 export class HeartbeatsController {
   constructor(private readonly service: HeartbeatsService) {}

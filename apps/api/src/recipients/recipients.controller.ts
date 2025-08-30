@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RecipientsService } from './recipients.service';
 import { CreateRecipientDto } from './dto/create-recipient.dto';
 import { SearchRecipientsDto } from './dto/search-recipients.dto';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('recipients')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('recipients')
 export class RecipientsController {
   constructor(private readonly service: RecipientsService) {}

@@ -4,9 +4,11 @@ import { OrchestratorService } from './orchestrator.service';
 import { StartEventDto } from './dto/start-event.dto';
 import { DecisionDto } from './dto/decision.dto';
 import { CurrentUser } from '../common/current-user.decorator';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('orchestrator')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('orchestration')
 export class OrchestratorController {
   constructor(private readonly svc: OrchestratorService) {}

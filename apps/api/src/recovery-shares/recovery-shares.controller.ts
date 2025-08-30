@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RecoverySharesService } from './recovery-shares.service';
 import { CreateRecoveryShareDto } from './dto/create-recovery-share.dto';
 import { UpdateRecoveryShareDto } from './dto/update-recovery-share.dto';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('recovery-shares')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('recovery-shares')
 export class RecoverySharesController {
   constructor(private readonly service: RecoverySharesService) {}

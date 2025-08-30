@@ -3,9 +3,11 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { VerificationEventsService } from './verification-events.service';
 import { StartVerificationEventDto } from './dto/start-event.dto';
 import { DecisionDto } from './dto/decision.dto';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 
 @ApiTags('verification-events')
 @ApiBearerAuth()
+@ApiErrorResponses()
 @Controller('verification-events')
 export class VerificationEventsController {
   constructor(private readonly service: VerificationEventsService) {}
