@@ -5,17 +5,17 @@ import { IsEnum, IsOptional, IsString, IsDateString } from 'class-validator';
 export class CreateSubscriptionDto {
   @ApiProperty()
   @IsString()
-  userId: string;
+  userId!: string;
 
   @ApiProperty()
   @IsString()
-  planId: string;
+  planId!: string;
 
   @ApiProperty({ enum: SubscriptionStatus })
   @IsEnum(SubscriptionStatus)
-  status: SubscriptionStatus;
+  status!: SubscriptionStatus;
 
   @ApiProperty({ type: String })
   @IsDateString()
-  currentPeriodEnd: string;
+  currentPeriodEnd!: string;
 }

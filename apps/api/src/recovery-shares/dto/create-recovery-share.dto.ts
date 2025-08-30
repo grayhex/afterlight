@@ -4,13 +4,13 @@ import { IsInt, IsString } from 'class-validator';
 export class CreateRecoveryShareDto {
   @ApiProperty()
   @IsString()
-  vaultId: string;
+  vaultId!: string;
 
   @ApiProperty()
   @IsInt()
-  shareIndex: number;
+  shareIndex!: number;
 
   @ApiProperty()
   @IsString()
-  shareCipher: string;
+  shareCipher!: string;
 }

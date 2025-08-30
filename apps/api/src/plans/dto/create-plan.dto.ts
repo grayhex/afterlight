@@ -5,7 +5,7 @@ import { IsEnum, IsOptional } from 'class-validator';
 export class CreatePlanDto {
   @ApiProperty({ enum: PlanTier })
   @IsEnum(PlanTier)
-  tier: PlanTier;
+  tier!: PlanTier;
 
   @ApiProperty({ type: Object })
   @IsOptional()

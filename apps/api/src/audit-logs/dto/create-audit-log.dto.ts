@@ -5,15 +5,15 @@ import { IsEnum, IsOptional, IsString } from 'class-validator';
 export class CreateAuditLogDto {
   @ApiProperty({ enum: ActorType })
   @IsEnum(ActorType)
-  actorType: ActorType;
+  actorType!: ActorType;
 
   @ApiProperty()
   @IsString()
-  actorId: string;
+  actorId!: string;
 
   @ApiProperty()
   @IsString()
-  action: string;
+  action!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()

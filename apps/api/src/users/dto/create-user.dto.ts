@@ -5,7 +5,7 @@ import { IsEmail, IsOptional, IsString, IsBoolean, IsEnum } from 'class-validato
 export class CreateUserDto {
   @ApiProperty()
   @IsEmail()
-  email: string;
+  email!: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
