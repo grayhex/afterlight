@@ -1,3 +1,5 @@
+import { auth } from '../auth/store';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 interface HttpClientOptions extends RequestInit {
@@ -25,7 +27,7 @@ export async function httpClient(
         const data = await res.clone().json();
         const role = data?.role;
         if (role === 'owner' || role === 'verifier') {
-          window.localStorage.setItem('role', role);
+          auth.login(role);
         }
       } catch {
         // ignore JSON parse errors
