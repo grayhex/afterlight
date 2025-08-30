@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { FaTelegramPlane, FaGithub, FaCode, FaUserShield } from 'react-icons/fa';
+import {
+  FaTelegramPlane,
+  FaGithub,
+  FaCode,
+  FaUserShield,
+  FaEye,
+  FaEyeSlash,
+} from 'react-icons/fa';
 
 interface Links {
   telegram: string;
@@ -14,6 +21,7 @@ export default function FooterLinks({ links }: { links: Links }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
@@ -64,13 +72,27 @@ export default function FooterLinks({ links }: { links: Links }) {
               onChange={(e) => setEmail(e.target.value)}
               className="rounded p-2 text-black"
             />
-            <input
-              type="password"
-              placeholder="Пароль"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="rounded p-2 text-black"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Пароль"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded p-2 pr-10 text-black"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-600"
+                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              >
+                {showPassword ? (
+                  <FaEyeSlash className="h-4 w-4" />
+                ) : (
+                  <FaEye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             {error && <p className="text-red-400">{error}</p>}
             <div className="flex justify-end gap-2">
               <button
