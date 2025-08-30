@@ -48,15 +48,15 @@ export default function VerifierPage() {
     const confirms = e.confirmsCount ?? e.confirmations ?? 0;
     const denies = e.deniesCount ?? e.denials ?? 0;
     return (
-      <div className="text-sm text-bodaghee-navy/70">
+      <div className="text-sm text-white/70">
         Подтверждения: {confirms} / Отказы: {denies}
       </div>
     );
   };
 
   const statusMap: Record<string, { label: string; color: string }> = {
-    pending: { label: 'ожидает', color: 'bg-bodaghee-teal' },
-    confirmed: { label: 'подтверждено', color: 'bg-bodaghee-lime' },
+    pending: { label: 'ожидает', color: 'bg-bodaghee-accent' },
+    confirmed: { label: 'подтверждено', color: 'bg-white' },
   };
 
   if (role !== 'verifier') {
@@ -66,7 +66,7 @@ export default function VerifierPage() {
   return (
     <div className="p-6 space-y-4 font-body">
       <h1 className="mb-2 text-2xl">Кабинет верификатора</h1>
-      <p className="text-sm text-bodaghee-navy/70">
+      <p className="text-sm text-white/70">
         Требуется 2 подтверждения из 3. Публичная ссылка активна 24 часа.
       </p>
       <div className="space-y-4">
@@ -80,7 +80,7 @@ export default function VerifierPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="space-y-2 rounded bg-bodaghee-teal p-4 text-bodaghee-navy shadow"
+                className="space-y-2 rounded bg-bodaghee-bg p-4 text-white shadow"
               >
                 <div className="font-mono text-sm">ID: {e.id}</div>
                 <div className="flex items-center gap-2">
@@ -91,13 +91,13 @@ export default function VerifierPage() {
                 <div className="space-x-2">
                   <button
                     onClick={() => handleAction(e.id, 'confirm')}
-                    className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-navy transition-colors hover:bg-bodaghee-lime"
+                    className="rounded border border-bodaghee-accent bg-bodaghee-bg px-2 py-1 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
                   >
                     Подтвердить
                   </button>
                   <button
                     onClick={() => handleAction(e.id, 'deny')}
-                    className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-lime transition-colors hover:bg-bodaghee-lime/80"
+                    className="rounded border border-bodaghee-accent bg-bodaghee-bg px-2 py-1 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
                   >
                     Отклонить
                   </button>

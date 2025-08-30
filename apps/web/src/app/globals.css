@@ -8,13 +8,20 @@ body {
 }
 
 body {
-  @apply bg-bodaghee-teal text-bodaghee-navy font-body;
+  background: #040319;
+  color: #FFFFFF;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 a {
-  @apply text-bodaghee-lime underline-offset-4 hover:underline;
+  color: #92CBDB;
+  text-underline-offset: 4px;
+}
+
+a:hover {
+  color: #92CBDB;
+  text-decoration: underline;
 }
 
 h1,
@@ -23,7 +30,8 @@ h3,
 h4,
 h5,
 h6 {
-  @apply font-heading text-bodaghee-navy;
+  @apply font-heading;
+  color: #FFFFFF;
 }
 
 @keyframes card-fade {
@@ -66,5 +74,16 @@ h6 {
   }
   .font-numeric {
     font-family: var(--font-numeric), sans-serif;
+  }
+  .text-\[86px\] {
+    font-size: 86px;
+    line-height: 1;
+  }
+  .text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  .tracking-wide {
+    letter-spacing: 0.05em;
   }
 }

@@ -35,10 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const config = getLandingConfig();
   return (
     <html lang="ru">
-      <body
-        className={`${headingFont.variable} ${bodyFont.variable} ${numericFont.variable} flex min-h-screen flex-col antialiased font-body`}
-        style={{ backgroundColor: config.bgColor }}
-      >
+      <body className={`${headingFont.variable} ${bodyFont.variable} ${numericFont.variable} flex min-h-screen flex-col antialiased font-body`}>
         <Header bgColor={config.headerBgColor} textColor={config.headerTextColor} />
         <main className="flex-grow">{children}</main>
         <Footer links={config.links} />

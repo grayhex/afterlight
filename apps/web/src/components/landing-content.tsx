@@ -67,13 +67,13 @@ export default function LandingContent() {
           {features.map((f, i) => (
             <motion.div
               key={i}
-              className="card-fade group rounded border border-bodaghee-navy/20 bg-bodaghee-teal p-4 text-bodaghee-navy hover:border-bodaghee-lime"
+              className="card-fade group rounded border border-bodaghee-accent/20 bg-bodaghee-bg p-4 text-white hover:border-bodaghee-accent"
               initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
             >
-              <f.icon className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime group-hover:scale-110" />
+              <f.icon className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent group-hover:scale-110" />
               <p className="text-sm">{f.text}</p>
             </motion.div>
           ))}
@@ -91,15 +91,15 @@ export default function LandingContent() {
       </ol>
 
       <section className="mb-6">
-        <h2 className="text-2xl font-semibold mb-4">FAQ</h2>
-        <div className="max-h-64 space-y-4 overflow-y-auto rounded border border-bodaghee-navy/20 bg-bodaghee-teal p-4 text-bodaghee-navy">
+        <h2 className="mb-4 text-2xl font-semibold">FAQ</h2>
+        <div className="max-h-64 space-y-4 overflow-y-auto rounded border border-bodaghee-accent/20 bg-bodaghee-bg p-4 text-white">
           {faqs.map((f, i) => (
             <FaqItem key={i} question={f.q} answer={f.a} delay={i * 0.1} />
           ))}
         </div>
       </section>
 
-      <p className="text-sm text-bodaghee-navy/70">
+      <p className="text-sm text-white/70">
         Содержимое шифруется на вашем устройстве. Мы храним только
         зашифрованные данные и технические метаданные.
       </p>

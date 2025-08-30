@@ -22,7 +22,7 @@ export default function LogoutPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6 font-body text-bodaghee-navy">
+    <div className="flex min-h-screen items-center justify-center p-6 font-body text-white">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

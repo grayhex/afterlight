@@ -120,7 +120,7 @@ export default function OwnerPage() {
 
       <div>
         <button
-          className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy transition-colors hover:bg-bodaghee-lime"
+          className="rounded border border-bodaghee-accent bg-bodaghee-bg px-4 py-2 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
           onClick={() => setShowModal(true)}
         >
           Новый сейф
@@ -128,7 +128,7 @@ export default function OwnerPage() {
       </div>
 
       {vaultsLoading && <p>Загрузка...</p>}
-      {vaultsError && <p className="text-bodaghee-lime">{vaultsError}</p>}
+      {vaultsError && <p className="text-bodaghee-accent">{vaultsError}</p>}
       {!vaultsLoading && !vaultsError && (
         <div className="grid gap-4 md:grid-cols-2">
           <AnimatePresence>
@@ -139,7 +139,7 @@ export default function OwnerPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="rounded bg-bodaghee-teal p-4 text-bodaghee-navy shadow"
+                className="rounded bg-bodaghee-bg p-4 text-white shadow"
               >
                 <div className="font-bold">{v.name || v.id}</div>
                 {v.description && <div className="text-sm">{v.description}</div>}
@@ -152,7 +152,7 @@ export default function OwnerPage() {
       <div>
         <h2 className="mb-2 text-xl">Верификаторы</h2>
         {verifiersLoading && <p>Загрузка...</p>}
-        {verifiersError && <p className="text-bodaghee-lime">{verifiersError}</p>}
+        {verifiersError && <p className="text-bodaghee-accent">{verifiersError}</p>}
         {!verifiersLoading && !verifiersError && (
           <div className="grid gap-4 md:grid-cols-2">
             <AnimatePresence>
@@ -163,7 +163,7 @@ export default function OwnerPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="rounded bg-bodaghee-teal p-4 text-bodaghee-navy shadow"
+                  className="rounded bg-bodaghee-bg p-4 text-white shadow"
                 >
                   {v.email || v.verifier?.contact}
                 </motion.div>
@@ -175,26 +175,26 @@ export default function OwnerPage() {
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <input
             type="email"
-            className="flex-grow rounded border border-bodaghee-navy bg-white/80 p-2 text-bodaghee-navy placeholder:text-bodaghee-navy/50 transition-colors focus:border-bodaghee-lime focus:bg-white"
+            className="flex-grow rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent"
             placeholder="email"
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
           />
           <button
-            className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy transition-colors hover:bg-bodaghee-lime"
+            className="rounded border border-bodaghee-accent bg-bodaghee-bg px-4 py-2 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
             onClick={handleInvite}
             disabled={inviting}
           >
             Пригласить
           </button>
         </div>
-        {inviteError && <p className="mt-2 text-bodaghee-lime">{inviteError}</p>}
+        {inviteError && <p className="mt-2 text-bodaghee-accent">{inviteError}</p>}
       </div>
 
       <AnimatePresence>
         {showModal && (
           <motion.div
-            className="fixed inset-0 flex items-center justify-center bg-bodaghee-navy/50 p-4"
+            className="fixed inset-0 flex items-center justify-center bg-bodaghee-bg/50 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -203,18 +203,18 @@ export default function OwnerPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-lg rounded bg-bodaghee-teal p-6 text-bodaghee-navy"
+              className="w-full max-w-lg rounded bg-bodaghee-bg p-6 text-white"
             >
               <h2 className="mb-4 text-xl">Новый сейф</h2>
               <div className="grid gap-2 sm:grid-cols-2">
                 <input
-                  className="col-span-full rounded border border-bodaghee-navy bg-white/80 p-2 text-bodaghee-navy placeholder:text-bodaghee-navy/50 transition-colors focus:border-bodaghee-lime focus:bg-white"
+                  className="col-span-full rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent"
                   placeholder="Название сейфа"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
                 <textarea
-                  className="col-span-full rounded border border-bodaghee-navy bg-white/80 p-2 text-bodaghee-navy placeholder:text-bodaghee-navy/50 transition-colors focus:border-bodaghee-lime focus:bg-white"
+                  className="col-span-full rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent"
                   placeholder="Описание (необязательно)"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -223,7 +223,7 @@ export default function OwnerPage() {
                   <input
                     key={idx}
                     type="email"
-                    className="rounded border border-bodaghee-navy bg-white/80 p-2 text-bodaghee-navy placeholder:text-bodaghee-navy/50 transition-colors focus:border-bodaghee-lime focus:bg-white"
+                    className="rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent"
                     placeholder={`Верификатор ${idx + 1} (e-mail)`}
                     value={email}
                     onChange={(e) => {
@@ -233,28 +233,28 @@ export default function OwnerPage() {
                     }}
                   />
                 ))}
-                <p className="col-span-full text-sm text-bodaghee-navy/70">
+                <p className="col-span-full text-sm text-white/70">
                   Добавьте три человека, которым вы доверяете. Доступ откроется при подтверждении двух из них.
                 </p>
                 <input
                   type="number"
                   min={1}
                   max={3}
-                  className="col-span-full rounded border border-bodaghee-navy bg-white/80 p-2 text-bodaghee-navy transition-colors focus:border-bodaghee-lime focus:bg-white"
+                  className="col-span-full rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white transition-colors focus:border-bodaghee-accent"
                   value={quorum}
                   onChange={(e) => setQuorum(Number(e.target.value))}
                 />
               </div>
-              {createError && <p className="mt-2 text-bodaghee-lime">{createError}</p>}
+              {createError && <p className="mt-2 text-bodaghee-accent">{createError}</p>}
               <div className="mt-4 flex justify-end gap-2">
                 <button
-                  className="rounded px-4 py-2 transition-colors hover:bg-bodaghee-lime/20"
+                  className="rounded border border-bodaghee-accent px-4 py-2 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
                   onClick={() => setShowModal(false)}
                 >
                   Отмена
                 </button>
                 <button
-                  className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy transition-colors hover:bg-bodaghee-lime"
+                  className="rounded border border-bodaghee-accent bg-bodaghee-bg px-4 py-2 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
                   onClick={handleCreate}
                   disabled={creating}
                 >

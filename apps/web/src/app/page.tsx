@@ -14,19 +14,19 @@ export default function Home() {
   const reduceMotion = useReducedMotion();
   const features = [
     {
-      icon: <Lock className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
+      icon: <Lock className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent" />,
       text: 'Клиентское шифрование: мы не видим содержимое ваших сейфов.',
     },
     {
-      icon: <Users className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
+      icon: <Users className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent" />,
       text: 'Кворум 2 из 3 верификаторов подтверждает событие.',
     },
     {
-      icon: <Activity className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
+      icon: <Activity className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent" />,
       text: 'Heartbeat: год без входа запускает процесс вручения.',
     },
     {
-      icon: <LinkIcon className="feature-icon mb-2 h-6 w-6 text-bodaghee-lime" />,
+      icon: <LinkIcon className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent" />,
       text: 'Публичные ссылки на блоки живут 24 часа и защищены CAPTCHA.',
     },
   ];
@@ -76,7 +76,7 @@ export default function Home() {
           </p>
           <Link
             href="/register"
-            className="inline-block rounded bg-bodaghee-lime px-6 py-3 font-medium text-bodaghee-navy hover:bg-bodaghee-lime/90"
+            className="inline-block rounded border border-bodaghee-accent bg-bodaghee-bg px-6 py-3 font-medium text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
           >
             Создать сейф
           </Link>
@@ -119,14 +119,14 @@ export default function Home() {
         transition={reduceMotion ? undefined : { duration: 0.4 }}
       >
         <h2 className="mb-4 text-2xl font-semibold">FAQ</h2>
-        <div className="max-h-64 space-y-4 overflow-y-auto rounded border border-bodaghee-navy/20 bg-bodaghee-teal p-4 text-bodaghee-navy">
+        <div className="max-h-64 space-y-4 overflow-y-auto rounded border border-bodaghee-accent/20 bg-bodaghee-bg p-4 text-white">
           {faqs.map((f, i) => (
             <FaqItem key={i} question={f.q} answer={f.a} delay={i * 0.1} />
           ))}
         </div>
       </motion.section>
 
-      <p className="mx-auto mb-16 max-w-2xl px-4 text-sm text-bodaghee-navy/70 sm:px-8">
+      <p className="mx-auto mb-16 max-w-2xl px-4 text-sm text-white/70 sm:px-8">
         Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные и технические метаданные.
       </p>
     </div>
