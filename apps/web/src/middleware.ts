@@ -9,8 +9,9 @@ function unauthorized() {
 }
 
 export async function middleware(req: NextRequest) {
-  const auth = req.headers.get('authorization');
-  if (!auth) return unauthorized();
+  const authCookie = req.cookies.get('auth');
+  if (!authCookie) return unauthorized();
+  const auth = `Basic ${authCookie.value}`;
 
   try {
     const res = await fetch(new URL('/api/landing', req.url), {
