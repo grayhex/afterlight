@@ -1,11 +1,13 @@
-import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Param, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { randomBytes } from 'crypto';
 import { VerifiersService } from './verifiers.service';
 import { InviteVerifierDto } from './dto/invite-verifier.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('verifiers')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('verifiers')
 export class VerifiersController {
   constructor(private readonly service: VerifiersService) {}

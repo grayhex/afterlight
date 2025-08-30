@@ -1,23 +1,25 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OrchestratorService } from './orchestrator.service';
 import { StartEventDto } from './dto/start-event.dto';
 import { DecisionDto } from './dto/decision.dto';
-import { CurrentUserId } from '../common/current-user.decorator';
+import { CurrentUser } from '../common/current-user.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('orchestrator')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('orchestration')
 export class OrchestratorController {
   constructor(private readonly svc: OrchestratorService) {}
 
   @Post('start')
-  start(@CurrentUserId() userId: string, @Body() dto: StartEventDto) {
-    return this.svc.start(userId, dto.vault_id);
+  start(@CurrentUser() user: any, @Body() dto: StartEventDto) {
+    return this.svc.start(user.sub, dto.vault_id);
   }
 
   @Post('decision')
-  decide(@CurrentUserId() _userId: string, @Body() dto: DecisionDto) {
+  decide(@CurrentUser() _user: any, @Body() dto: DecisionDto) {
     return this.svc.decide(dto.vault_id, dto.verifier_id, dto.decision, dto.signature);
   }
 }

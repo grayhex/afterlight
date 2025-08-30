@@ -10,10 +10,12 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrchestratorModule } from './orchestrator/orchestrator.module';
 import { HeartbeatsModule } from './heartbeats/heartbeats.module';
 import { HealthModule } from './health/health.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
 imports: [
   PrismaModule,
+  AuthModule,
   VaultsModule,
   VerifiersModule,
   VerificationEventsModule,
