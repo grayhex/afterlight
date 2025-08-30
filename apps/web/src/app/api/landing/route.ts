@@ -18,9 +18,15 @@ function unauthorized() {
 
 async function isAuthorized(req: Request): Promise<boolean> {
   const auth = req.headers.get('authorization');
-  if (!auth) return false;
+  if (!auth) {
+    console.log('Authorization header missing');
+    return false;
+  }
   const [scheme, encoded] = auth.split(' ');
-  if (scheme !== 'Basic' || !encoded) return false;
+  if (scheme !== 'Basic' || !encoded) {
+    console.log('Authorization header is not Basic or missing credentials');
+    return false;
+  }
   let decoded: string;
   try {
     decoded =
@@ -28,13 +34,30 @@ async function isAuthorized(req: Request): Promise<boolean> {
         ? atob(encoded)
         : Buffer.from(encoded, 'base64').toString('utf8');
   } catch {
+    console.log('Failed to decode credentials');
     return false;
   }
   const [login, password] = decoded.split(':');
-  if (!login || !password) return false;
+  if (!login || !password) {
+    console.log('Missing login or password');
+    return false;
+  }
   const admin = await prisma.user.findUnique({ where: { email: login } });
-  if (!admin || admin.role !== 'Admin' || !admin.passwordHash) return false;
-  return await verifyPassword(password, admin.passwordHash);
+  if (!admin) {
+    console.log('User not found');
+    return false;
+  }
+  if (admin.role !== 'Admin') {
+    console.log('User is not an admin');
+    return false;
+  }
+  if (!admin.passwordHash) {
+    console.log('User has no password hash');
+    return false;
+  }
+  const valid = await verifyPassword(password, admin.passwordHash);
+  if (!valid) console.log('Password hash mismatch');
+  return valid;
 }
 
 export async function HEAD(request: Request) {
