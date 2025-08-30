@@ -3,10 +3,7 @@ import { httpClient } from './shared/api/httpClient';
 // Prisma cannot run in Edge middleware; use API route instead
 
 function unauthorized() {
-  return new NextResponse('Unauthorized', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
-  });
+  return new NextResponse('Unauthorized', { status: 401 });
 }
 
 export async function middleware(req: NextRequest) {
