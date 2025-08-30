@@ -35,6 +35,8 @@ export default function AdminPage() {
         telegram: (formData.get('telegram') as string) || '',
         github: (formData.get('github') as string) || '',
         dev: (formData.get('dev') as string) || '',
+        policies: (formData.get('policies') as string) || '',
+        contacts: (formData.get('contacts') as string) || '',
       },
     };
 
@@ -159,6 +161,24 @@ export default function AdminPage() {
           <input
             name="dev"
             defaultValue={config.links.dev}
+            placeholder="URL"
+            className="rounded p-2 text-black"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span>Ссылка на политики</span>
+          <input
+            name="policies"
+            defaultValue={config.links.policies}
+            placeholder="URL"
+            className="rounded p-2 text-black"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span>Ссылка для контактов</span>
+          <input
+            name="contacts"
+            defaultValue={config.links.contacts}
             placeholder="URL"
             className="rounded p-2 text-black"
           />
