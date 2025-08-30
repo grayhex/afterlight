@@ -2,15 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/shared/auth/useAuth';
-import {
-  FileText,
-  Mail,
-  User,
-  ShieldCheck,
-  Shield,
-  LogIn,
-  LogOut,
-} from 'lucide-react';
+import { User, ShieldCheck, Shield, LogIn, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 
@@ -31,28 +23,6 @@ export default function Header({ bgColor, textColor }: HeaderProps) {
           Afterlight
         </Link>
         <ul className="flex flex-1 justify-center gap-4">
-          <motion.li
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Link href="/policies" className="flex items-center gap-1" style={linkStyle}>
-              <FileText className="h-4 w-4" />
-              <span>Политики</span>
-            </Link>
-          </motion.li>
-          <motion.li
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Link href="/contacts" className="flex items-center gap-1" style={linkStyle}>
-              <Mail className="h-4 w-4" />
-              <span>Контакты</span>
-            </Link>
-          </motion.li>
           <motion.li
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
