@@ -3,6 +3,7 @@ import { getLandingConfig } from "@/lib/landing";
 import { Lock, Users, Activity, Link as LinkIcon } from "lucide-react";
 import { motion } from "framer-motion";
 
+
 export const dynamic = 'force-dynamic';
 
 export default function Home() {
