@@ -4,15 +4,40 @@
 
 :root {
   color-scheme: dark;
+  --color-bg: #0a0a0a;
+  --color-card: #1a1a1a;
+  --color-text: #f5f5f5;
+  --color-accent: #6366f1;
 }
 
-html, body {
+html,
+body {
   min-height: 100%;
 }
 
 body {
-  background-color: #343541;
-  color: #ececf1;
+  background-color: var(--color-bg);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.feature-card {
+  background-color: var(--color-card);
+  border: 1px solid #262626;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  transition: border-color 0.2s;
+}
+
+.feature-card:hover {
+  border-color: var(--color-accent);
+}
+
+.feature-icon {
+  transition: transform 0.2s;
+}
+
+.feature-card:hover .feature-icon {
+  transform: scale(1.1);
 }
