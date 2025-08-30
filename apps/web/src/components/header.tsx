@@ -9,6 +9,7 @@ import {
   Mail,
   User,
   ShieldCheck,
+  Shield,
   LogIn,
   LogOut,
 } from 'lucide-react';
@@ -55,6 +56,24 @@ export default function Header({ bgColor, textColor }: HeaderProps) {
               <span>Контакты</span>
             </Link>
           </li>
+          <li>
+            <Link href="/owner" className="flex items-center gap-1" style={linkStyle}>
+              <User className="h-4 w-4" />
+              <span>Кабинет владельца</span>
+            </Link>
+          </li>
+          <li>
+            <Link href="/verifier" className="flex items-center gap-1" style={linkStyle}>
+              <ShieldCheck className="h-4 w-4" />
+              <span>Кабинет верификатора</span>
+            </Link>
+          </li>
+          <li>
+            <Link href="/adm" className="flex items-center gap-1" style={linkStyle}>
+              <Shield className="h-4 w-4" />
+              <span>Админка</span>
+            </Link>
+          </li>
         </ul>
         <ul className="flex gap-4">
           {role === 'guest' ? (
@@ -65,42 +84,12 @@ export default function Header({ bgColor, textColor }: HeaderProps) {
               </Link>
             </li>
           ) : (
-            <>
-              {role === 'owner' && (
-                <li>
-                  <Link
-                    href="/owner"
-                    className="flex items-center gap-1"
-                    style={linkStyle}
-                  >
-                    <User className="h-4 w-4" />
-                    <span>Личный кабинет</span>
-                  </Link>
-                </li>
-              )}
-              {role === 'verifier' && (
-                <li>
-                  <Link
-                    href="/verifier"
-                    className="flex items-center gap-1"
-                    style={linkStyle}
-                  >
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>Кабинет верификатора</span>
-                  </Link>
-                </li>
-              )}
-              <li>
-                <Link
-                  href="/logout"
-                  className="flex items-center gap-1"
-                  style={linkStyle}
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Выйти</span>
-                </Link>
-              </li>
-            </>
+            <li>
+              <Link href="/logout" className="flex items-center gap-1" style={linkStyle}>
+                <LogOut className="h-4 w-4" />
+                <span>Выйти</span>
+              </Link>
+            </li>
           )}
         </ul>
       </nav>
