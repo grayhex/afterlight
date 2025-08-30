@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 describe('OrchestratorService transitions', () => {
   let prisma: any;
   let notify: any;
+  let audit: any;
   let service: OrchestratorService;
 
   beforeEach(() => {
@@ -19,7 +20,8 @@ describe('OrchestratorService transitions', () => {
       enqueueEmail: jest.fn(async () => {}),
       flushEmailQueue: jest.fn(async () => {}),
     } as any;
-    service = new OrchestratorService(prisma, notify);
+    audit = { log: jest.fn() };
+    service = new OrchestratorService(prisma, notify, audit);
   });
 
   it('transitions to Disputed when confirmations conflict', async () => {

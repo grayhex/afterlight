@@ -16,6 +16,7 @@ import { PlansModule } from './plans/plans.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { RecoverySharesModule } from './recovery-shares/recovery-shares.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
 imports: [
@@ -36,6 +37,7 @@ imports: [
   SubscriptionsModule,
   AuditLogsModule,
   RecoverySharesModule,
+  AuditModule,
 ],
 })
 export class AppModule {}
