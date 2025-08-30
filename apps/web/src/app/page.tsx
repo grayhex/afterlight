@@ -67,21 +67,18 @@ export default function Home() {
 
   return (
     <div className="flex flex-col">
-      <section className="container mx-auto flex flex-col items-center gap-8 px-4 py-16 sm:px-8 md:flex-row">
-        <div className="w-full text-center md:w-1/2 md:text-left">
-          <h1 className="mb-4 text-4xl font-bold">Afterlight — цифровое завещание</h1>
-          <p className="mb-6 text-lg">
-            Сохраните зашифрованные инструкции и файлы, которые увидят ваши
-            доверенные люди после подтверждённого события.
-          </p>
+      <section className="container mx-auto grid items-center gap-8 px-4 py-16 sm:px-8 md:grid-cols-2">
+        <div className="flex flex-col items-center text-center md:items-start md:text-left">
+          <h1 className="mb-4 text-[86px] font-heading text-white">Afterlight</h1>
+          <p className="mb-6 text-xl text-bodaghee-accent">Цифровое завещание</p>
           <Link
             href="/register"
-            className="inline-block rounded border border-bodaghee-accent bg-bodaghee-bg px-6 py-3 font-medium text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
+            className="inline-block border border-bodaghee-accent px-6 py-3 text-bodaghee-accent transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
           >
             Создать сейф
           </Link>
         </div>
-        <div className="h-64 w-full md:h-80 md:w-1/2">
+        <div className="relative h-64 w-full md:h-full">
           <NetworkMesh />
         </div>
       </section>
