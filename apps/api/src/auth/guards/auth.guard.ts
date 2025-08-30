@@ -7,12 +7,20 @@ export class AuthGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest();
-    const openPaths = ['/auth/login', '/healthz', '/readyz'];
+    const openPaths = ['/auth/login', '/auth/register', '/auth/logout', '/healthz', '/readyz'];
     if (openPaths.includes(req.path)) {
       return true;
     }
     const authHeader = req.headers['authorization'] || '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const cookies = (req.headers['cookie'] || '')
+      .split(';')
+      .map((c: string) => c.trim().split('='))
+      .reduce((acc: Record<string, string>, [k, v]: [string, string]) => {
+        if (k && v) acc[k] = decodeURIComponent(v);
+        return acc;
+      }, {} as Record<string, string>);
+    const token = cookies['token'] || bearer;
     if (!token) {
       throw new UnauthorizedException();
     }

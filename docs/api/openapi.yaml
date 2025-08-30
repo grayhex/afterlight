@@ -32,6 +32,12 @@ components:
         code: { type: string }
         message: { type: string }
         details: { type: object, additionalProperties: true }
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        role: { type: string, enum: [User, Admin] }
     Vault:
       type: object
       properties:
@@ -153,22 +159,28 @@ paths:
           description: OK
   /auth/register:
     post:
-      summary: Register user (MVP with 2FA; Passkeys in M1)
+      summary: Register user
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [email, password]
               properties:
                 email: { type: string }
-                phone: { type: string, nullable: true }
                 password: { type: string }
+                role: { type: string, enum: [User, Admin] }
       responses:
-        '201': { description: Created }
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
   /auth/login:
     post:
-      summary: Login, returns JWT
+      summary: Login, sets JWT cookie
       requestBody:
         required: true
         content:
@@ -178,9 +190,33 @@ paths:
               properties:
                 email: { type: string }
                 password: { type: string }
-                otp: { type: string, description: "optional TOTP if 2FA enabled" }
       responses:
-        '200': { description: OK }
+        '200':
+          description: OK
+          headers:
+            Set-Cookie:
+              description: JWT httpOnly cookie
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /auth/logout:
+    post:
+      summary: Clear auth cookies
+      responses:
+        '200': { description: Logged out }
+  /auth/me:
+    get:
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401': { description: Unauthorized }
   /vaults:
     get:
       summary: List vaults

@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { PrismaService } from '../prisma/prisma.service';
-import { verifyPassword } from './password';
+import { hashPassword, verifyPassword } from './password';
+import { User, UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -13,10 +14,25 @@ export class AuthService {
     return jwt.sign({ sub: userId }, this.secret, { expiresIn: '1h' });
   }
 
-  async validateUser(email: string, password: string): Promise<string | null> {
+  async register(
+    email: string,
+    password: string,
+    role: UserRole = UserRole.User,
+  ): Promise<User> {
+    const passwordHash = await hashPassword(password);
+    return this.prisma.user.create({
+      data: { email, passwordHash, role },
+    });
+  }
+
+  async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || !user.passwordHash) return null;
-    return (await verifyPassword(password, user.passwordHash)) ? user.id : null;
+    return (await verifyPassword(password, user.passwordHash)) ? user : null;
+  }
+
+  async getUser(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
   verify(token: string): any {
