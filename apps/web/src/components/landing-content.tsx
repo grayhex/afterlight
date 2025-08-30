@@ -8,6 +8,8 @@ interface Links {
   telegram: string;
   github: string;
   dev: string;
+  policies: string;
+  contacts: string;
 }
 
 export default function LandingContent({ links }: { links: Links }) {

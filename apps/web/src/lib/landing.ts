@@ -19,6 +19,8 @@ export interface LandingConfig {
     telegram: string;
     github: string;
     dev: string;
+    policies: string;
+    contacts: string;
   };
 }
 
@@ -42,6 +44,8 @@ const defaultConfig: LandingConfig = {
     github: 'https://github.com/retrotink/afterlight',
     // route for development layout
     dev: '/',
+    policies: '/policies',
+    contacts: '/contacts',
   },
 };
 
@@ -76,6 +80,10 @@ export function getLandingConfig(): LandingConfig {
       telegram: process.env.LANDING_TELEGRAM || defaultConfig.links.telegram,
       github: process.env.LANDING_GITHUB || defaultConfig.links.github,
       dev: process.env.LANDING_DEV || defaultConfig.links.dev,
+      policies:
+        process.env.LANDING_POLICIES || defaultConfig.links.policies,
+      contacts:
+        process.env.LANDING_CONTACTS || defaultConfig.links.contacts,
     },
   };
 }
@@ -99,6 +107,8 @@ export async function saveLandingConfig(config: LandingConfig): Promise<void> {
   process.env.LANDING_TELEGRAM = config.links.telegram;
   process.env.LANDING_GITHUB = config.links.github;
   process.env.LANDING_DEV = config.links.dev;
+  process.env.LANDING_POLICIES = config.links.policies;
+  process.env.LANDING_CONTACTS = config.links.contacts;
 
   const envPath = path.join(process.cwd(), '.env.local');
   const lines = [
@@ -118,6 +128,8 @@ export async function saveLandingConfig(config: LandingConfig): Promise<void> {
     `LANDING_TELEGRAM=${config.links.telegram}`,
     `LANDING_GITHUB=${config.links.github}`,
     `LANDING_DEV=${config.links.dev}`,
+    `LANDING_POLICIES=${config.links.policies}`,
+    `LANDING_CONTACTS=${config.links.contacts}`,
   ];
   await fs.writeFile(envPath, lines.join('\n') + '\n', 'utf-8');
 }
