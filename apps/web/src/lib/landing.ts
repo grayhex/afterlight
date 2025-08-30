@@ -20,16 +20,17 @@ const defaultConfig: LandingConfig = {
   title: 'Afterlight',
   subtitle: 'Идёт разработка с\u00a0помощью искусственного интеллекта',
   description: 'Скоро здесь появится серьёзный проект.',
-  bgColor: '#000000',
-  titleColor: '#10a37f',
-  subtitleColor: '#ffffff',
-  descriptionColor: '#ffffff',
-  links: {
-    telegram: 'https://t.me/retrotink',
-    github: 'https://github.com/retrotink/afterlight',
-    dev: '/dev',
-  },
-};
+    bgColor: '#000000',
+    titleColor: '#10a37f',
+    subtitleColor: '#ffffff',
+    descriptionColor: '#ffffff',
+    links: {
+      telegram: 'https://t.me/retrotink',
+      github: 'https://github.com/retrotink/afterlight',
+      // route for development layout
+      dev: '/dev',
+    },
+  };
 
 export function getLandingConfig(): LandingConfig {
   return {
