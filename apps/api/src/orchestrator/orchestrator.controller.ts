@@ -1,14 +1,12 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OrchestratorService } from './orchestrator.service';
 import { StartEventDto } from './dto/start-event.dto';
 import { DecisionDto } from './dto/decision.dto';
 import { CurrentUser } from '../common/current-user.decorator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('orchestrator')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('orchestration')
 export class OrchestratorController {
   constructor(private readonly svc: OrchestratorService) {}

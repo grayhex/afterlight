@@ -1,14 +1,12 @@
-import { Controller, Get, Post, Body, Param, Query, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { VaultsService } from './vaults.service';
 import { CreateVaultDto } from './dto/create-vault.dto';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
 import { CurrentUser } from '../common/current-user.decorator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @ApiTags('vaults')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('vaults')
 export class VaultsController {
   constructor(private readonly service: VaultsService) {}

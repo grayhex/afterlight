@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVaultDto } from './dto/create-vault.dto';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
@@ -9,7 +9,6 @@ export class VaultsService {
   constructor(private prisma: PrismaService) {}
 
   async listForUser(userId: string, cursor?: string, limit = 50) {
-    if (!userId) throw new UnauthorizedException('No user');
     const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
     return this.prisma.vault.findMany({
       where: { userId },
@@ -20,14 +19,12 @@ export class VaultsService {
   }
 
   async getForUser(userId: string, id: string) {
-    if (!userId) throw new UnauthorizedException('No user');
     const v = await this.prisma.vault.findFirst({ where: { id, userId } });
     if (!v) throw new NotFoundException('Vault not found');
     return v;
   }
 
   async createForUser(userId: string, dto: CreateVaultDto) {
-    if (!userId) throw new UnauthorizedException('No user');
     const defaults = {
       quorumThreshold: 3,
       maxVerifiers: 5,
@@ -51,7 +48,6 @@ export class VaultsService {
   }
 
   async updateSettings(userId: string, id: string, dto: UpdateVaultSettingsDto) {
-    if (!userId) throw new UnauthorizedException('No user');
     await this.getForUser(userId, id);
     if (dto.primary_verifier_id) {
       await this.prisma.$transaction([
