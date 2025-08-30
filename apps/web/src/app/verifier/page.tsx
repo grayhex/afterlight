@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { httpClient } from '@/shared/api/httpClient';
 import { useAuth } from '@/shared/auth/useAuth';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface VerificationEvent {
   id: string;
@@ -53,37 +54,59 @@ export default function VerifierPage() {
     );
   };
 
+  const statusMap: Record<string, { label: string; color: string }> = {
+    pending: { label: 'ожидает', color: 'bg-bodaghee-teal' },
+    confirmed: { label: 'подтверждено', color: 'bg-bodaghee-lime' },
+  };
+
   if (role !== 'verifier') {
     return <div className="p-6">Доступ запрещён</div>;
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 font-body">
       <h1 className="mb-2 text-2xl">Кабинет верификатора</h1>
       <p className="text-sm text-bodaghee-navy/70">
         Требуется 2 подтверждения из 3. Публичная ссылка активна 24 часа.
       </p>
-      {events.map(e => (
-        <div key={e.id} className="space-y-2 rounded border p-4 text-bodaghee-navy">
-          <div className="font-mono text-sm">ID: {e.id}</div>
-          <div>Состояние: {e.state}</div>
-          {renderCounters(e)}
-          <div className="space-x-2">
-            <button
-              onClick={() => handleAction(e.id, 'confirm')}
-              className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-navy"
-            >
-              Подтвердить
-            </button>
-            <button
-              onClick={() => handleAction(e.id, 'deny')}
-              className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-lime"
-            >
-              Отклонить
-            </button>
-          </div>
-        </div>
-      ))}
+      <div className="space-y-4">
+        <AnimatePresence>
+          {events.map(e => {
+            const status = statusMap[e.state] || { label: e.state, color: 'bg-gray-400' };
+            return (
+              <motion.div
+                key={e.id}
+                layout
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-2 rounded bg-bodaghee-teal p-4 text-bodaghee-navy shadow"
+              >
+                <div className="font-mono text-sm">ID: {e.id}</div>
+                <div className="flex items-center gap-2">
+                  <span className={`h-3 w-3 rounded-full ${status.color}`} />
+                  <span>{status.label}</span>
+                </div>
+                {renderCounters(e)}
+                <div className="space-x-2">
+                  <button
+                    onClick={() => handleAction(e.id, 'confirm')}
+                    className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-navy transition-colors hover:bg-bodaghee-lime"
+                  >
+                    Подтвердить
+                  </button>
+                  <button
+                    onClick={() => handleAction(e.id, 'deny')}
+                    className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-lime transition-colors hover:bg-bodaghee-lime/80"
+                  >
+                    Отклонить
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
