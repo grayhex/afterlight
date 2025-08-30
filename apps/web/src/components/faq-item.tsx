@@ -11,13 +11,13 @@ interface Props {
 export default function FaqItem({ question, answer, delay = 0 }: Props) {
   return (
     <motion.div
-      className="card-fade"
+      className="card-fade rounded bg-bodaghee-teal p-4 text-bodaghee-navy"
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.4, delay }}
     >
-      <h3 className="font-medium">{question}</h3>
+      <h3 className="mb-2">{question}</h3>
       <p>{answer}</p>
     </motion.div>
   );

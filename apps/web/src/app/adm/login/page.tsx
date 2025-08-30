@@ -37,26 +37,26 @@ export default function AdminLoginPage() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-4 text-2xl font-bold">Вход</h1>
+      <h1 className="mb-4 text-2xl">Вход</h1>
       <form onSubmit={handleSubmit} className="flex max-w-sm flex-col gap-4">
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded border p-2"
+          className="rounded border p-2 text-bodaghee-navy"
         />
         <input
           type="password"
           placeholder="Пароль"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded border p-2"
+          className="rounded border p-2 text-bodaghee-navy"
         />
-        {error && <p className="text-red-600">{error}</p>}
+        {error && <p className="text-bodaghee-lime">{error}</p>}
         <button
           type="submit"
-          className="rounded bg-blue-600 px-4 py-2 text-white"
+          className="rounded bg-bodaghee-teal px-4 py-2 text-bodaghee-navy"
         >
           Войти
         </button>

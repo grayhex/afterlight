@@ -47,7 +47,7 @@ export default function VerifierPage() {
     const confirms = e.confirmsCount ?? e.confirmations ?? 0;
     const denies = e.deniesCount ?? e.denials ?? 0;
     return (
-      <div className="text-sm text-gray-600">
+      <div className="text-sm text-bodaghee-navy/70">
         Подтверждения: {confirms} / Отказы: {denies}
       </div>
     );
@@ -59,25 +59,25 @@ export default function VerifierPage() {
 
   return (
     <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Кабинет верификатора</h1>
-      <p className="text-sm text-gray-600">
+      <h1 className="mb-2 text-2xl">Кабинет верификатора</h1>
+      <p className="text-sm text-bodaghee-navy/70">
         Требуется 2 подтверждения из 3. Публичная ссылка активна 24 часа.
       </p>
       {events.map(e => (
-        <div key={e.id} className="border rounded p-4 space-y-2">
+        <div key={e.id} className="space-y-2 rounded border p-4 text-bodaghee-navy">
           <div className="font-mono text-sm">ID: {e.id}</div>
           <div>Состояние: {e.state}</div>
           {renderCounters(e)}
           <div className="space-x-2">
             <button
               onClick={() => handleAction(e.id, 'confirm')}
-              className="bg-green-500 text-white px-2 py-1 rounded"
+              className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-navy"
             >
               Подтвердить
             </button>
             <button
               onClick={() => handleAction(e.id, 'deny')}
-              className="bg-red-500 text-white px-2 py-1 rounded"
+              className="rounded bg-bodaghee-teal px-2 py-1 text-bodaghee-lime"
             >
               Отклонить
             </button>

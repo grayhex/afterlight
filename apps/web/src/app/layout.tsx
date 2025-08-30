@@ -3,9 +3,26 @@ import type { Metadata } from 'next';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { getLandingConfig } from '@/lib/landing';
-import { Inter } from 'next/font/google';
+import { Questrial } from 'next/font/google';
+import localFont from 'next/font/local';
 
-const inter = Inter({ subsets: ['latin', 'cyrillic'] });
+const headingFont = Questrial({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-heading',
+});
+
+const bodyFont = localFont({
+  src: '../../public/fonts/MadeforText-Regular.woff2',
+  weight: '400',
+  variable: '--font-body',
+});
+
+const numericFont = localFont({
+  src: '../../public/fonts/DINNextLight.woff2',
+  weight: '300',
+  variable: '--font-numeric',
+});
 
 export const metadata: Metadata = {
   title: 'AfterLight — разработка',
@@ -19,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru">
       <body
-        className={`${inter.className} flex min-h-screen flex-col antialiased`}
+        className={`${headingFont.variable} ${bodyFont.variable} ${numericFont.variable} flex min-h-screen flex-col antialiased font-body`}
         style={{ backgroundColor: config.bgColor }}
       >
         <Header bgColor={config.headerBgColor} textColor={config.headerTextColor} />
