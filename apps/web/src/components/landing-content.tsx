@@ -1,18 +1,10 @@
 'use client';
 
-import FooterLinks from "@/components/footer-links";
 import { Lock, Users, Activity, Link as LinkIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import FaqItem from "@/components/faq-item";
 
-interface Links {
-  telegram: string;
-  github: string;
-  dev: string;
-  policies: string;
-  contacts: string;
-}
-
-export default function LandingContent({ links }: { links: Links }) {
+export default function LandingContent() {
   const features = [
     {
       icon: Lock,
@@ -32,6 +24,33 @@ export default function LandingContent({ links }: { links: Links }) {
     },
   ];
 
+  const faqs = [
+    {
+      q: 'Как обеспечивается безопасность?',
+      a: 'Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные и технические метаданные.',
+    },
+    {
+      q: 'Как подтверждается событие?',
+      a: 'Двое из трёх доверенных людей подтверждают событие. После этого запускается раскрытие сейфа.',
+    },
+    {
+      q: 'Есть ли контроль времени?',
+      a: 'У вас сутки на финальные действия, а окно «я на связи» длится год.',
+    },
+    {
+      q: 'Какие события поддерживаются?',
+      a: 'На старте доступны события: смерть и недееспособность.',
+    },
+    {
+      q: 'Сколько длится grace-период?',
+      a: 'После подтверждения события есть 24 часа до раскрытия сейфа.',
+    },
+    {
+      q: 'Сколько живёт публичная ссылка?',
+      a: 'Ссылка активна 24 часа, защищена CAPTCHA и удаляется после истечения срока.',
+    },
+  ];
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-8">
       <h1 className="mb-4 text-3xl font-bold">
@@ -43,7 +62,7 @@ export default function LandingContent({ links }: { links: Links }) {
       </p>
 
       <section className="mb-8">
-        <h2 className="mb-4 text-2xl font-semibold">Фичи</h2>
+        <h2 className="mb-4 text-2xl font-semibold">Ключевые возможности</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {features.map((f, i) => (
             <motion.div
@@ -73,41 +92,10 @@ export default function LandingContent({ links }: { links: Links }) {
 
       <section className="mb-6">
         <h2 className="text-2xl font-semibold mb-4">FAQ</h2>
-        <div className="space-y-4">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h3 className="font-medium">Как обеспечивается безопасность?</h3>
-            <p>
-              Содержимое шифруется на вашем устройстве. Мы храним только
-              зашифрованные данные и технические метаданные.
-            </p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-          >
-            <h3 className="font-medium">Как подтверждается событие?</h3>
-            <p>
-              Двое из трёх доверенных людей подтверждают событие. После этого
-              запускается раскрытие сейфа.
-            </p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-          >
-            <h3 className="font-medium">Есть ли контроль времени?</h3>
-            <p>
-              У вас сутки на финальные действия, а окно «я на связи» длится год.
-            </p>
-          </motion.div>
+        <div className="max-h-64 space-y-4 overflow-y-auto rounded border bg-white p-4">
+          {faqs.map((f, i) => (
+            <FaqItem key={i} question={f.q} answer={f.a} delay={i * 0.1} />
+          ))}
         </div>
       </section>
 
@@ -115,7 +103,6 @@ export default function LandingContent({ links }: { links: Links }) {
         Содержимое шифруется на вашем устройстве. Мы храним только
         зашифрованные данные и технические метаданные.
       </p>
-      <FooterLinks links={links} />
     </div>
   );
 }
