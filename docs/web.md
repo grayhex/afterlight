@@ -38,3 +38,13 @@ Authorization: Basic <base64(email:password)>
 ```
 
 Используйте учётные данные администратора из таблицы `user` (role `Admin`).
+
+Для входа существует страница `/adm/login`.
+Форма отправляет данные на `/auth/login`,
+при успешном ответе с ролью `Admin`
+устанавливает cookie `auth=<base64(email:password)>`
+и перенаправляет на `/adm`.
+
+Выйти из админки можно через `/adm/logout`,
+который очищает cookie `auth`
+и переадресует обратно на `/adm/login`.
