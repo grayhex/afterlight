@@ -268,3 +268,113 @@ paths:
       summary: Owner heartbeat ping
       responses:
         '204': { description: No Content }
+  /users:
+    get:
+      summary: List users
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create user
+      responses:
+        '201': { description: Created }
+  /users/{id}:
+    get:
+      summary: Get user
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Update user
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete user
+      responses:
+        '204': { description: No Content }
+  /plans:
+    get:
+      summary: List plans
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create plan
+      responses:
+        '201': { description: Created }
+  /plans/{id}:
+    get:
+      summary: Get plan
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Update plan
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete plan
+      responses:
+        '204': { description: No Content }
+  /subscriptions:
+    get:
+      summary: List subscriptions
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create subscription
+      responses:
+        '201': { description: Created }
+  /subscriptions/{id}:
+    get:
+      summary: Get subscription
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Update subscription
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete subscription
+      responses:
+        '204': { description: No Content }
+  /audit-logs:
+    get:
+      summary: List audit logs
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create audit log entry
+      responses:
+        '201': { description: Created }
+  /audit-logs/{id}:
+    get:
+      summary: Get audit log entry
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Update audit log entry
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete audit log entry
+      responses:
+        '204': { description: No Content }
+  /recovery-shares:
+    get:
+      summary: List recovery shares
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Create recovery share
+      responses:
+        '201': { description: Created }
+  /recovery-shares/{id}:
+    get:
+      summary: Get recovery share
+      responses:
+        '200': { description: OK }
+    patch:
+      summary: Update recovery share
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Delete recovery share
+      responses:
+        '204': { description: No Content }
