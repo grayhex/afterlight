@@ -97,6 +97,8 @@ export async function POST(request: Request) {
       telegram: body.links?.telegram ?? current.links.telegram,
       github: body.links?.github ?? current.links.github,
       dev: body.links?.dev ?? current.links.dev,
+      policies: body.links?.policies ?? current.links.policies,
+      contacts: body.links?.contacts ?? current.links.contacts,
     },
   };
   await saveLandingConfig(newConfig);
