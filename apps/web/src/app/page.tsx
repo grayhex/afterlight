@@ -8,7 +8,7 @@ import Stats from '@/components/stats';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Lock, Users, Activity, Link as LinkIcon, Shield } from 'lucide-react';
 
-const ParticlesBackground = dynamic(() => import('@/components/particles-background'), { ssr: false });
+const ParticlesBackground = dynamic(() => import('../components/particles-background'), { ssr: false });
 
 export default function Home() {
   const reduceMotion = useReducedMotion();
