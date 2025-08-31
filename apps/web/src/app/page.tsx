@@ -39,22 +39,22 @@ export default function Home() {
     {
       icon: <Lock className="h-6 w-6" />,
       title: 'Клиентское шифрование',
-      text: 'Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные.',
+      text: 'Данные шифруются на устройстве.',
     },
     {
       icon: <Users className="h-6 w-6" />,
       title: 'Кворум 2/3',
-      text: 'Двое из трёх доверенных людей подтверждают событие.',
+      text: 'Двое из трёх подтверждают событие.',
     },
     {
       icon: <Activity className="h-6 w-6" />,
       title: 'Heartbeat 365 дней',
-      text: 'Год без входа запускает процесс вручения.',
+      text: 'Год без входа запускает вручение.',
     },
     {
       icon: <LinkIcon className="h-6 w-6" />,
       title: '24 часа на доступ',
-      text: 'Публичные ссылки и grace-период действуют сутки.',
+      text: 'Публичные ссылки живут сутки.',
     },
   ];
 
@@ -108,11 +108,16 @@ export default function Home() {
         className="container mx-auto px-4 py-12 sm:px-8"
         initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 10 }}
         whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={reduceMotion ? undefined : { duration: 0.4 }}
-      >
+      viewport={{ once: true }}
+      transition={reduceMotion ? undefined : { duration: 0.4 }}
+    >
+        <p className="mb-4 text-lg">
+          Afterlight помогает заранее упорядочить доступы, инструкции и файлы в
+          «сейфах», назначить получателей и верификаторов и раскрывать
+          информацию только при наступлении заданных событий.
+        </p>
         <h2 className="mb-4 text-2xl font-semibold">Преимущества</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {features.map((f, i) => (
             <FeatureCard key={i} icon={f.icon} title={f.title} text={f.text} delay={i * 0.1} />
           ))}
