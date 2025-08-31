@@ -22,6 +22,7 @@ jobs:
     env:
       NS: afterlight
     steps:
+      - uses: actions/checkout@v4
       - name: kubeconfig
         run: |
           mkdir -p "$HOME/.kube"
