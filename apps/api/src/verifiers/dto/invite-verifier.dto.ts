@@ -8,7 +8,7 @@ export class InviteVerifierDto {
 
   @ApiProperty({ description: 'email for MVP' })
   @IsString()
-  contact!: string;
+  email!: string;
 
   @ApiProperty({ required: false, default: 168, description: 'expires in hours (default 7 days)' })
   @IsOptional()

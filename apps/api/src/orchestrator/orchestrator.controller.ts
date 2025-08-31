@@ -20,6 +20,6 @@ export class OrchestratorController {
 
   @Post('decision')
   decide(@CurrentUser() user: any, @Body() dto: DecisionDto) {
-    return this.svc.decide(user.sub, dto.vault_id, dto.verifier_id, dto.decision, dto.signature);
+    return this.svc.decide(user.sub, dto.vault_id, dto.user_id, dto.decision, dto.signature);
   }
 }

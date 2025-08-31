@@ -26,16 +26,10 @@ enum BlockType {
   url
 }
 
-enum VerifierRoleStatus {
+enum VaultUserRoleStatus {
   Invited
   Active
   Revoked
-}
-
-enum KycLevel {
-  None
-  Basic
-  Enhanced
 }
 
 enum VerificationState {
@@ -86,7 +80,6 @@ enum SubscriptionStatus {
 
 enum ActorType {
   User
-  Verifier
   System
 }
 
@@ -111,6 +104,8 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   vaults        Vault[]
+  vaultRoles    VaultUserRole[]
+  decisions     VerificationDecision[]
   subscriptions Subscription[]
 
   @@map("user")
@@ -129,11 +124,11 @@ model Vault {
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
-  user           User                 @relation(fields: [userId], references: [id])
+  user           User              @relation(fields: [userId], references: [id])
   blocks         Block[]
-  verifiers      VaultVerifier[]
+  roles          VaultUserRole[]
   events         VerificationEvent[]
-  invitations    VerifierInvitation[]
+  invitations    VaultUserInvitation[]
   heartbeat      Heartbeat?
   notifications  Notification[]
   recoveryShares RecoveryShare[]
@@ -191,48 +186,35 @@ model BlockRecipient {
   @@map("block_recipient")
 }
 
-model Verifier {
-  id        String   @id @default(uuid()) @map("id") @db.Uuid
-  contact   String   @unique // <— добавили @unique
-  pubkey    String?
-  kycLevel  KycLevel @default(None) @map("kyc_level")
-  createdAt DateTime @default(now()) @map("created_at")
+model VaultUserRole {
+  vaultId String             @map("vault_id") @db.Uuid
+  userId  String             @map("user_id") @db.Uuid
+  role    UserRole           @map("role")
+  status  VaultUserRoleStatus @default(Invited) @map("status")
+  isPrimary Boolean          @default(false) @map("is_primary")
+  addedAt   DateTime         @default(now()) @map("added_at")
 
-  vaults    VaultVerifier[]
-  decisions VerificationDecision[]
+  vault Vault @relation(fields: [vaultId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
-  @@map("verifier")
+  @@id([vaultId, userId])
+  @@index([userId], map: "ix_vault_user_role_user_id")
+  @@map("vault_user_role")
 }
 
-model VaultVerifier {
-  vaultId    String             @map("vault_id") @db.Uuid
-  verifierId String             @map("verifier_id") @db.Uuid
-  roleStatus VerifierRoleStatus @default(Invited) @map("role_status")
-  isPrimary  Boolean            @default(false) @map("is_primary")
-  addedAt    DateTime           @default(now()) @map("added_at")
-
-  vault    Vault    @relation(fields: [vaultId], references: [id])
-  verifier Verifier @relation(fields: [verifierId], references: [id])
-  // Примечание: ограничение «только один is_primary=true на сейф»
-  // сделаем частичным уникальным индексом в отдельной миграции SQL.
-
-  @@id([vaultId, verifierId])
-  @@index([verifierId], map: "ix_vault_verifier_verifier_id")
-  @@map("vault_verifier")
-}
-
-model VerifierInvitation {
+model VaultUserInvitation {
   id        String   @id @default(uuid()) @map("id") @db.Uuid
   vaultId   String   @map("vault_id") @db.Uuid
-  email     String   @map("email")
+  email     String
+  role      UserRole           @map("role")
   token     String   @map("token")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
 
   vault Vault @relation(fields: [vaultId], references: [id])
 
-  @@index([vaultId], map: "ix_verifier_invitation_vault_id")
-  @@map("verifier_invitation")
+  @@index([vaultId], map: "ix_vault_user_invitation_vault_id")
+  @@map("vault_user_invitation")
 }
 
 model VerificationEvent {
@@ -258,16 +240,16 @@ model VerificationEvent {
 model VerificationDecision {
   id                  String   @id @default(uuid()) @map("id") @db.Uuid
   verificationEventId String   @map("verification_event_id") @db.Uuid
-  verifierId          String   @map("verifier_id") @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
   decision            Decision
   signature           String?
   decidedAt           DateTime @default(now()) @map("decided_at")
 
-  event    VerificationEvent @relation(fields: [verificationEventId], references: [id])
-  verifier Verifier          @relation(fields: [verifierId], references: [id])
+  event VerificationEvent @relation(fields: [verificationEventId], references: [id])
+  user  User              @relation(fields: [userId], references: [id])
 
-  @@unique([verificationEventId, verifierId], map: "uq_decision_once")
-  @@index([verifierId], map: "ix_vd_verifier_id")
+  @@unique([verificationEventId, userId], map: "uq_decision_once")
+  @@index([userId], map: "ix_vd_user_id")
   @@map("verification_decision")
 }
 

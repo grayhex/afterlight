@@ -32,13 +32,13 @@ export class VerificationEventsService {
     return e;
   }
 
-  async decide(id: string, verifierId: string, dto: DecisionDto) {
+  async decide(id: string, userId: string, dto: DecisionDto) {
     const event = await this.get(id);
     await this.prisma.verificationDecision.upsert({
-      where: { verificationEventId_verifierId: { verificationEventId: id, verifierId } },
+      where: { verificationEventId_userId: { verificationEventId: id, userId } },
       create: {
         verificationEventId: id,
-        verifierId,
+        userId,
         decision: dto.decision,
         signature: dto.signature,
       },

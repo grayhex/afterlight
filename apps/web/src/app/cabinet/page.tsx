@@ -115,15 +115,15 @@ function OwnerCabinet() {
     setInviting(true);
     setInviteError(null);
     try {
-      const res = await httpClient("/verifiers/invitations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail }),
-      });
-      const data = await res.json();
-      const email =
-        data?.invitation?.verifier?.contact || data?.email || inviteEmail;
-      setVerifiers((v) => [...v, { email }]);
+        const res = await httpClient("/verifiers/invitations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: inviteEmail }),
+        });
+        const data = await res.json();
+        const email =
+          data?.invitation?.user?.email || data?.email || inviteEmail;
+        setVerifiers((v) => [...v, { email }]);
       setInviteEmail("");
     } catch (e) {
       setInviteError("Ошибка приглашения");
@@ -177,18 +177,18 @@ function OwnerCabinet() {
         {!verifiersLoading && !verifiersError && (
           <div className="grid gap-4 md:grid-cols-2">
             <AnimatePresence>
-              {verifiers.map((v: any, idx: number) => (
-                <motion.div
-                  key={idx}
+                {verifiers.map((v: any, idx: number) => (
+                  <motion.div
+                    key={idx}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="rounded bg-bodaghee-bg p-4 text-white shadow"
                 >
-                  {v.email || v.verifier?.contact}
-                </motion.div>
-              ))}
+                    {v.email || v.user?.email}
+                  </motion.div>
+                ))}
             </AnimatePresence>
           </div>
         )}

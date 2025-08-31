@@ -44,16 +44,17 @@ export class OrchestratorService {
     });
     await this.audit.log(ActorType.User, userId, 'orchestrator_start', 'VerificationEvent', event.id);
 
-    const verifiers = await this.prisma.vaultVerifier.findMany({
-      where: { vaultId, roleStatus: 'Active' as any },
-      include: { verifier: true },
+    const roles = await this.prisma.vaultUserRole.findMany({
+      where: { vaultId, status: 'Active' as any },
+      include: { user: true },
     });
-    for (const vv of verifiers) {
-      const to = vv.verifier?.contact;
-      if (to) await this.notify.enqueueEmail(vaultId, to, {
-        subject: 'AfterLight: начат процесс верификации',
-        text: `Доверитель инициировал событие. Перейдите на сайт и примите решение.`,
-      });
+    for (const r of roles) {
+      const to = r.user?.email;
+      if (to)
+        await this.notify.enqueueEmail(vaultId, to, {
+          subject: 'AfterLight: начат процесс верификации',
+          text: `Доверитель инициировал событие. Перейдите на сайт и примите решение.`,
+        });
     }
     await this.notify.flushEmailQueue();
 
@@ -150,9 +151,9 @@ export class OrchestratorService {
         const owner = await this.prisma.user.findUnique({
           where: { id: ev.vault.userId },
         });
-        const verifiers = await this.prisma.vaultVerifier.findMany({
-          where: { vaultId: ev.vaultId, roleStatus: 'Active' as any },
-          include: { verifier: true },
+        const roles = await this.prisma.vaultUserRole.findMany({
+          where: { vaultId: ev.vaultId, status: 'Active' as any },
+          include: { user: true },
         });
         if (owner?.email) {
           await this.notify.enqueueEmail(ev.vaultId, owner.email, {
@@ -160,8 +161,8 @@ export class OrchestratorService {
             text: 'Кворум подтверждений достигнут.',
           });
         }
-        for (const vv of verifiers) {
-          const to = vv.verifier?.contact;
+        for (const r of roles) {
+          const to = r.user?.email;
           if (to)
             await this.notify.enqueueEmail(ev.vaultId, to, {
               subject: 'AfterLight: Кворум достигнут',
@@ -183,9 +184,9 @@ export class OrchestratorService {
         const owner = await this.prisma.user.findUnique({
           where: { id: ev.vault.userId },
         });
-        const verifiers = await this.prisma.vaultVerifier.findMany({
-          where: { vaultId: ev.vaultId, roleStatus: 'Active' as any },
-          include: { verifier: true },
+        const roles = await this.prisma.vaultUserRole.findMany({
+          where: { vaultId: ev.vaultId, status: 'Active' as any },
+          include: { user: true },
         });
         const graceHours = (ev as any).vault?.graceHours ?? 24;
         const until = new Date(now.getTime() + graceHours * 3600 * 1000).toISOString();
@@ -194,8 +195,8 @@ export class OrchestratorService {
             subject: 'AfterLight: Grace period',
             text: `Начался grace‑период. Завершение не ранее ${until}.`,
           });
-        for (const vv of verifiers) {
-          const to = vv.verifier?.contact;
+        for (const r of roles) {
+          const to = r.user?.email;
           if (to)
             await this.notify.enqueueEmail(ev.vaultId, to, {
               subject: 'AfterLight: Grace period',
@@ -218,7 +219,7 @@ export class OrchestratorService {
     return { state: next, confirms, denies, quorum };
   }
 
-  async decide(actorId: string, vaultId: string, verifierId: string, decision: VDecision, signature?: string) {
+  async decide(actorId: string, vaultId: string, userId: string, decision: VDecision, signature?: string) {
     const frozen = await this.prisma.verificationEvent.findFirst({
       where: { vaultId, state: 'Disputed' as any },
       orderBy: { createdAt: 'desc' },
@@ -233,13 +234,13 @@ export class OrchestratorService {
     const active = await this.getActiveEvent(vaultId);
     if (!active) throw new BadRequestException('No active event to accept decisions');
 
-    const hasRight = await this.prisma.vaultVerifier.findFirst({
-      where: { vaultId, verifierId, roleStatus: 'Active' as any },
+    const hasRight = await this.prisma.vaultUserRole.findFirst({
+      where: { vaultId, userId, status: 'Active' as any },
     });
     if (!hasRight) throw new ForbiddenException('Verifier is not active for this vault');
 
     const existing = await this.prisma.verificationDecision.findFirst({
-      where: { verificationEventId: active.id, verifierId },
+      where: { verificationEventId: active.id, userId },
     });
     if (existing) {
       await this.prisma.verificationDecision.update({
@@ -250,14 +251,14 @@ export class OrchestratorService {
       await this.prisma.verificationDecision.create({
         data: {
           verificationEventId: active.id,
-          verifierId,
+          userId,
           decision: decision as any,
           signature: signature ?? null,
         },
       });
     }
     await this.audit.log(
-      ActorType.Verifier,
+      ActorType.User,
       actorId,
       `orchestrator_decide:${decision}`,
       'VerificationEvent',
