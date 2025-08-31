@@ -9,7 +9,7 @@ function unauthorized() {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith('/owner') || pathname.startsWith('/verifier')) {
+  if (pathname.startsWith('/cabinet')) {
     try {
       const res = await httpClient('/auth/me', {
         method: 'GET',
@@ -28,9 +28,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/owner',
-    '/owner/:path*',
-    '/verifier',
-    '/verifier/:path*',
+    '/cabinet',
+    '/cabinet/:path*',
   ],
 };
