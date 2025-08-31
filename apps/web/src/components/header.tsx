@@ -3,14 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAuth } from "@/shared/auth/useAuth";
-import {
-  User,
-  ShieldCheck,
-  LogIn,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { User, LogIn, LogOut, Menu, X } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Header() {
@@ -19,14 +12,9 @@ export default function Header() {
 
   const mainLinks = [
     {
-      href: "/owner",
-      label: "Кабинет пользователя",
+      href: "/cabinet",
+      label: "Личный кабинет",
       icon: <User className="h-4 w-4 text-bodaghee-accent" />,
-    },
-    {
-      href: "/verifier",
-      label: "Кабинет верификатора",
-      icon: <ShieldCheck className="h-4 w-4 text-bodaghee-accent" />,
     },
   ];
 
