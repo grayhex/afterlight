@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react";
 import { httpClient } from "@/shared/api/httpClient";
-import { X } from "lucide-react";
 
 interface LoginModalProps {
   open: boolean;
@@ -53,22 +52,8 @@ export default function LoginModal({ open, onClose }: LoginModalProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={onClose}
-    >
-      <div
-        className="relative w-full max-w-sm rounded border border-bodaghee-accent bg-bodaghee-bg p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Закрыть"
-          className="absolute right-2 top-2 text-bodaghee-accent"
-        >
-          <X className="h-4 w-4" />
-        </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-sm rounded bg-bodaghee-bg p-6">
         {mode === "login" ? (
           <form onSubmit={handleLogin} className="flex flex-col gap-4 font-body">
             <input
