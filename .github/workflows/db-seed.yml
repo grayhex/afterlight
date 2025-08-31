@@ -47,21 +47,17 @@ jobs:
         if: always()
         run: |
           JOB="${{ steps.create.outputs.job }}"
-          if [ -n "$JOB" ]; then
-            echo "== Job describe =="
-            kubectl -n "$NS" describe job "$JOB" || true
-            echo "== Pods list =="
-            kubectl -n "$NS" get pods -l job-name="$JOB" -o name || true
-            for p in $(kubectl -n "$NS" get pods -l job-name="$JOB" -o name); do
-              echo "--- logs $p ---"
-              kubectl -n "$NS" logs "$p" --all-containers || true
-              kubectl -n "$NS" logs "$p" --all-containers --previous || true
-              echo "--- describe $p ---"
-              kubectl -n "$NS" describe "$p" || true
-            done
-          else
-            echo "Job was not created"
-          fi
+          echo "== Job describe =="
+          kubectl -n "$NS" describe job "$JOB" || true
+          echo "== Pods list =="
+          kubectl -n "$NS" get pods -l job-name="$JOB" -o name || true
+          for p in $(kubectl -n "$NS" get pods -l job-name="$JOB" -o name); do
+            echo "--- logs $p ---"
+            kubectl -n "$NS" logs "$p" --all-containers || true
+            kubectl -n "$NS" logs "$p" --all-containers --previous || true
+            echo "--- describe $p ---"
+            kubectl -n "$NS" describe "$p" || true
+          done
           echo "== Recent events =="
           kubectl -n "$NS" get events --sort-by=.lastTimestamp | tail -n 200 || true
 

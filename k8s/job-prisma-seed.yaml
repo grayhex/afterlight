@@ -10,11 +10,11 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      terminationMessagePolicy: FallbackToLogsOnError
       containers:
         - name: seed
           image: ghcr.io/grayhex/afterlight-api:latest
           imagePullPolicy: IfNotPresent
-          terminationMessagePolicy: FallbackToLogsOnError
           env:
             - name: PRISMA_NON_INTERACTIVE
               value: "1"
