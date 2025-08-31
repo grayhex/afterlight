@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import FeatureCard from '@/components/feature-card';
 import FaqItem from '@/components/faq-item';
