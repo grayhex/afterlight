@@ -21,12 +21,12 @@ export default function Header() {
     {
       href: "/owner",
       label: "Кабинет пользователя",
-      icon: <User className="h-4 w-4" />,
+      icon: <User className="h-4 w-4 text-bodaghee-accent" />,
     },
     {
       href: "/verifier",
       label: "Кабинет верификатора",
-      icon: <ShieldCheck className="h-4 w-4" />,
+      icon: <ShieldCheck className="h-4 w-4 text-bodaghee-accent" />,
     },
   ];
 
@@ -48,7 +48,7 @@ export default function Header() {
     >
       <Link
         href={href}
-        className="text-sm font-body uppercase text-white"
+        className="flex items-center gap-1 text-sm font-body uppercase text-white"
       >
         {icon}
         <span>{label}</span>

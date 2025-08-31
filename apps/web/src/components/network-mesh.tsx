@@ -42,7 +42,7 @@ export default function NetworkMesh() {
         const radius = dist < 50 ? 1.5 : 1;
         ctx.beginPath();
         ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#92CBDB';
+        ctx.fillStyle = 'rgba(146,203,219,0.8)';
         ctx.fill();
         for (let j = idx + 1; j < nodes.length; j++) {
           const m = nodes[j];
@@ -50,8 +50,8 @@ export default function NetworkMesh() {
           if (d < 150) {
             const nearMouse =
               mouse.active &&
-              (Math.hypot(n.x - mouse.x, n.y - mouse.y) < 80 ||
-                Math.hypot(m.x - mouse.x, m.y - mouse.y) < 80);
+              (Math.hypot(n.x - mouse.x, n.y - mouse.y) < 100 ||
+                Math.hypot(m.x - mouse.x, m.y - mouse.y) < 100);
             ctx.strokeStyle = nearMouse
               ? 'rgba(146,203,219,1)'
               : 'rgba(146,203,219,0.5)';
@@ -72,13 +72,9 @@ export default function NetworkMesh() {
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
       mouse.active = true;
-      const offsetX = (mouse.x - rect.width / 2) / 20;
-      const offsetY = (mouse.y - rect.height / 2) / 20;
-      canvas.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
     };
     const handleLeave = () => {
       mouse.active = false;
-      canvas.style.transform = 'translate3d(0,0,0)';
     };
 
     canvas.addEventListener('mousemove', handleMove);
