@@ -8,7 +8,7 @@ import Stats from '@/components/stats';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Lock, Users, Activity, Link as LinkIcon, Shield } from 'lucide-react';
 
-const NetworkMesh = dynamic(() => import('@/components/network-mesh'), { ssr: false });
+const ParticlesBackground = dynamic(() => import('@/components/particles-background'), { ssr: false });
 
 export default function Home() {
   const reduceMotion = useReducedMotion();
@@ -83,7 +83,7 @@ export default function Home() {
           </Link>
         </div>
         <div className="relative h-96 w-full md:h-[650px]">
-          <NetworkMesh />
+          <ParticlesBackground />
         </div>
       </section>
 
