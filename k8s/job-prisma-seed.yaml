@@ -2,7 +2,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   generateName: prisma-seed-
-  namespace: afterlight-staging
+  namespace: afterlight
 spec:
   backoffLimit: 0
   ttlSecondsAfterFinished: 300
