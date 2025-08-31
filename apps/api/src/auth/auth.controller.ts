@@ -12,6 +12,8 @@ import { AuthService } from './auth.service';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Response, Request } from 'express';
 import { UserRole } from '@prisma/client';
 
@@ -53,6 +55,21 @@ export class AuthController {
   async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('token');
     res.clearCookie('auth');
+    return {};
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.auth.forgotPassword(dto.email);
+    return {};
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    const ok = await this.auth.resetPassword(dto.token, dto.password);
+    if (!ok) {
+      throw new UnauthorizedException();
+    }
     return {};
   }
 

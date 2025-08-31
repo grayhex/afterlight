@@ -20,7 +20,7 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, phone: phone || undefined, password }),
       });
       if (res.ok) {
-        router.push('/login');
+        router.push('/');
       } else {
         setError('Ошибка регистрации');
       }
