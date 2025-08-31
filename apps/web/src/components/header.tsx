@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAuth } from "@/shared/auth/useAuth";
-import { User, LogIn, LogOut, Menu, X } from "lucide-react";
+import { LogIn, LogOut, Menu, X } from "lucide-react";
 import { motion } from "framer-motion";
 import LoginModal from "@/components/login-modal";
 import { httpClient } from "@/shared/api/httpClient";
@@ -13,13 +13,7 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const mainLinks = [
-    {
-      href: "/cabinet",
-      label: "Личный кабинет",
-      icon: <User className="h-4 w-4 text-bodaghee-accent" />,
-    },
-  ];
+  const mainLinks: { href: string; label: string; icon: ReactNode }[] = [];
 
   const authLinks =
     role === "guest"
