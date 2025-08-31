@@ -19,7 +19,7 @@ export default function Header() {
     role === "guest"
       ? [
           {
-            label: "Войти",
+            label: "Вход/Регистрация",
             icon: <LogIn className="h-4 w-4" />,
             onClick: () => setLoginOpen(true),
           },

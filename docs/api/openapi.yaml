@@ -166,11 +166,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password]
+              required: [name, email, phone]
               properties:
+                name: { type: string }
                 email: { type: string }
+                phone: { type: string }
                 password: { type: string }
-                role: { type: string, enum: [User, Admin] }
+                role: { type: string, enum: [Owner, Verifier, Admin] }
       responses:
         '201':
           description: Created

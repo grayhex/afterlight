@@ -4,12 +4,21 @@ import { UserRole } from '@prisma/client';
 
 export class RegisterDto {
   @ApiProperty()
+  @IsString()
+  name!: string;
+
+  @ApiProperty()
   @IsEmail()
   email!: string;
 
   @ApiProperty()
   @IsString()
-  password!: string;
+  phone!: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  password?: string;
 
   @ApiProperty({ required: false, enum: UserRole })
   @IsOptional()

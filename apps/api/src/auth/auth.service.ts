@@ -24,14 +24,17 @@ export class AuthService {
   }
 
   async register(
+    name: string,
     email: string,
-    password: string,
+    phone: string,
+    password?: string,
     role: UserRole = UserRole.Owner,
   ): Promise<User> {
-    const passwordHash = await hashPassword(password);
-    return this.prisma.user.create({
-      data: { email, passwordHash, role },
-    });
+    const data: any = { name, email, phone, role };
+    if (password) {
+      data.passwordHash = await hashPassword(password);
+    }
+    return this.prisma.user.create({ data });
   }
 
   async validateUser(email: string, password: string): Promise<User | null> {

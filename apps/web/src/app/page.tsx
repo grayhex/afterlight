@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import FeatureCard from '@/components/feature-card';
 import FaqItem from '@/components/faq-item';
 import Stats from '@/components/stats';
@@ -106,12 +105,7 @@ export default function Home() {
             Afterlight
           </motion.h1>
           <p className="mb-6 text-xl text-bodaghee-accent">Цифровое завещание</p>
-          <Link
-            href="/register"
-            className="inline-block border border-bodaghee-accent px-6 py-3 text-bodaghee-accent transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg"
-          >
-            Создать сейф
-          </Link>
+          
         </div>
         <div className="relative h-96 w-full md:h-[650px]">
           <ParticlesBackground />

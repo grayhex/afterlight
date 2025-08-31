@@ -18,16 +18,16 @@ export default function ParticlesBackground() {
 
     const config = {
       particles: {
-        number: { value: 150 },
+        number: { value: 100 },
         color: { value: '#92CBDB' },
-        opacity: { value: 0.8 },
-        size: { value: 3, random: true },
+        opacity: { value: 0.4 },
+        size: { value: 2, random: true },
         line_linked: {
           enable: true,
           distance: 120,
           color: '#92CBDB',
-          opacity: 0.6,
-          width: 1.5,
+          opacity: 0.2,
+          width: 1,
         },
         move: {
           enable: true,
@@ -40,10 +40,7 @@ export default function ParticlesBackground() {
           resize: true,
         },
         modes: {
-          grab: {
-            distance: 150,
-            line_linked: { opacity: 0.8, color: '#92CBDB' },
-          },
+          grab: { distance: 150, line_linked: { opacity: 0.4, color: '#92CBDB' } },
         },
       },
       retina_detect: true,
