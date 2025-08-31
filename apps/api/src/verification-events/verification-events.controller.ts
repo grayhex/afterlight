@@ -27,13 +27,13 @@ export class VerificationEventsController {
     return this.service.get(id);
   }
 
-  @Post(':id/confirm/:verifierId')
-  confirm(@Param('id') id: string, @Param('verifierId') verifierId: string, @Body() dto: DecisionDto) {
-    return this.service.decide(id, verifierId, { ...dto, decision: 'Confirm' });
+  @Post(':id/confirm/:userId')
+  confirm(@Param('id') id: string, @Param('userId') userId: string, @Body() dto: DecisionDto) {
+    return this.service.decide(id, userId, { ...dto, decision: 'Confirm' });
   }
 
-  @Post(':id/deny/:verifierId')
-  deny(@Param('id') id: string, @Param('verifierId') verifierId: string, @Body() dto: DecisionDto) {
-    return this.service.decide(id, verifierId, { ...dto, decision: 'Deny' });
+  @Post(':id/deny/:userId')
+  deny(@Param('id') id: string, @Param('userId') userId: string, @Body() dto: DecisionDto) {
+    return this.service.decide(id, userId, { ...dto, decision: 'Deny' });
   }
 }

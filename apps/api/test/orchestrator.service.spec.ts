@@ -12,7 +12,7 @@ describe('OrchestratorService transitions', () => {
       verificationEvent: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn(), findMany: jest.fn() },
       verificationDecision: { count: jest.fn(), findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
       vault: { update: jest.fn(), findUnique: jest.fn() },
-      vaultVerifier: { findMany: jest.fn(), findFirst: jest.fn() },
+      vaultUserRole: { findMany: jest.fn(), findFirst: jest.fn() },
       user: { findUnique: jest.fn() },
       notification: { create: jest.fn(), update: jest.fn(), findMany: jest.fn() },
     } as any;
@@ -52,7 +52,7 @@ describe('OrchestratorService transitions', () => {
       .mockResolvedValueOnce(2).mockResolvedValueOnce(0)
       .mockResolvedValueOnce(2).mockResolvedValueOnce(0);
     prisma.user.findUnique.mockResolvedValue({ email: 'owner@example.com' });
-    prisma.vaultVerifier.findMany.mockResolvedValue([{ verifier: { contact: 'ver@example.com' } }]);
+    prisma.vaultUserRole.findMany.mockResolvedValue([{ user: { email: 'ver@example.com' } }]);
 
     const first = await (service as any).recomputeAndTransition('e1', new Date());
     expect(first.state).toBe('QuorumReached');

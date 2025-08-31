@@ -23,8 +23,8 @@ export class VerifiersController {
     return this.service.invite(dto, token);
   }
 
-  @Post('invitations/:vaultId/:verifierId/accept')
-  accept(@Param('vaultId') vaultId: string, @Param('verifierId') verifierId: string) {
-    return this.service.acceptInvitation(vaultId, verifierId);
+  @Post('invitations/:vaultId/:userId/accept')
+  accept(@Param('vaultId') vaultId: string, @Param('userId') userId: string) {
+    return this.service.acceptInvitation(vaultId, userId);
   }
 }

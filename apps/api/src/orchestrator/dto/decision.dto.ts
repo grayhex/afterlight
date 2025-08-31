@@ -6,9 +6,9 @@ export class DecisionDto {
   @IsUUID()
   vault_id!: string;
 
-  @ApiProperty({ format: 'uuid', description: 'ID верификатора (MVP: из тела запроса)' })
+  @ApiProperty({ format: 'uuid', description: 'ID пользователя (верификатора)' })
   @IsUUID()
-  verifier_id!: string;
+  user_id!: string;
 
   @ApiProperty({ enum: ['Confirm', 'Deny'] })
   @IsIn(['Confirm', 'Deny'])

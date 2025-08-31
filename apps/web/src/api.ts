@@ -33,7 +33,7 @@ export interface paths {
   "/verifiers/invitations": {
     post: operations["VerifiersController_invite"];
   };
-  "/verifiers/invitations/{vaultId}/{verifierId}/accept": {
+  "/verifiers/invitations/{vaultId}/{userId}/accept": {
     post: operations["VerifiersController_accept"];
   };
   "/verification-events": {
@@ -43,10 +43,10 @@ export interface paths {
   "/verification-events/{id}": {
     get: operations["VerificationEventsController_get"];
   };
-  "/verification-events/{id}/confirm/{verifierId}": {
+  "/verification-events/{id}/confirm/{userId}": {
     post: operations["VerificationEventsController_confirm"];
   };
-  "/verification-events/{id}/deny/{verifierId}": {
+  "/verification-events/{id}/deny/{userId}": {
     post: operations["VerificationEventsController_deny"];
   };
   "/blocks": {
@@ -183,7 +183,7 @@ export interface components {
     InviteVerifierDto: {
       vault_id: string;
       /** @description email for MVP */
-      contact: string;
+      email: string;
       /**
        * @description expires in hours (default 7 days)
        * @default 168
@@ -198,9 +198,9 @@ export interface components {
       vault_id: string;
       /**
        * Format: uuid
-       * @description ID верификатора (MVP: из тела запроса)
+       * @description ID пользователя (верификатора)
        */
-      verifier_id: string;
+      user_id: string;
       /** @enum {string} */
       decision: "Confirm" | "Deny";
       signature?: string;
@@ -325,7 +325,7 @@ export interface components {
     };
     CreateAuditLogDto: {
       /** @enum {string} */
-      actorType: "User" | "Verifier" | "System";
+      actorType: "User" | "System";
       actorId: string;
       action: string;
       targetId?: string;
@@ -334,7 +334,7 @@ export interface components {
     };
     UpdateAuditLogDto: {
       /** @enum {string} */
-      actorType?: "User" | "Verifier" | "System";
+      actorType?: "User" | "System";
       actorId?: string;
       action?: string;
       targetId?: string;
@@ -735,7 +735,7 @@ export interface operations {
     parameters: {
       path: {
         vaultId: string;
-        verifierId: string;
+        userId: string;
       };
     };
     responses: {
@@ -884,7 +884,7 @@ export interface operations {
     parameters: {
       path: {
         id: string;
-        verifierId: string;
+        userId: string;
       };
     };
     requestBody: {
@@ -927,7 +927,7 @@ export interface operations {
     parameters: {
       path: {
         id: string;
-        verifierId: string;
+        userId: string;
       };
     };
     requestBody: {

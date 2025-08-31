@@ -56,12 +56,12 @@ export class VaultsService {
     await this.getForUser(userId, id);
     if (dto.primary_verifier_id) {
       await this.prisma.$transaction([
-        this.prisma.vaultVerifier.updateMany({
+        this.prisma.vaultUserRole.updateMany({
           where: { vaultId: id, isPrimary: true },
           data: { isPrimary: false },
         }),
-        this.prisma.vaultVerifier.updateMany({
-          where: { vaultId: id, verifierId: dto.primary_verifier_id },
+        this.prisma.vaultUserRole.updateMany({
+          where: { vaultId: id, userId: dto.primary_verifier_id },
           data: { isPrimary: true },
         }),
       ]);

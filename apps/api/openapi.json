@@ -763,7 +763,7 @@
         ]
       }
     },
-    "/verifiers/invitations/{vaultId}/{verifierId}/accept": {
+    "/verifiers/invitations/{vaultId}/{userId}/accept": {
       "post": {
         "operationId": "VerifiersController_accept",
         "parameters": [
@@ -776,7 +776,7 @@
             }
           },
           {
-            "name": "verifierId",
+            "name": "userId",
             "required": true,
             "in": "path",
             "schema": {
@@ -1082,7 +1082,7 @@
         ]
       }
     },
-    "/verification-events/{id}/confirm/{verifierId}": {
+    "/verification-events/{id}/confirm/{userId}": {
       "post": {
         "operationId": "VerificationEventsController_confirm",
         "parameters": [
@@ -1095,7 +1095,7 @@
             }
           },
           {
-            "name": "verifierId",
+            "name": "userId",
             "required": true,
             "in": "path",
             "schema": {
@@ -1178,7 +1178,7 @@
         ]
       }
     },
-    "/verification-events/{id}/deny/{verifierId}": {
+    "/verification-events/{id}/deny/{userId}": {
       "post": {
         "operationId": "VerificationEventsController_deny",
         "parameters": [
@@ -1191,7 +1191,7 @@
             }
           },
           {
-            "name": "verifierId",
+            "name": "userId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4797,7 +4797,7 @@
           "vault_id": {
             "type": "string"
           },
-          "contact": {
+          "email": {
             "type": "string",
             "description": "email for MVP"
           },
@@ -4809,7 +4809,7 @@
         },
         "required": [
           "vault_id",
-          "contact"
+          "email"
         ]
       },
       "StartVerificationEventDto": {
@@ -4830,10 +4830,10 @@
             "type": "string",
             "format": "uuid"
           },
-          "verifier_id": {
+          "user_id": {
             "type": "string",
             "format": "uuid",
-            "description": "ID верификатора (MVP: из тела запроса)"
+            "description": "ID пользователя (верификатора)"
           },
           "decision": {
             "type": "string",
@@ -4848,7 +4848,7 @@
         },
         "required": [
           "vault_id",
-          "verifier_id",
+          "user_id",
           "decision"
         ]
       },
@@ -5210,7 +5210,6 @@
             "type": "string",
             "enum": [
               "User",
-              "Verifier",
               "System"
             ]
           },
@@ -5243,7 +5242,6 @@
             "type": "string",
             "enum": [
               "User",
-              "Verifier",
               "System"
             ]
           },
