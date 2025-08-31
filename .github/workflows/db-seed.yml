@@ -62,9 +62,10 @@ jobs:
           kubectl -n "$NS" get events --sort-by=.lastTimestamp | tail -n 200 || true
 
       - name: Fail if job did not succeed
+        if: steps.create.outputs.job != ''
         run: |
           s=$(kubectl -n "$NS" get job "${{ steps.create.outputs.job }}" -o jsonpath='{.status.succeeded}')
-          if [[ "$s" != "1" ]]; then
+          if [ "$s" != "1" ]; then
             echo "Seed job did not complete successfully" >&2
             exit 1
           fi
