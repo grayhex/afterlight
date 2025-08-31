@@ -26,7 +26,14 @@ kubectl apply -f k8s/base/migrate-job.yaml
 kubectl -n afterlight-staging logs job/prisma-migrate -f
 ```
 
-5. **Проверка:**
+5. **Засидите базу (опционально):**
+```bash
+JOB=$(kubectl -n afterlight-staging create -f k8s/job-prisma-seed.yaml -o jsonpath='{.metadata.name}')
+kubectl -n afterlight-staging wait --for=condition=complete job/$JOB
+kubectl -n afterlight-staging logs job/$JOB --all-containers
+```
+
+6. **Проверка:**
 - `GET https://staging.afterlight.example/healthz` → `{ status: "ok" }`
 - `GET https://staging.afterlight.example/readyz` → `{ status: "ready" }`
 
