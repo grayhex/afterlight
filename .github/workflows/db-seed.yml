@@ -21,63 +21,25 @@ jobs:
     runs-on: self-hosted
     env:
       NS: afterlight
-      JOB_NAME: prisma-seed-${{ github.run_number }}
     steps:
+      - uses: actions/checkout@v4
       - name: kubeconfig
         run: |
           mkdir -p "$HOME/.kube"
           printf "%s" "${{ secrets.KUBECONFIG_AFTERLIGHT }}" > "$HOME/.kube/config"
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
-
-      - name: Detect API image and DB secret
-        id: info
+      - name: Create seed Job
+        id: create
         run: |
-          set -euo pipefail
-          IMG=$(kubectl -n "$NS" get deploy afterlight-api -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].image}')
-          DB_SECRET=$(kubectl -n "$NS" get deploy afterlight-api -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].env[?(@.name=="DATABASE_URL")].valueFrom.secretKeyRef.name}')
-          DB_KEY=$(kubectl -n "$NS" get deploy afterlight-api -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].env[?(@.name=="DATABASE_URL")].valueFrom.secretKeyRef.key}')
-          if [ -z "${DB_SECRET}" ]; then
-            DB_SECRET=$(kubectl -n "$NS" get deploy afterlight-api -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].envFrom[0].secretRef.name}')
-            DB_KEY=DATABASE_URL
-          fi
-          if [ -z "${DB_SECRET}" ]; then
-            echo "Could not detect secret with DATABASE_URL from deployment afterlight-api" >&2
-            exit 1
-          fi
-          echo "img=${IMG}" >> $GITHUB_OUTPUT
-          echo "db_secret=${DB_SECRET}" >> $GITHUB_OUTPUT
-          echo "db_key=${DB_KEY}" >> $GITHUB_OUTPUT
-
-      - name: Apply seed Job
-        run: |
-          cat <<EOF | kubectl -n "$NS" apply -f -
-          apiVersion: batch/v1
-          kind: Job
-          metadata:
-            name: ${JOB_NAME}
-          spec:
-            backoffLimit: 0
-            template:
-              spec:
-                restartPolicy: Never
-                containers:
-                  - name: seed
-                    image: ${{ steps.info.outputs.img }}
-                    env:
-                      - name: DATABASE_URL
-                        valueFrom:
-                          secretKeyRef:
-                            name: ${{ steps.info.outputs.db_secret }}
-                            key:  ${{ steps.info.outputs.db_key }}
-                    command: ["sh","-lc","npx prisma migrate deploy && (node dist/prisma/seed.js || npx prisma db seed)"]
-          EOF
+          JOB_NAME=$(kubectl -n "$NS" create -f k8s/job-prisma-seed.yaml -o jsonpath='{.metadata.name}')
+          echo "job=${JOB_NAME}" >> $GITHUB_OUTPUT
 
       - name: Wait for completion & show logs
         run: |
-          kubectl -n "$NS" wait --for=condition=complete --timeout=10m job/${JOB_NAME}
-          kubectl -n "$NS" logs job/${JOB_NAME} --all-containers --tail=-1
+          kubectl -n "$NS" wait --for=condition=complete --timeout=10m job/${{ steps.create.outputs.job }}
+          kubectl -n "$NS" logs job/${{ steps.create.outputs.job }} --all-containers --tail=-1
 
       - name: Cleanup
         if: always()
-        run: kubectl -n "$NS" delete job/${JOB_NAME} --ignore-not-found=true
+        run: kubectl -n "$NS" delete job/${{ steps.create.outputs.job }} --ignore-not-found=true

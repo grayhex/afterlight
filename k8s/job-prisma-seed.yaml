@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: prisma-seed-
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seed
+          image: ghcr.io/grayhex/afterlight-api:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: api-config }
+            - secretRef: { name: api-secrets }
+          command: ["sh", "-lc"]
+          args:
+            - >
+              echo "Running prisma migrate deploy and seed..." &&
+              npx prisma migrate deploy &&
+              (node dist/prisma/seed.js || npx prisma db seed) &&
+              echo "Done."
