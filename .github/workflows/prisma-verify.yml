@@ -33,6 +33,8 @@ jobs:
           npx prisma validate
           npx prisma format --check
           npx prisma generate
+      - name: Build
+        run: npm run build
       - name: Migrate and seed
         run: |
           npx prisma migrate deploy
