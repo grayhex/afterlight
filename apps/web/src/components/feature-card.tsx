@@ -5,11 +5,12 @@ import type { ReactNode } from 'react';
 
 interface Props {
   icon: ReactNode;
+  title: string;
   text: string;
   delay?: number;
 }
 
-export default function FeatureCard({ icon, text, delay = 0 }: Props) {
+export default function FeatureCard({ icon, title, text, delay = 0 }: Props) {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
@@ -20,7 +21,8 @@ export default function FeatureCard({ icon, text, delay = 0 }: Props) {
       transition={reduceMotion ? undefined : { duration: 0.4, delay }}
     >
       <div className="feature-icon mb-2 text-bodaghee-accent group-hover:scale-110">{icon}</div>
-      <p className="text-sm">{text}</p>
+      <h3 className="mb-1 font-semibold text-white">{title}</h3>
+      <p className="text-sm text-white">{text}</p>
     </motion.div>
   );
 }
