@@ -19,11 +19,11 @@ export default function NetworkMesh() {
     };
     resize();
 
-    const nodes = Array.from({ length: 50 }, () => ({
+    const nodes = Array.from({ length: 350 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
     }));
 
     const mouse = { x: 0, y: 0, active: false };
@@ -39,23 +39,23 @@ export default function NetworkMesh() {
           if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
         }
         const dist = mouse.active ? Math.hypot(n.x - mouse.x, n.y - mouse.y) : Infinity;
-        const radius = dist < 50 ? 1.5 : 1;
+        const radius = dist < 60 ? 1.2 : 0.8;
         ctx.beginPath();
         ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#92CBDB';
+        ctx.fillStyle = 'rgba(146,203,219,0.7)';
         ctx.fill();
         for (let j = idx + 1; j < nodes.length; j++) {
           const m = nodes[j];
           const d = Math.hypot(n.x - m.x, n.y - m.y);
-          if (d < 100) {
+          if (d < 220) {
             const nearMouse =
               mouse.active &&
-              (Math.hypot(n.x - mouse.x, n.y - mouse.y) < 80 ||
-                Math.hypot(m.x - mouse.x, m.y - mouse.y) < 80);
+              (Math.hypot(n.x - mouse.x, n.y - mouse.y) < 100 ||
+                Math.hypot(m.x - mouse.x, m.y - mouse.y) < 100);
             ctx.strokeStyle = nearMouse
-              ? 'rgba(146,203,219,1)'
-              : 'rgba(146,203,219,0.5)';
-            ctx.lineWidth = 0.5;
+              ? 'rgba(146,203,219,0.6)'
+              : 'rgba(146,203,219,0.2)';
+            ctx.lineWidth = 0.1;
             ctx.beginPath();
             ctx.moveTo(n.x, n.y);
             ctx.lineTo(m.x, m.y);
@@ -72,13 +72,9 @@ export default function NetworkMesh() {
       mouse.x = e.clientX - rect.left;
       mouse.y = e.clientY - rect.top;
       mouse.active = true;
-      const offsetX = (mouse.x - rect.width / 2) / 20;
-      const offsetY = (mouse.y - rect.height / 2) / 20;
-      canvas.style.transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`;
     };
     const handleLeave = () => {
       mouse.active = false;
-      canvas.style.transform = 'translate3d(0,0,0)';
     };
 
     canvas.addEventListener('mousemove', handleMove);

@@ -1,6 +1,6 @@
 'use client';
 
-import { Lock, Users, Activity, Link as LinkIcon } from "lucide-react";
+import { Lock, Users, Activity, Link as LinkIcon, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import FaqItem from "@/components/faq-item";
 
@@ -21,6 +21,10 @@ export default function LandingContent() {
     {
       icon: LinkIcon,
       text: "Публичные ссылки на блоки живут 24 часа и защищены CAPTCHA.",
+    },
+    {
+      icon: Shield,
+      text: "Содержимое шифруется на вашем устройстве. Мы храним только зашифрованные данные и технические метаданные.",
     },
   ];
 
@@ -92,17 +96,12 @@ export default function LandingContent() {
 
       <section className="mb-6">
         <h2 className="mb-4 text-2xl font-semibold">FAQ</h2>
-        <div className="max-h-64 space-y-4 overflow-y-auto rounded border border-bodaghee-accent/20 bg-bodaghee-bg p-4 text-white">
+        <div className="space-y-4">
           {faqs.map((f, i) => (
             <FaqItem key={i} question={f.q} answer={f.a} delay={i * 0.1} />
           ))}
         </div>
       </section>
-
-      <p className="text-sm text-white/70">
-        Содержимое шифруется на вашем устройстве. Мы храним только
-        зашифрованные данные и технические метаданные.
-      </p>
     </div>
   );
 }
