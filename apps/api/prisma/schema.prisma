@@ -91,7 +91,8 @@ enum ActorType {
 }
 
 enum UserRole {
-  User
+  Owner
+  Verifier
   Admin
 }
 
@@ -104,7 +105,7 @@ model User {
   passwordHash String?  @map("password_hash")
   passkeyPub   String?  @map("passkey_pub")
   twoFaEnabled Boolean  @default(false) @map("two_fa_enabled")
-  role         UserRole @default(User)
+  role         UserRole @default(Owner)
   locale       String   @default("ru-RU")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")

@@ -18,8 +18,12 @@ export function useAuth() {
         if (res.ok) {
           const data = await res.json().catch(() => ({}));
           const role = data?.role;
-          if (role === 'owner' || role === 'verifier') {
-            auth.login(role);
+          if (
+            role === 'Owner' ||
+            role === 'Verifier' ||
+            role === 'Admin'
+          ) {
+            auth.login(role.toLowerCase() as Role);
           } else {
             auth.logout();
           }

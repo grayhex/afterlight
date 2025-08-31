@@ -8,7 +8,7 @@ const sampleUser = {
   passwordHash: 'hash',
   passkeyPub: 'pub',
   twoFaEnabled: true,
-  role: 'User',
+  role: 'Owner',
   locale: 'ru-RU',
   createdAt: new Date(0),
   updatedAt: new Date(0),

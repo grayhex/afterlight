@@ -1,4 +1,4 @@
-export type Role = 'guest' | 'owner' | 'verifier';
+export type Role = 'guest' | 'owner' | 'verifier' | 'admin';
 
 type Listener = () => void;
 

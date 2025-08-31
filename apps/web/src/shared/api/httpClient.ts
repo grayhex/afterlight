@@ -1,4 +1,4 @@
-import { auth } from '../auth/store';
+import { auth, Role } from '../auth/store';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
@@ -26,8 +26,12 @@ export async function httpClient(
       try {
         const data = await res.clone().json();
         const role = data?.role;
-        if (role === 'owner' || role === 'verifier') {
-          auth.login(role);
+        if (
+          role === 'Owner' ||
+          role === 'Verifier' ||
+          role === 'Admin'
+        ) {
+          auth.login(role.toLowerCase() as Role);
         }
       } catch {
         // ignore JSON parse errors
