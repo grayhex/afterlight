@@ -82,7 +82,7 @@ export default function Home() {
             Создать сейф
           </Link>
         </div>
-        <div className="relative h-64 w-full md:h-full">
+        <div className="relative h-96 w-full md:h-[650px]">
           <NetworkMesh />
         </div>
       </section>

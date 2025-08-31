@@ -39,7 +39,7 @@ export default function NetworkMesh() {
           if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
         }
         const dist = mouse.active ? Math.hypot(n.x - mouse.x, n.y - mouse.y) : Infinity;
-        const radius = dist < 50 ? 1.5 : 1;
+        const radius = dist < 60 ? 1.2 : 0.8;
         ctx.beginPath();
         ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(146,203,219,0.8)';
