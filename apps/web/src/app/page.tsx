@@ -4,13 +4,37 @@ import dynamic from 'next/dynamic';
 import FeatureCard from '@/components/feature-card';
 import FaqItem from '@/components/faq-item';
 import Stats from '@/components/stats';
-import { motion, useReducedMotion } from 'framer-motion';
+import {
+  motion,
+  useReducedMotion,
+  useMotionValue,
+  useSpring,
+} from 'framer-motion';
 import { Lock, Users, Activity, Link as LinkIcon, Shield } from 'lucide-react';
 
 const ParticlesBackground = dynamic(() => import('../components/particles-background'), { ssr: false });
 
 export default function Home() {
   const reduceMotion = useReducedMotion();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const springX = useSpring(x, { stiffness: 100, damping: 20 });
+  const springY = useSpring(y, { stiffness: 100, damping: 20 });
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const handleMove = (e: MouseEvent) => {
+      const rect = headingRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const dx = e.clientX - (rect.left + rect.width / 2);
+      const dy = e.clientY - (rect.top + rect.height / 2);
+      x.set(dx * 0.05);
+      y.set(dy * 0.05);
+    };
+    window.addEventListener('mousemove', handleMove);
+    return () => window.removeEventListener('mousemove', handleMove);
+  }, [reduceMotion, x, y]);
   const features = [
     {
       icon: <Lock className="feature-icon mb-2 h-6 w-6 text-bodaghee-accent" />,
@@ -72,7 +96,13 @@ export default function Home() {
     <div className="flex flex-col">
       <section className="container mx-auto grid items-center gap-8 px-4 py-16 sm:px-8 md:grid-cols-2">
         <div className="flex flex-col items-center text-center md:items-start md:text-left">
-          <h1 className="mb-4 text-[86px] font-heading text-white">Afterlight</h1>
+          <motion.h1
+            ref={headingRef}
+            style={reduceMotion ? undefined : { x: springX, y: springY }}
+            className="mb-4 text-[120px] font-heading text-white"
+          >
+            Afterlight
+          </motion.h1>
           <p className="mb-6 text-xl text-bodaghee-accent">Цифровое завещание</p>
           
         </div>
