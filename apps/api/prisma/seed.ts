@@ -77,7 +77,7 @@ async function main() {
     create: {
       email: 'test1@afterl.ru',
       passwordHash: await hashPassword('pass1'),
-      role: 'User'
+      role: 'Owner'
     }
   })
 
