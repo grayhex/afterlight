@@ -151,8 +151,10 @@ export interface components {
       error?: string;
     };
     RegisterDto: {
+      name: string;
       email: string;
-      password: string;
+      phone: string;
+      password?: string;
       /** @enum {string} */
       role?: "Owner" | "Verifier" | "Admin";
     };
