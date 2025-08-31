@@ -5,6 +5,7 @@ metadata:
   namespace: afterlight
 spec:
   backoffLimit: 0
+  activeDeadlineSeconds: 600
   ttlSecondsAfterFinished: 300
   template:
     spec:
@@ -13,13 +14,22 @@ spec:
         - name: seed
           image: ghcr.io/grayhex/afterlight-api:latest
           imagePullPolicy: IfNotPresent
+          terminationMessagePolicy: FallbackToLogsOnError
+          env:
+            - name: PRISMA_NON_INTERACTIVE
+              value: "1"
           envFrom:
-            - configMapRef: { name: api-config }
-            - secretRef: { name: api-secrets }
+            - secretRef:
+                name: api-secrets
+            - configMapRef:
+                name: api-config
+                optional: true
           command: ["sh", "-lc"]
           args:
-            - >
-              echo "Running prisma migrate deploy and seed..." &&
-              npx prisma migrate deploy &&
-              (node dist/prisma/seed.js || npx prisma db seed) &&
-              echo "Done."
+            - |
+              set -eu
+              echo "== migrate =="
+              npx prisma migrate deploy
+              echo "== seed =="
+              npx prisma db seed
+              echo "== done =="

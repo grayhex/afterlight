@@ -39,17 +39,13 @@ jobs:
 
       - name: Wait up to 10m for complete OR detect failure
         run: |
-          set -euo pipefail
           JOB="${{ steps.create.outputs.job }}"
-          # Ждём complete, но не падаем, если не дождались
           kubectl -n "$NS" wait --for=condition=complete --timeout=10m "job/$JOB" || true
-          # Если job уже помечен как failed — быстро зафиксируем это
           kubectl -n "$NS" wait --for=condition=failed --timeout=1s "job/$JOB" || true
 
       - name: Collect diagnostics
         if: always()
         run: |
-          set -o pipefail
           JOB="${{ steps.create.outputs.job }}"
           echo "== Job describe =="
           kubectl -n "$NS" describe job "$JOB" || true
@@ -57,7 +53,8 @@ jobs:
           kubectl -n "$NS" get pods -l job-name="$JOB" -o name || true
           for p in $(kubectl -n "$NS" get pods -l job-name="$JOB" -o name); do
             echo "--- logs $p ---"
-            kubectl -n "$NS" logs "$p" --all-containers --tail=-1 || true
+            kubectl -n "$NS" logs "$p" --all-containers || true
+            kubectl -n "$NS" logs "$p" --all-containers --previous || true
             echo "--- describe $p ---"
             kubectl -n "$NS" describe "$p" || true
           done

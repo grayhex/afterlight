@@ -125,7 +125,7 @@ model Vault {
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
-  user           User              @relation(fields: [userId], references: [id])
+  user           User                  @relation(fields: [userId], references: [id])
   blocks         Block[]
   roles          VaultUserRole[]
   events         VerificationEvent[]
@@ -188,12 +188,12 @@ model BlockRecipient {
 }
 
 model VaultUserRole {
-  vaultId String             @map("vault_id") @db.Uuid
-  userId  String             @map("user_id") @db.Uuid
-  role    UserRole           @map("role")
-  status  VaultUserRoleStatus @default(Invited) @map("status")
-  isPrimary Boolean          @default(false) @map("is_primary")
-  addedAt   DateTime         @default(now()) @map("added_at")
+  vaultId   String              @map("vault_id") @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  role      UserRole            @map("role")
+  status    VaultUserRoleStatus @default(Invited) @map("status")
+  isPrimary Boolean             @default(false) @map("is_primary")
+  addedAt   DateTime            @default(now()) @map("added_at")
 
   vault Vault @relation(fields: [vaultId], references: [id])
   user  User  @relation(fields: [userId], references: [id])
@@ -207,7 +207,7 @@ model VaultUserInvitation {
   id        String   @id @default(uuid()) @map("id") @db.Uuid
   vaultId   String   @map("vault_id") @db.Uuid
   email     String
-  role      UserRole           @map("role")
+  role      UserRole @map("role")
   token     String   @map("token")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")

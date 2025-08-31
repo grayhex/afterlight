@@ -1,0 +1,41 @@
+name: prisma-verify
+on:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: afterlight
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/afterlight
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm ci
+      - name: Prisma checks
+        run: |
+          npx prisma validate
+          npx prisma format --check
+          npx prisma generate
+      - name: Build
+        run: npm run build
+      - name: Migrate and seed
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed
