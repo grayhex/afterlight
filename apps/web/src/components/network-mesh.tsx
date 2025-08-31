@@ -19,7 +19,7 @@ export default function NetworkMesh() {
     };
     resize();
 
-    const nodes = Array.from({ length: 350 }, () => ({
+    const nodes = Array.from({ length: 200 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
       vx: (Math.random() - 0.5) * 0.2,
@@ -42,20 +42,20 @@ export default function NetworkMesh() {
         const radius = dist < 60 ? 1.2 : 0.8;
         ctx.beginPath();
         ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(146,203,219,0.7)';
+        ctx.fillStyle = 'rgba(146,203,219,0.8)';
         ctx.fill();
         for (let j = idx + 1; j < nodes.length; j++) {
           const m = nodes[j];
           const d = Math.hypot(n.x - m.x, n.y - m.y);
-          if (d < 220) {
+          if (d < 150) {
             const nearMouse =
               mouse.active &&
               (Math.hypot(n.x - mouse.x, n.y - mouse.y) < 100 ||
                 Math.hypot(m.x - mouse.x, m.y - mouse.y) < 100);
             ctx.strokeStyle = nearMouse
-              ? 'rgba(146,203,219,0.6)'
-              : 'rgba(146,203,219,0.2)';
-            ctx.lineWidth = 0.1;
+              ? 'rgba(146,203,219,1)'
+              : 'rgba(146,203,219,0.5)';
+            ctx.lineWidth = 0.3;
             ctx.beginPath();
             ctx.moveTo(n.x, n.y);
             ctx.lineTo(m.x, m.y);
