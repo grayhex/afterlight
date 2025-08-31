@@ -34,7 +34,7 @@ export const dynamic = 'force-dynamic';
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const config = getLandingConfig();
   return (
-    <html lang="ru">
+    <html lang="ru" className="scroll-smooth">
       <body
         className={`${headingFont.variable} ${bodyFont.variable} ${numericFont.variable} flex min-h-screen flex-col antialiased font-body`}
       >

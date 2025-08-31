@@ -62,7 +62,7 @@ export default function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 bg-bodaghee-bg/80">
+    <header className="sticky top-0 z-50 bg-bodaghee-bg/80 border-b border-bodaghee-accent/20">
       <nav className="container mx-auto flex items-center justify-between p-4">
         <Link href="/" className="text-xl font-bold text-white">
           Afterlight
