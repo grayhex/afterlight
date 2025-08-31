@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useAuth } from "@/shared/auth/useAuth";
 import { User, LogIn, LogOut, Menu, X } from "lucide-react";
 import { motion } from "framer-motion";
+import LoginModal from "@/components/login-modal";
+import { httpClient } from "@/shared/api/httpClient";
 
 export default function Header() {
-  const { role } = useAuth();
+  const { role, logout: authLogout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const mainLinks = [
     {
@@ -20,27 +23,60 @@ export default function Header() {
 
   const authLinks =
     role === "guest"
-      ? [{ href: "/login", label: "Войти", icon: <LogIn className="h-4 w-4" /> }]
-      : [{ href: "/logout", label: "Выйти", icon: <LogOut className="h-4 w-4" /> }];
+      ? [
+          {
+            label: "Войти",
+            icon: <LogIn className="h-4 w-4" />,
+            onClick: () => setLoginOpen(true),
+          },
+        ]
+      : [
+          {
+            label: "Выйти",
+            icon: <LogOut className="h-4 w-4" />,
+            onClick: async () => {
+              try {
+                await httpClient("/auth/logout", { method: "POST" });
+              } catch {}
+              authLogout();
+            },
+          },
+        ];
 
   const NavItem = ({
     href,
     label,
     icon,
-  }: { href: string; label: string; icon: ReactNode }) => (
+    onClick,
+  }: {
+    href?: string;
+    label: string;
+    icon: ReactNode;
+    onClick?: () => void;
+  }) => (
     <motion.div
       className="relative flex items-center gap-1"
       initial="rest"
       whileHover="hover"
       animate="rest"
     >
-      <Link
-        href={href}
-        className="flex items-center gap-1 text-sm font-body uppercase text-white"
-      >
-        {icon}
-        <span>{label}</span>
-      </Link>
+      {href ? (
+        <Link
+          href={href}
+          className="flex items-center gap-1 text-sm font-body uppercase text-white"
+        >
+          {icon}
+          <span>{label}</span>
+        </Link>
+      ) : (
+        <button
+          onClick={onClick}
+          className="flex items-center gap-1 text-sm font-body uppercase text-white"
+        >
+          {icon}
+          <span>{label}</span>
+        </button>
+      )}
       <motion.span
         variants={{ rest: { scaleX: 0 }, hover: { scaleX: 1 } }}
         transition={{ duration: 0.3 }}
@@ -61,8 +97,8 @@ export default function Header() {
           ))}
         </div>
         <div className="hidden gap-6 md:flex">
-          {authLinks.map((l) => (
-            <NavItem key={l.href} {...l} />
+          {authLinks.map((l, i) => (
+            <NavItem key={i} {...l} />
           ))}
         </div>
         <button
@@ -84,12 +120,13 @@ export default function Header() {
           className="md:hidden bg-bodaghee-bg/80"
         >
           <div className="container mx-auto flex flex-col items-center gap-4 p-4">
-            {[...mainLinks, ...authLinks].map((l) => (
-              <NavItem key={l.href} {...l} />
+            {[...mainLinks, ...authLinks].map((l, i) => (
+              <NavItem key={i} {...l} />
             ))}
           </div>
         </motion.div>
       )}
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
     </header>
   );
 }
