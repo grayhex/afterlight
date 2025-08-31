@@ -9,25 +9,6 @@ function unauthorized() {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith('/adm')) {
-    const authCookie = req.cookies.get('auth');
-    if (!authCookie) return unauthorized();
-    const auth = `Basic ${authCookie.value}`;
-
-    try {
-      const res = await httpClient('/landing', {
-        headers: { authorization: auth },
-        cache: 'no-store',
-        base: req.url,
-      });
-      if (res.status !== 200) return unauthorized();
-    } catch {
-      return unauthorized();
-    }
-
-    return NextResponse.next();
-  }
-
   if (pathname.startsWith('/owner') || pathname.startsWith('/verifier')) {
     try {
       const res = await httpClient('/auth/me', {
@@ -47,8 +28,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/adm',
-    '/adm/:path*',
     '/owner',
     '/owner/:path*',
     '/verifier',
