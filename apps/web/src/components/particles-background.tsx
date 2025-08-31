@@ -18,10 +18,12 @@ export default function ParticlesBackground() {
 
     const config = {
       particles: {
+
         number: { value: 100 },
         color: { value: '#ffffff' },
         opacity: { value: 0.9 },
         size: { value: 3, random: true },
+
         line_linked: {
           enable: true,
           distance: 120,
@@ -31,7 +33,8 @@ export default function ParticlesBackground() {
         },
         move: {
           enable: true,
-          speed: 1,
+          speed: 1.5,
+          random: true,
         },
       },
       interactivity: {
