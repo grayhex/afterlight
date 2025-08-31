@@ -24,7 +24,8 @@ export class AuthController {
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     const user = await this.auth.register(dto.email, dto.password, dto.role);
-    return { id: user.id, email: user.email, role: user.role };
+    const { id, email, role } = user;
+    return { id, email, role };
   }
 
   @Post('login')
@@ -44,7 +45,8 @@ export class AuthController {
     } else {
       res.clearCookie('auth');
     }
-    return { id: user.id, email: user.email, role: user.role };
+    const { id, email: userEmail, role } = user;
+    return { id, email: userEmail, role };
   }
 
   @Post('logout')

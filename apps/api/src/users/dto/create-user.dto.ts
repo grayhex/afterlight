@@ -27,7 +27,7 @@ export class CreateUserDto {
   @IsBoolean()
   twoFaEnabled?: boolean;
 
-  @ApiProperty({ required: false, enum: UserRole, default: UserRole.User })
+  @ApiProperty({ required: false, enum: UserRole, default: UserRole.Owner })
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;

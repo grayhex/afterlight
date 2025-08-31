@@ -17,7 +17,7 @@ export class AuthService {
   async register(
     email: string,
     password: string,
-    role: UserRole = UserRole.User,
+    role: UserRole = UserRole.Owner,
   ): Promise<User> {
     const passwordHash = await hashPassword(password);
     return this.prisma.user.create({
