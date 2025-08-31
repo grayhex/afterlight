@@ -1,5 +1,3 @@
-import { promises as fs } from 'fs';
-import path from 'path';
 
 export interface LandingConfig {
   title: string;
@@ -86,50 +84,4 @@ export function getLandingConfig(): LandingConfig {
         process.env.LANDING_CONTACTS || defaultConfig.links.contacts,
     },
   };
-}
-
-export async function saveLandingConfig(config: LandingConfig): Promise<void> {
-  process.env.LANDING_TITLE = config.title;
-  process.env.LANDING_SUBTITLE = config.subtitle;
-  process.env.LANDING_DESCRIPTION = config.description;
-  process.env.LANDING_BG_COLOR = config.bgColor;
-  process.env.LANDING_HEADER_BG_COLOR = config.headerBgColor;
-  process.env.LANDING_HEADER_TEXT_COLOR = config.headerTextColor;
-  process.env.LANDING_TITLE_COLOR = config.titleColor;
-  process.env.LANDING_SUBTITLE_COLOR = config.subtitleColor;
-  process.env.LANDING_DESCRIPTION_COLOR = config.descriptionColor;
-  process.env.LANDING_BUTTON_PRIMARY_BG_COLOR = config.buttonPrimaryBgColor;
-  process.env.LANDING_BUTTON_PRIMARY_TEXT_COLOR = config.buttonPrimaryTextColor;
-  process.env.LANDING_BUTTON_SECONDARY_BORDER_COLOR =
-    config.buttonSecondaryBorderColor;
-  process.env.LANDING_BUTTON_SECONDARY_TEXT_COLOR =
-    config.buttonSecondaryTextColor;
-  process.env.LANDING_TELEGRAM = config.links.telegram;
-  process.env.LANDING_GITHUB = config.links.github;
-  process.env.LANDING_DEV = config.links.dev;
-  process.env.LANDING_POLICIES = config.links.policies;
-  process.env.LANDING_CONTACTS = config.links.contacts;
-
-  const envPath = path.join(process.cwd(), '.env.local');
-  const lines = [
-    `LANDING_TITLE=${config.title}`,
-    `LANDING_SUBTITLE=${config.subtitle}`,
-    `LANDING_DESCRIPTION=${config.description}`,
-    `LANDING_BG_COLOR=${config.bgColor}`,
-    `LANDING_HEADER_BG_COLOR=${config.headerBgColor}`,
-    `LANDING_HEADER_TEXT_COLOR=${config.headerTextColor}`,
-    `LANDING_TITLE_COLOR=${config.titleColor}`,
-    `LANDING_SUBTITLE_COLOR=${config.subtitleColor}`,
-    `LANDING_DESCRIPTION_COLOR=${config.descriptionColor}`,
-    `LANDING_BUTTON_PRIMARY_BG_COLOR=${config.buttonPrimaryBgColor}`,
-    `LANDING_BUTTON_PRIMARY_TEXT_COLOR=${config.buttonPrimaryTextColor}`,
-    `LANDING_BUTTON_SECONDARY_BORDER_COLOR=${config.buttonSecondaryBorderColor}`,
-    `LANDING_BUTTON_SECONDARY_TEXT_COLOR=${config.buttonSecondaryTextColor}`,
-    `LANDING_TELEGRAM=${config.links.telegram}`,
-    `LANDING_GITHUB=${config.links.github}`,
-    `LANDING_DEV=${config.links.dev}`,
-    `LANDING_POLICIES=${config.links.policies}`,
-    `LANDING_CONTACTS=${config.links.contacts}`,
-  ];
-  await fs.writeFile(envPath, lines.join('\n') + '\n', 'utf-8');
 }
