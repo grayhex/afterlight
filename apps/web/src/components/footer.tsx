@@ -11,7 +11,7 @@ interface Links {
 
 export default function Footer({ links }: { links: Links }) {
   return (
-    <footer className="bg-bodaghee-bg text-white">
+    <footer className="bg-bodaghee-bg text-white border-t border-bodaghee-accent">
       <div className="container mx-auto grid gap-8 px-4 py-8 text-sm sm:grid-cols-2">
         <div>
           <h3 className="mb-2 font-semibold uppercase">Inquiries</h3>
