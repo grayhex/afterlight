@@ -7,8 +7,18 @@ export class AuthGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest();
-    const openPaths = ['/auth/login', '/auth/register', '/auth/logout', '/healthz', '/readyz'];
-    if (openPaths.includes(req.path)) {
+    const openPaths = new Set([
+      '/auth/login',
+      '/auth/register',
+      '/auth/logout',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/healthz',
+      '/readyz',
+      '/docs-json',
+    ]);
+    const openPrefixes = ['/docs'];
+    if (openPaths.has(req.path) || openPrefixes.some((p) => req.path.startsWith(p))) {
       return true;
     }
     const authHeader = req.headers['authorization'] || '';

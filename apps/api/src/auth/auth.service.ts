@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword, verifyPassword } from './password';
 import { User, UserRole } from '@prisma/client';
@@ -9,15 +9,24 @@ import { NotificationsService } from '../notifications/notifications.service';
 @Injectable()
 export class AuthService {
   private readonly secret = process.env.JWT_SECRET || 'secret';
-  private readonly resetTokens = new Map<
-    string,
-    { userId: string; expires: number }
-  >();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
   ) {}
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private get resetTokenRepo() {
+    return (this.prisma as any).passwordResetToken as {
+      deleteMany(args: any): Promise<any>;
+      create(args: any): Promise<any>;
+      findFirst(args: any): Promise<any>;
+      delete(args: any): Promise<any>;
+    };
+  }
 
   sign(userId: string): string {
     return jwt.sign({ sub: userId }, this.secret, { expiresIn: '1h' });
@@ -50,10 +59,18 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return;
-    const token = randomBytes(16).toString('hex');
-    this.resetTokens.set(token, {
-      userId: user.id,
-      expires: Date.now() + 60 * 60 * 1000,
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const tokenHash = this.hashToken(token);
+    await this.resetTokenRepo.deleteMany({
+      where: { userId: user.id },
+    });
+    await this.resetTokenRepo.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      },
     });
     const vault = await this.prisma.vault.findFirst({
       where: { userId: user.id },
@@ -69,14 +86,24 @@ export class AuthService {
   }
 
   async resetPassword(token: string, password: string): Promise<boolean> {
-    const entry = this.resetTokens.get(token);
-    if (!entry || entry.expires < Date.now()) return false;
-    const passwordHash = await hashPassword(password);
-    await this.prisma.user.update({
-      where: { id: entry.userId },
-      data: { passwordHash },
+    const tokenHash = this.hashToken(token);
+    const entry = await this.resetTokenRepo.findFirst({
+      where: {
+        tokenHash,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
     });
-    this.resetTokens.delete(token);
+    if (!entry) return false;
+    const passwordHash = await hashPassword(password);
+    await (this.prisma as any).$transaction(async (tx: any) => {
+      await tx.user.update({
+        where: { id: entry.userId },
+        data: { passwordHash },
+      });
+      await tx.passwordResetToken.delete({ where: { id: entry.id } });
+    });
     return true;
   }
 

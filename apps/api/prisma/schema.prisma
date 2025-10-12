@@ -108,8 +108,23 @@ model User {
   vaultRoles    VaultUserRole[]
   decisions     VerificationDecision[]
   subscriptions Subscription[]
+  resetTokens   PasswordResetToken[]
 
   @@map("user")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @map("id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash], map: "ix_password_reset_token_hash")
+  @@index([expiresAt], map: "ix_password_reset_token_expires_at")
+  @@map("password_reset_token")
 }
 
 model Vault {
