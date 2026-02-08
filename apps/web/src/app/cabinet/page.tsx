@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { httpClient } from "@/shared/api/httpClient";
 import { useAuth } from "@/shared/auth/useAuth";
 import { AnimatePresence, motion } from "framer-motion";
@@ -32,6 +32,7 @@ function OwnerCabinet() {
   const [vaults, setVaults] = useState<any[]>([]);
   const [vaultsLoading, setVaultsLoading] = useState(false);
   const [vaultsError, setVaultsError] = useState<string | null>(null);
+  const [selectedVaultId, setSelectedVaultId] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [name, setName] = useState("");
@@ -48,64 +49,128 @@ function OwnerCabinet() {
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadVaults() {
-      setVaultsLoading(true);
-      setVaultsError(null);
-      try {
-        const res = await httpClient("/vaults", { method: "GET" });
-        const data = await res.json();
-        setVaults(data);
-      } catch (e) {
-        setVaultsError("Ошибка загрузки");
-      } finally {
-        setVaultsLoading(false);
+  const loadVaults = useCallback(async () => {
+    setVaultsLoading(true);
+    setVaultsError(null);
+    try {
+      const res = await httpClient("/vaults", { method: "GET" });
+      if (!res.ok) {
+        throw new Error("Ошибка загрузки");
       }
+      const data = await res.json();
+      setVaults(data);
+      if (data.length > 0) {
+        setSelectedVaultId((current) => current ?? data[0].id);
+      }
+    } catch (e) {
+      setVaultsError("Ошибка загрузки");
+    } finally {
+      setVaultsLoading(false);
     }
-    loadVaults();
+  }, []);
+
+  const loadVerifiers = useCallback(async (vaultId: string) => {
+    setVerifiersLoading(true);
+    setVerifiersError(null);
+    try {
+      const res = await httpClient(
+        `/verifiers?vault_id=${encodeURIComponent(vaultId)}`,
+        { method: "GET" },
+      );
+      if (!res.ok) {
+        throw new Error("Ошибка загрузки");
+      }
+      const data = await res.json();
+      setVerifiers(data);
+    } catch (e) {
+      setVerifiersError("Ошибка загрузки");
+    } finally {
+      setVerifiersLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    async function loadVerifiers() {
-      setVerifiersLoading(true);
-      setVerifiersError(null);
-      try {
-        const res = await httpClient("/verifiers", { method: "GET" });
-        const data = await res.json();
-        setVerifiers(data);
-      } catch (e) {
-        setVerifiersError("Ошибка загрузки");
-      } finally {
-        setVerifiersLoading(false);
-      }
+    loadVaults();
+  }, [loadVaults]);
+
+  useEffect(() => {
+    if (!selectedVaultId) {
+      setVerifiers([]);
+      return;
     }
-    loadVerifiers();
-  }, []);
+    loadVerifiers(selectedVaultId);
+  }, [loadVerifiers, selectedVaultId]);
 
   const handleCreate = async () => {
     setCreating(true);
     setCreateError(null);
+    const trimmedName = name.trim();
+    const trimmedDescription = description.trim();
+    const verifierList = verifierEmails
+      .map((email) => email.trim())
+      .filter(Boolean);
+
+    if (!trimmedName) {
+      setCreateError("Укажите название сейфа");
+      setCreating(false);
+      return;
+    }
+    if (verifierList.length === 0) {
+      setCreateError("Добавьте хотя бы одного верификатора");
+      setCreating(false);
+      return;
+    }
+    if (quorum > verifierList.length) {
+      setCreateError("Кворум не может быть больше числа верификаторов");
+      setCreating(false);
+      return;
+    }
+
     try {
       const body = {
-        name,
-        description,
-        verifiers: verifierEmails,
-        quorum,
+        name: trimmedName,
+        description: trimmedDescription || undefined,
+        quorum_threshold: quorum,
       };
       const res = await httpClient("/vaults", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Ошибка создания");
+      }
       const data = await res.json();
       setVaults((v) => [...v, data]);
+      setSelectedVaultId(data.id);
+      const inviteResults = await Promise.allSettled(
+        verifierList.map(async (email) => {
+          const inviteRes = await httpClient("/verifiers/invitations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, vault_id: data.id }),
+          });
+          if (!inviteRes.ok) {
+            const error = await inviteRes.json().catch(() => null);
+            throw new Error(error?.message || "Ошибка приглашения");
+          }
+          return inviteRes.json();
+        }),
+      );
+      const failed = inviteResults.filter((result) => result.status === "rejected");
+      if (failed.length > 0) {
+        setCreateError("Часть приглашений не отправилась");
+      }
+      await loadVerifiers(data.id);
       setShowModal(false);
       setName("");
       setDescription("");
       setVerifierEmails(["", "", ""]);
       setQuorum(2);
     } catch (e) {
-      setCreateError("Ошибка создания");
+      const message = e instanceof Error ? e.message : "Ошибка создания";
+      setCreateError(message);
     } finally {
       setCreating(false);
     }
@@ -114,19 +179,33 @@ function OwnerCabinet() {
   const handleInvite = async () => {
     setInviting(true);
     setInviteError(null);
+    const email = inviteEmail.trim();
+    if (!selectedVaultId) {
+      setInviteError("Сначала выберите сейф");
+      setInviting(false);
+      return;
+    }
+    if (!email) {
+      setInviteError("Введите e-mail");
+      setInviting(false);
+      return;
+    }
     try {
-        const res = await httpClient("/verifiers/invitations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: inviteEmail }),
-        });
-        const data = await res.json();
-        const email =
-          data?.invitation?.user?.email || data?.email || inviteEmail;
-        setVerifiers((v) => [...v, { email }]);
+      const res = await httpClient("/verifiers/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, vault_id: selectedVaultId }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Ошибка приглашения");
+      }
+      await res.json();
+      await loadVerifiers(selectedVaultId);
       setInviteEmail("");
     } catch (e) {
-      setInviteError("Ошибка приглашения");
+      const message = e instanceof Error ? e.message : "Ошибка приглашения";
+      setInviteError(message);
     } finally {
       setInviting(false);
     }
@@ -150,17 +229,19 @@ function OwnerCabinet() {
         {!vaultsLoading && !vaultsError && (
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <AnimatePresence>
-              {vaults.map((v: any, idx: number) => (
+              {vaults.map((v: any) => (
                 <motion.div
-                  key={idx}
+                  key={v.id}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="rounded bg-bodaghee-bg p-4 text-white shadow"
                 >
-                  <div className="font-bold">{v.name}</div>
-                  <div className="text-sm text-white/70">{v.description}</div>
+                  <div className="font-bold">{v.name || "Без названия"}</div>
+                  {v.description ? (
+                    <div className="text-sm text-white/70">{v.description}</div>
+                  ) : null}
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -169,17 +250,33 @@ function OwnerCabinet() {
       </div>
 
       <div>
-        <h2 className="mb-2 text-xl">Верификаторы</h2>
+        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl">Верификаторы</h2>
+          <select
+            className="rounded border border-bodaghee-accent bg-bodaghee-bg px-3 py-2 text-white"
+            value={selectedVaultId ?? ""}
+            onChange={(e) => setSelectedVaultId(e.target.value || null)}
+          >
+            <option value="" disabled>
+              Выберите сейф
+            </option>
+            {vaults.map((vault) => (
+              <option key={vault.id} value={vault.id}>
+                {vault.name || vault.id}
+              </option>
+            ))}
+          </select>
+        </div>
         {verifiersError && (
           <p className="mt-2 text-bodaghee-accent">{verifiersError}</p>
         )}
         {verifiersLoading && <p className="mt-2">Загрузка...</p>}
-        {!verifiersLoading && !verifiersError && (
+        {!verifiersLoading && !verifiersError && selectedVaultId && (
           <div className="grid gap-4 md:grid-cols-2">
             <AnimatePresence>
                 {verifiers.map((v: any, idx: number) => (
                   <motion.div
-                    key={idx}
+                    key={v.userId || v.user?.id || idx}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -191,6 +288,9 @@ function OwnerCabinet() {
                 ))}
             </AnimatePresence>
           </div>
+        )}
+        {!verifiersLoading && !verifiersError && !selectedVaultId && (
+          <p className="text-sm text-white/70">Выберите сейф, чтобы увидеть список.</p>
         )}
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -238,7 +338,7 @@ function OwnerCabinet() {
                 />
                 <textarea
                   className="col-span-full rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent"
-                  placeholder="Описани (необязательно)"
+                  placeholder="Описание (необязательно)"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
@@ -257,11 +357,11 @@ function OwnerCabinet() {
                   />
                 ))}
                 <p className="col-span-full text-sm text-white/70">
-                  Добавьте три человека, которым вы доверяете. Доступ откроется при подтверждении двух из них.
+                  Добавьте доверенных людей и укажите, сколько подтверждений требуется для доступа.
                 </p>
                 <input
                   type="number"
-                  min={1}
+                  min={2}
                   max={3}
                   className="col-span-full rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white transition-colors focus:border-bodaghee-accent"
                   value={quorum}
@@ -387,4 +487,3 @@ function VerifierCabinet() {
     </div>
   );
 }
-

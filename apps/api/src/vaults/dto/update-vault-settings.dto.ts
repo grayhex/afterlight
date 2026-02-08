@@ -2,10 +2,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export class UpdateVaultSettingsDto {
-  @ApiProperty({ required: false, minimum: 3, maximum: 5 })
+  @ApiProperty({ required: false, minimum: 2, maximum: 5 })
   @IsOptional()
   @IsInt()
-  @Min(3)
+  @Min(2)
   @Max(5)
   quorum_threshold?: number;
 
