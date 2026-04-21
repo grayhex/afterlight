@@ -53,6 +53,7 @@ export default function LoginModal({ open, onClose }: LoginModalProps) {
     setLoginError("");
     try {
       const res = await httpClient("/auth/login", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
@@ -75,6 +76,7 @@ export default function LoginModal({ open, onClose }: LoginModalProps) {
     setMessage("");
     try {
       const res = await httpClient("/auth/forgot-password", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),
       });
@@ -91,6 +93,7 @@ export default function LoginModal({ open, onClose }: LoginModalProps) {
     setRegError("");
     try {
       const res = await httpClient("/auth/register", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: regName,
@@ -104,6 +107,7 @@ export default function LoginModal({ open, onClose }: LoginModalProps) {
         return;
       }
       const loginRes = await httpClient("/auth/login", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: regEmail, password: regPassword }),
       });

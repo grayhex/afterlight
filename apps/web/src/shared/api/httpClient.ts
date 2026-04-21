@@ -18,7 +18,7 @@ export async function httpClient(
   try {
     const res = await fetch(url, {
       credentials: 'include',
-      method: init.method ?? 'POST',
+      method: init.method ?? 'GET',
       ...init,
     });
 
