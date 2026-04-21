@@ -8,7 +8,30 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import helmet from 'helmet';
 import { json } from 'express';
 
+type RequiredEnvVar = 'JWT_SECRET' | 'DATABASE_URL' | 'CORS_ALLOWED_ORIGINS';
+
+function validateEnv(): void {
+  const requiredEnvVars: RequiredEnvVar[] = [
+    'JWT_SECRET',
+    'DATABASE_URL',
+    'CORS_ALLOWED_ORIGINS',
+  ];
+
+  const missingEnvVars = requiredEnvVars.filter((envVar) => {
+    const value = process.env[envVar];
+    return !value || !value.trim();
+  });
+
+  if (missingEnvVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missingEnvVars.join(', ')}`,
+    );
+  }
+}
+
 async function bootstrap() {
+  validateEnv();
+
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
 
