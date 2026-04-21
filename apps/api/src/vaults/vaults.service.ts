@@ -28,16 +28,20 @@ export class VaultsService {
 
   async createForUser(userId: string, dto: CreateVaultDto) {
     const defaults = {
-      quorumThreshold: 3,
+      quorumThreshold: 2,
       maxVerifiers: 5,
       heartbeatTimeoutDays: 60,
       graceHours: 24,
       isDemo: false,
     };
+    const name = dto.name?.trim();
+    const description = dto.description?.trim();
     const mkWrapped = randomBytes(32).toString('base64');
     const vault = await this.prisma.vault.create({
       data: {
         userId,
+        ...(name ? { name } : {}),
+        ...(description ? { description } : {}),
         status: 'Active',
         quorumThreshold: dto.quorum_threshold ?? defaults.quorumThreshold,
         maxVerifiers: dto.max_verifiers ?? defaults.maxVerifiers,

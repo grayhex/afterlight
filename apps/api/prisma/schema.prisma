@@ -130,6 +130,8 @@ model PasswordResetToken {
 model Vault {
   id                   String      @id @default(uuid()) @map("id") @db.Uuid
   userId               String      @map("user_id") @db.Uuid
+  name                 String      @default("Без названия")
+  description          String?
   status               VaultStatus @default(Active)
   quorumThreshold      Int         @default(3) @map("quorum_threshold")
   maxVerifiers         Int         @default(5) @map("max_verifiers")
