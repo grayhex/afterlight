@@ -37,9 +37,8 @@ export class AuthService {
     email: string,
     phone: string,
     password?: string,
-    role: UserRole = UserRole.Owner,
   ): Promise<User> {
-    const data: any = { name, email, phone, role };
+    const data: any = { name, email, phone, role: UserRole.Owner };
     if (password) {
       data.passwordHash = await hashPassword(password);
     }
