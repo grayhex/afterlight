@@ -1,14 +1,17 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOkResponse, ApiCreatedResponse } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserDto } from './dto/user.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('users')
 @ApiBearerAuth()
 @ApiErrorResponses()
+@Roles(UserRole.Admin)
 @Controller('users')
 export class UsersController {
   constructor(private readonly service: UsersService) {}
