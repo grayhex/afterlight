@@ -30,7 +30,6 @@ export class AuthController {
       dto.email,
       dto.phone,
       dto.password,
-      dto.role,
     );
     const { id, email, role } = user;
     return { id, email, role };
