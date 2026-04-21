@@ -8,12 +8,21 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AuthService {
-  private readonly secret = process.env.JWT_SECRET || 'secret';
+  private readonly secret = this.getJwtSecret();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
   ) {}
+
+  private getJwtSecret(): string {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('JWT_SECRET is required');
+    }
+
+    return secret;
+  }
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
