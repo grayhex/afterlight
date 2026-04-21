@@ -1,53 +1,68 @@
-# Frontend overview
+# Frontend (apps/web) — актуальная документация
 
-Веб-часть построена на Next.js. Корневая страница (`/`) содержит основной интерфейс приложения.
+## Стек
+- Next.js 14 (App Router)
+- React 18
+- Tailwind CSS
+- Framer Motion
 
-## Навигация
-- `/wireframes/owner` — кабинет владельца (wireframe)
-- `/wireframes/verifier` — кабинет верификатора (wireframe)
-- `/wireframes/recipient` — вид получателя (wireframe)
+## Структура маршрутов
+- `/` — публичный landing.
+- `/register` — регистрация.
+- `/cabinet` — кабинет пользователя.
+- `/policies` — политики.
+- `/contacts` — контакты.
+- `/api/landing` (`GET`, `HEAD`) — защищённый route handler для чтения landing-конфига.
 
-## Отладка
-- `/playground` — минимальный UI для ручного теста API
-- `http://localhost:3000/docs` — Swagger UI бэкенда (порт можно изменить переменной `PORT` при запуске API)
+> Старые маршруты `/wireframes/*`, `/playground`, `/adm/*`, `/owner`, `/verifier` в текущем `apps/web/src/app` отсутствуют.
 
-Неиспользуемые заглушки и моковые данные удалены из исходников.
+## Интеграция с API
+Клиент использует `NEXT_PUBLIC_API_URL` (см. `src/shared/api/httpClient.ts`).
 
-## API и CORS
-Бэкенд включает CORS с поддержкой куки. Для корректной работы фронтенда:
-- домен приложения должен присутствовать в переменной окружения `CORS_ALLOWED_ORIGINS` на API;
-- запросы к API выполняйте с `credentials: 'include'` (или `withCredentials: true` в axios).
+Пример:
+```env
+NEXT_PUBLIC_API_URL="http://localhost:3000"
+```
 
-## Роли
-- **Owner** — владелец сейфа.
-- **Verifier** — подтверждает события.
-- **Recipient** — получает данные.
-- **Admin** — управляет сервисом через `/adm`.
+Если переменная не задана, используется `/api` как base URL.
 
-## Авторизация ролей
-Страницы `/owner` и `/verifier` доступны только после проверки токена через `/auth/me`. При отсутствии cookie сессии пользователь перенаправляется на `/login`. На клиенте компоненты дополнительно сверяют роль и, если она не соответствует странице, показывают сообщение «Доступ запрещён».
+## Landing-конфиг через ENV
+Параметры оформления и ссылки landing настраиваются через переменные:
 
-## Перезапуск seed
-Повторно заполнить БД можно так:
+- `LANDING_TITLE`
+- `LANDING_SUBTITLE`
+- `LANDING_DESCRIPTION`
+- `LANDING_BG_COLOR`
+- `LANDING_HEADER_BG_COLOR`
+- `LANDING_HEADER_TEXT_COLOR`
+- `LANDING_TITLE_COLOR`
+- `LANDING_SUBTITLE_COLOR`
+- `LANDING_DESCRIPTION_COLOR`
+- `LANDING_BUTTON_PRIMARY_BG_COLOR`
+- `LANDING_BUTTON_PRIMARY_TEXT_COLOR`
+- `LANDING_BUTTON_SECONDARY_BORDER_COLOR`
+- `LANDING_BUTTON_SECONDARY_TEXT_COLOR`
+- `LANDING_TELEGRAM`
+- `LANDING_GITHUB`
+- `LANDING_DEV`
+- `LANDING_POLICIES`
+- `LANDING_CONTACTS`
+
+## Доступ к `/api/landing`
+Доступ защищён Basic auth:
+
+```http
+Authorization: Basic base64(email:password)
+```
+
+Проверка происходит по БД:
+- пользователь существует,
+- роль пользователя = `Admin`,
+- пароль валиден относительно `passwordHash`.
+
+## Локальный запуск
 ```bash
-gh workflow run seed -f confirm=prod
+cd apps/web
+npm ci
+npm run dev
 ```
-
-## Basic-auth
-Админский раздел `/adm` защищён Basic‑auth. Формат заголовка:
-
-```
-Authorization: Basic <base64(email:password)>
-```
-
-Используйте учётные данные администратора из таблицы `user` (role `Admin`).
-
-Для входа существует страница `/adm/login`.
-Форма отправляет данные на `/auth/login`,
-при успешном ответе с ролью `Admin`
-устанавливает cookie `auth=<base64(email:password)>`
-и перенаправляет на `/adm`.
-
-Выйти из админки можно через `/adm/logout`,
-который очищает cookie `auth`
-и переадресует обратно на `/adm/login`.
