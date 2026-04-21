@@ -1,7 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateRecipientDto {
+  @ApiProperty({ description: 'Идентификатор сейфа' })
+  @IsUUID()
+  vault_id!: string;
+
   @ApiProperty({ description: 'Email получателя (уникальный идентификатор)' })
   @IsEmail()
   contact!: string;

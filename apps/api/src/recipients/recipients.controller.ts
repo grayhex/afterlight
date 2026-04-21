@@ -4,6 +4,7 @@ import { RecipientsService } from './recipients.service';
 import { CreateRecipientDto } from './dto/create-recipient.dto';
 import { SearchRecipientsDto } from './dto/search-recipients.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator';
 
 @ApiTags('recipients')
 @ApiBearerAuth()
@@ -13,12 +14,12 @@ export class RecipientsController {
   constructor(private readonly service: RecipientsService) {}
 
   @Post()
-  create(@Body() dto: CreateRecipientDto) {
-    return this.service.createOrGet(dto);
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateRecipientDto) {
+    return this.service.createOrGet(user, dto);
   }
 
   @Get()
-  search(@Query() q: SearchRecipientsDto) {
-    return this.service.search(q.q);
+  search(@CurrentUser() user: AuthenticatedUser, @Query() q: SearchRecipientsDto) {
+    return this.service.search(user, q.vault_id, q.q);
   }
 }

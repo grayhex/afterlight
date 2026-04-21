@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import { VerifiersService } from './verifiers.service';
 import { InviteVerifierDto } from './dto/invite-verifier.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator';
 
 @ApiTags('verifiers')
 @ApiBearerAuth()
@@ -13,18 +14,22 @@ export class VerifiersController {
   constructor(private readonly service: VerifiersService) {}
 
   @Get()
-  list(@Query('vault_id') vaultId: string) {
-    return this.service.listByVault(vaultId);
+  list(@CurrentUser() user: AuthenticatedUser, @Query('vault_id') vaultId: string) {
+    return this.service.listByVault(user, vaultId);
   }
 
   @Post('invitations')
-  invite(@Body() dto: InviteVerifierDto) {
+  invite(@CurrentUser() user: AuthenticatedUser, @Body() dto: InviteVerifierDto) {
     const token = randomBytes(24).toString('hex');
-    return this.service.invite(dto, token);
+    return this.service.invite(user, dto, token);
   }
 
   @Post('invitations/:vaultId/:userId/accept')
-  accept(@Param('vaultId') vaultId: string, @Param('userId') userId: string) {
-    return this.service.acceptInvitation(vaultId, userId);
+  accept(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('vaultId') vaultId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.service.acceptInvitation(user, vaultId, userId);
   }
 }
