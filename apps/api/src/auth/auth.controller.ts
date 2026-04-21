@@ -15,13 +15,20 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Response, Request } from 'express';
-import { UserRole } from '@prisma/client';
 
 @ApiTags('auth')
 @ApiErrorResponses()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  private readonly tokenCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    maxAge: 60 * 60 * 1000,
+    path: '/',
+  };
 
   @Post('register')
   async register(@Body() dto: RegisterDto) {
@@ -45,21 +52,19 @@ export class AuthController {
       throw new UnauthorizedException();
     }
     const token = this.auth.sign(user.id);
-    res.cookie('token', token, { httpOnly: true });
-    if (user.role === UserRole.Admin) {
-      const basic = Buffer.from(`${email}:${password}`).toString('base64');
-      res.cookie('auth', basic, { httpOnly: true });
-    } else {
-      res.clearCookie('auth');
-    }
+    res.cookie('token', token, this.tokenCookieOptions);
     const { id, email: userEmail, role } = user;
     return { id, email: userEmail, role };
   }
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie('token');
-    res.clearCookie('auth');
+    res.clearCookie('token', {
+      path: this.tokenCookieOptions.path,
+      sameSite: this.tokenCookieOptions.sameSite,
+      secure: this.tokenCookieOptions.secure,
+      httpOnly: this.tokenCookieOptions.httpOnly,
+    });
     return {};
   }
 
