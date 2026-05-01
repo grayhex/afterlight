@@ -1,114 +1,69 @@
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:0F172A,50:111827,100:1D4ED8&text=Afterlight&fontColor=E2E8F0&fontSize=64&desc=Digital%20legacy%20platform%20(MVP)&descAlignY=65&animation=fadeIn" alt="Afterlight banner" />
 
-  <p>
-    <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-22C55E"></a>
-    <img alt="Monorepo" src="https://img.shields.io/badge/monorepo-apps%2Fapi%20%2B%20apps%2Fweb-6366F1">
-    <img alt="NestJS" src="https://img.shields.io/badge/API-NestJS%2010-EA2845">
-    <img alt="Next.js" src="https://img.shields.io/badge/Web-Next.js%2014-000000">
-    <img alt="Prisma" src="https://img.shields.io/badge/ORM-Prisma%205-2D3748">
-  </p>
+# 🌌 Afterlight
+### Digital legacy platform (MVP)
 
-  <p><b>Afterlight</b> — сервис цифрового наследия: безопасная подготовка и передача данных по заранее заданным условиям.</p>
+<p>
+  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-22C55E"></a>
+  <img alt="API" src="https://img.shields.io/badge/API-NestJS%2010-EA2845">
+  <img alt="Web" src="https://img.shields.io/badge/Web-Next.js%2014-000000">
+  <img alt="ORM" src="https://img.shields.io/badge/ORM-Prisma%205-2D3748">
+  <img alt="Deploy" src="https://img.shields.io/badge/Deploy-Docker%20Compose-2496ED">
+</p>
+
+**Afterlight** — сервис цифрового наследия: безопасное хранение, управление доступом и сценарии раскрытия данных по событиям.
+
 </div>
 
 ---
 
-## ✨ Что это
-Afterlight — monorepo из двух приложений:
+## ✨ Возможности
 
-- **`apps/api`**: NestJS API с PostgreSQL/Prisma, JWT-аутентификацией, ролями и Swagger.
-- **`apps/web`**: Next.js интерфейс (landing + кабинет + страницы политики/контактов).
-
-Продуктовая идея: владелец хранит данные в сейфе, назначает получателей/верификаторов, а раскрытие запускается через событие и подтверждения.
-
----
-
-## 🧱 Текущие возможности (по коду)
-
-### Backend (API)
-- JWT auth: `register`, `login`, `logout`, `me`.
-- Сейфы и настройки сейфа.
-- Блоки данных, привязка получателей к блокам.
-- Публичные ссылки для блоков (`/blocks/{id}/public`).
-- Верификаторы и события верификации.
-- Heartbeat-конфигурация и ping.
-- Оркестрация событий (`/orchestration/start`, `/orchestration/decision`).
-- CRUD для пользователей, планов, подписок, аудит-логов, recovery shares.
-- Health/readiness endpoints: `/healthz`, `/readyz`.
-- Swagger: `/docs`.
-
-### Frontend (Web)
-- Маршруты: `/`, `/register`, `/cabinet`, `/policies`, `/contacts`.
-- Клиент API через `NEXT_PUBLIC_API_URL`.
-- Отдельный server route для защищённой настройки landing: `GET/HEAD /api/landing` (Basic auth, проверка admin в БД).
-- Анимированный landing (Framer Motion, particles background).
+- 🔐 JWT-аутентификация: `register`, `login`, `logout`, `me`.
+- 🗂️ Сейфы, блоки данных, получатели, публичные ссылки.
+- ✅ Верификаторы, события верификации, оркестрация решений.
+- 🩺 Health/readiness endpoints: `/healthz`, `/readyz`.
+- 📘 Swagger документация: `/docs`.
+- 🖥️ Web-интерфейс: landing, регистрация, кабинет, policies, contacts.
 
 ---
 
-## 🗺️ Архитектура
+## 🧱 Стек
 
-```mermaid
-flowchart LR
-  U[User Browser] --> W[Next.js Web\napps/web]
-  W -->|REST / JWT| A[NestJS API\napps/api]
-  A --> P[(PostgreSQL)]
-  A --> S[Swagger /docs]
-```
-
-### Основные доменные сущности
-
-```mermaid
-erDiagram
-  USER ||--o{ VAULT : owns
-  VAULT ||--o{ BLOCK : contains
-  VAULT ||--o{ VERIFICATION_EVENT : has
-  VAULT ||--o{ VERIFIER : includes
-  BLOCK ||--o{ PUBLIC_LINK : exposes
-  BLOCK ||--o{ RECIPIENT_ASSIGNMENT : assigned_to
-  RECIPIENT ||--o{ RECIPIENT_ASSIGNMENT : receives
-```
+- **Backend**: NestJS + Prisma + PostgreSQL
+- **Frontend**: Next.js 14 (SSR)
+- **Infra**: Docker / Docker Compose, Kubernetes manifests (`k8s/`)
 
 ---
 
-## 🚀 Быстрый старт (локально)
+## 🚀 Быстрый старт (локальная разработка)
 
 ### 1) Требования
+
 - Node.js 20+
 - npm 10+
 - PostgreSQL 15+
 
-### 2) Установка
+### 2) Установка зависимостей
+
 ```bash
-# API
-cd apps/api
-npm ci
-
-# WEB
-cd ../web
-npm ci
+cd apps/api && npm ci
+cd ../web && npm ci
 ```
 
-### 3) ENV
-Создайте `.env` (или экспортируйте переменные) для API на базе `.env.example`:
+### 3) Настройка переменных
 
-```env
-DATABASE_URL="postgresql://user:pass@localhost:5432/afterlight?schema=public"
-JWT_SECRET="replace-with-64-char-random-hex-key"
-NODE_ENV="development"
-PORT=3000
-DEFAULT_DEBUG_USER=""
-CORS_ALLOWED_ORIGINS="http://localhost:3001"
-JSON_BODY_LIMIT="100kb"
+```bash
+cp .env.example .env
 ```
 
-Для Web:
+Минимально проверьте:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `NEXT_PUBLIC_API_URL`
 
-```env
-NEXT_PUBLIC_API_URL="http://localhost:3000"
-```
+### 4) Подготовка БД
 
-### 4) База данных
 ```bash
 cd apps/api
 npx prisma generate
@@ -118,61 +73,55 @@ npx prisma db seed
 ```
 
 ### 5) Запуск
-```bash
-# terminal 1
-cd apps/api
-npm run start:dev
-
-# terminal 2
-cd apps/web
-npm run dev
-```
-
-- Web: `http://localhost:3000` (или порт из команды)
-- API Swagger: `http://localhost:3000/docs`
-
----
-
-## 🧪 Полезные команды
 
 ```bash
-# API tests
-cd apps/api && npm test
+# API
+cd apps/api && npm run start:dev
 
-# WEB tests
-cd apps/web && npm test
-
-# Сгенерировать openapi.json (API)
-cd apps/api && npm run openapi
-
-# Обновить типы API в WEB
-cd apps/web && npm run openapi
+# WEB (в отдельном терминале)
+cd apps/web && npm run dev
 ```
 
 ---
 
-## ☸️ Деплой
-- Kubernetes-манифесты: `k8s/base/*`
-- Отдельные инструкции:
-  - `docs/deploy.md`
-  - `docs/INSTALL.md`
-  - `k8s/README.md`
+## 🖥️ Deploy на сервер (рекомендуемый путь)
+
+Для VPS/dedicated сервера добавлен готовый сценарий через Docker Compose:
+
+- `docker-compose.server.yml` — production stack (db + api + web + migrate job)
+- `docs/deploy.md` — пошаговая инструкция деплоя и обновления
+
+Быстрый запуск:
+
+```bash
+cp .env.example .env
+# отредактируйте секреты в .env
+
+docker compose -f docker-compose.server.yml up -d --build db api web
+docker compose -f docker-compose.server.yml run --rm migrate
+```
 
 ---
 
 ## 📚 Документация
-- `docs/web.md` — актуальная структура web и маршруты.
-- `docs/ops/EnvVars.md` — обязательные и опциональные переменные окружения.
-- `docs/api/openapi.yaml` и `apps/api/openapi.json` — API контракт.
+
+- `docs/deploy.md` — деплой на сервер (Docker Compose).
+- `docs/INSTALL.md` — установка и запуск.
+- `docs/web.md` — структура web-части.
+- `docs/ops/EnvVars.md` — переменные окружения.
+- `k8s/README.md` — Kubernetes сценарий.
 
 ---
 
 ## 🛡️ Безопасность
-- Не коммитьте секреты в git.
-- Минимум для production: сильный `JWT_SECRET`, закрытый доступ к БД, корректный `CORS_ALLOWED_ORIGINS`, TLS на ingress.
-- Для seed admin-пользователя можно переопределить пароль через `ADMIN_PASSWORD` перед `prisma db seed`.
+
+- Никогда не коммитьте `.env` и секреты.
+- Для production используйте длинный `JWT_SECRET`.
+- Ограничьте доступ к PostgreSQL из внешней сети.
+- Обязательно включите TLS на домене (Caddy/Nginx/Traefik/Cloudflare).
 
 ---
 
 ## 📄 License
+
 MIT — см. [LICENSE](./LICENSE).
