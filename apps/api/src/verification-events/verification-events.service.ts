@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { OrchestratorService } from '../orchestrator/orchestrator.service';
-import { VaultAccessService } from '../vault-access/vault-access.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
+import { VaultAccessService } from '../vault-access/vault-access.service.js';
 
 /**
  * Тонкий слой над оркестратором: ни запуск, ни голосование не реализованы здесь отдельно,

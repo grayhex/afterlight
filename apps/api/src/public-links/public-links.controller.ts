@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { PublicLinksService } from './public-links.service';
-import { UpdatePublicLinkDto } from './dto/update-public-link.dto';
-import { CurrentUser } from '../common/current-user.decorator';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { PublicLinksService } from './public-links.service.js';
+import { UpdatePublicLinkDto } from './dto/update-public-link.dto.js';
+import { CurrentUser } from '../common/current-user.decorator.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
 @ApiTags('public-links')
 @ApiBearerAuth()

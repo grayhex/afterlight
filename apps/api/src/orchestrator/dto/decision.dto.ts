@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ForbiddenField } from '../../common/forbidden-field.decorator';
+import { ForbiddenField } from '../../common/forbidden-field.decorator.js';
 import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
-export class DecisionDto {
+export class OrchestratorDecisionDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   vault_id!: string;

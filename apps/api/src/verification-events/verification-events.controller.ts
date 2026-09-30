@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { VerificationEventsService } from './verification-events.service';
-import { StartVerificationEventDto } from './dto/start-event.dto';
-import { DecisionDto } from './dto/decision.dto';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator';
+import { VerificationEventsService } from './verification-events.service.js';
+import { StartVerificationEventDto } from './dto/start-event.dto.js';
+import { VerificationDecisionDto } from './dto/decision.dto.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator.js';
 
 @ApiTags('verification-events')
 @ApiBearerAuth()
@@ -38,7 +38,7 @@ export class VerificationEventsController {
   confirm(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: DecisionDto,
+    @Body() dto: VerificationDecisionDto,
   ) {
     return this.service.decide(user.sub, id, 'Confirm', dto.signature);
   }
@@ -47,7 +47,7 @@ export class VerificationEventsController {
   deny(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: DecisionDto,
+    @Body() dto: VerificationDecisionDto,
   ) {
     return this.service.decide(user.sub, id, 'Deny', dto.signature);
   }

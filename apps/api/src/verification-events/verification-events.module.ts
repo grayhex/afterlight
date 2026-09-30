@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { VerificationEventsService } from './verification-events.service';
-import { VerificationEventsController } from './verification-events.controller';
-import { OrchestratorModule } from '../orchestrator/orchestrator.module';
+import { VerificationEventsService } from './verification-events.service.js';
+import { VerificationEventsController } from './verification-events.controller.js';
+import { OrchestratorModule } from '../orchestrator/orchestrator.module.js';
 
 @Module({
   imports: [OrchestratorModule],

@@ -1,4 +1,4 @@
-import { VaultsService } from '../../src/vaults/vaults.service';
+import { VaultsService } from '../../src/vaults/vaults.service.js';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 

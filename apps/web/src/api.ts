@@ -244,16 +244,19 @@ export interface components {
     StartVerificationEventDto: {
       vault_id: string;
     };
-    DecisionDto: {
-      /** Format: uuid */
-      vault_id: string;
-      /** @enum {string} */
-      decision: "Confirm" | "Deny";
+    VerificationDecisionDto: {
       signature?: string;
     };
     StartEventDto: {
       /** Format: uuid */
       vault_id: string;
+    };
+    OrchestratorDecisionDto: {
+      /** Format: uuid */
+      vault_id: string;
+      /** @enum {string} */
+      decision: "Confirm" | "Deny";
+      signature?: string;
     };
     CreateBlockDto: {
       /** Format: uuid */
@@ -1075,7 +1078,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["DecisionDto"];
+        "application/json": components["schemas"]["VerificationDecisionDto"];
       };
     };
     responses: {
@@ -1117,7 +1120,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["DecisionDto"];
+        "application/json": components["schemas"]["VerificationDecisionDto"];
       };
     };
     responses: {
@@ -1191,7 +1194,7 @@ export interface operations {
   OrchestratorController_decide: {
     requestBody: {
       content: {
-        "application/json": components["schemas"]["DecisionDto"];
+        "application/json": components["schemas"]["OrchestratorDecisionDto"];
       };
     };
     responses: {

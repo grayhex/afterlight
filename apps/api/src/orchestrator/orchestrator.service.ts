@@ -1,8 +1,8 @@
 import { Injectable, BadRequestException, ConflictException, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
-import { AuditService } from '../audit/audit.service';
-import { VaultAccessService } from '../vault-access/vault-access.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { VaultAccessService } from '../vault-access/vault-access.service.js';
 import { ActorType } from '@prisma/client';
 
 type VState = 'Draft'|'Submitted'|'Confirming'|'Disputed'|'QuorumReached'|'HeartbeatTimeout'|'Grace'|'Finalized';

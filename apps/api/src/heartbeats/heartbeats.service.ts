@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto.js';
 
 function addDays(date: Date, days: number) {
   const d = new Date(date);

@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
-import { VaultAccessService } from './vault-access.service';
-import { PrismaModule } from '../prisma/prisma.module';
+import { VaultAccessService } from './vault-access.service.js';
+import { PrismaModule } from '../prisma/prisma.module.js';
 
 @Global()
 @Module({

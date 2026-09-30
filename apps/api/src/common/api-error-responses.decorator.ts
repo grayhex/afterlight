@@ -6,7 +6,7 @@ import {
   ApiNotFoundResponse,
   ApiInternalServerErrorResponse,
 } from '@nestjs/swagger';
-import { ErrorDto } from './error.dto';
+import { ErrorDto } from './error.dto.js';
 
 export const ApiErrorResponses = () =>
   applyDecorators(

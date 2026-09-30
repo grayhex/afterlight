@@ -1,10 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
-import { AppModule } from '../../src/app.module';
-import { configureApp } from '../../src/app.setup';
-import { AuthService } from '../../src/auth/auth.service';
-import { PrismaService } from '../../src/prisma/prisma.service';
+import { AppModule } from '../../src/app.module.js';
+import { configureApp } from '../../src/app.setup.js';
+import { AuthService } from '../../src/auth/auth.service.js';
+import { PrismaService } from '../../src/prisma/prisma.service.js';
 
 /**
  * Integration-контур: настоящее приложение (AppModule, те же guard'ы и pipes, что в runtime),

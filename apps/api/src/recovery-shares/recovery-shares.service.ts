@@ -1,8 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateRecoveryShareDto } from './dto/create-recovery-share.dto';
-import { UpdateRecoveryShareDto } from './dto/update-recovery-share.dto';
-import { VaultAccessService } from '../vault-access/vault-access.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateRecoveryShareDto } from './dto/create-recovery-share.dto.js';
+import { UpdateRecoveryShareDto } from './dto/update-recovery-share.dto.js';
+import { VaultAccessService } from '../vault-access/vault-access.service.js';
 
 /** Доли восстановления — ключевой материал: доступны только владельцу соответствующего сейфа. */
 @Injectable()

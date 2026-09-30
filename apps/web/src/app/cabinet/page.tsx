@@ -35,8 +35,23 @@ export default function CabinetPage() {
   return <div className="p-6">Доступ запрещён</div>;
 }
 
+interface Vault {
+  id: string;
+  name: string;
+  description?: string | null;
+  status?: string;
+}
+
+// Форма GET /verifiers (VerifierMemberDto): участник сейфа либо ещё не принятое приглашение
+interface VerifierMember {
+  user_id: string | null;
+  invitation_id: string | null;
+  email: string;
+  status: "Invited" | "Active" | "Revoked";
+}
+
 function OwnerCabinet() {
-  const [vaults, setVaults] = useState<any[]>([]);
+  const [vaults, setVaults] = useState<Vault[]>([]);
   const [vaultsLoading, setVaultsLoading] = useState(false);
   const [vaultsError, setVaultsError] = useState<string | null>(null);
   const [selectedVaultId, setSelectedVaultId] = useState<string | null>(null);
@@ -49,7 +64,7 @@ function OwnerCabinet() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const [verifiers, setVerifiers] = useState<any[]>([]);
+  const [verifiers, setVerifiers] = useState<VerifierMember[]>([]);
   const [verifiersLoading, setVerifiersLoading] = useState(false);
   const [verifiersError, setVerifiersError] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -69,7 +84,7 @@ function OwnerCabinet() {
       if (data.length > 0) {
         setSelectedVaultId((current) => current ?? data[0].id);
       }
-    } catch (e) {
+    } catch {
       setVaultsError("Ошибка загрузки");
     } finally {
       setVaultsLoading(false);
@@ -89,7 +104,7 @@ function OwnerCabinet() {
       }
       const data = await res.json();
       setVerifiers(data);
-    } catch (e) {
+    } catch {
       setVerifiersError("Ошибка загрузки");
     } finally {
       setVerifiersLoading(false);
@@ -236,7 +251,7 @@ function OwnerCabinet() {
         {!vaultsLoading && !vaultsError && (
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <AnimatePresence>
-              {vaults.map((v: any) => (
+              {vaults.map((v) => (
                 <motion.div
                   key={v.id}
                   layout
@@ -281,7 +296,7 @@ function OwnerCabinet() {
         {!verifiersLoading && !verifiersError && selectedVaultId && (
           <div className="grid gap-4 md:grid-cols-2">
             <AnimatePresence>
-                {verifiers.map((v: any, idx: number) => (
+                {verifiers.map((v, idx) => (
                   <motion.div
                     key={v.user_id || v.invitation_id || idx}
                   layout

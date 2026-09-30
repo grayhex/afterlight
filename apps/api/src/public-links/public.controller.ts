@@ -1,7 +1,7 @@
 import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { ApiExcludeController, ApiTags } from '@nestjs/swagger';
-import { PublicLinksService } from './public-links.service';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { PublicLinksService } from './public-links.service.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
 @ApiTags('public')
 @ApiExcludeController()

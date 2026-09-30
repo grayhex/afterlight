@@ -501,13 +501,13 @@
             }
           }
         },
-        "tags": [
-          "vaults"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "vaults"
         ]
       },
       "post": {
@@ -578,13 +578,13 @@
             }
           }
         },
-        "tags": [
-          "vaults"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "vaults"
         ]
       }
     },
@@ -656,13 +656,13 @@
             }
           }
         },
-        "tags": [
-          "vaults"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "vaults"
         ]
       }
     },
@@ -744,13 +744,13 @@
             }
           }
         },
-        "tags": [
-          "vaults"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "vaults"
         ]
       }
     },
@@ -832,13 +832,13 @@
             }
           }
         },
-        "tags": [
-          "verifiers"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verifiers"
         ]
       }
     },
@@ -918,13 +918,13 @@
             }
           }
         },
-        "tags": [
-          "verifiers"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verifiers"
         ]
       }
     },
@@ -1004,13 +1004,13 @@
             }
           }
         },
-        "tags": [
-          "verifiers"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verifiers"
         ]
       }
     },
@@ -1082,13 +1082,13 @@
             }
           }
         },
-        "tags": [
-          "verifiers"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verifiers"
         ]
       }
     },
@@ -1168,13 +1168,13 @@
             }
           }
         },
-        "tags": [
-          "verifiers"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verifiers"
         ]
       }
     },
@@ -1259,13 +1259,13 @@
             }
           }
         },
-        "tags": [
-          "verification-events"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verification-events"
         ]
       },
       "post": {
@@ -1336,13 +1336,13 @@
             }
           }
         },
-        "tags": [
-          "verification-events"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verification-events"
         ]
       }
     },
@@ -1414,13 +1414,13 @@
             }
           }
         },
-        "tags": [
-          "verification-events"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verification-events"
         ]
       }
     },
@@ -1442,7 +1442,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DecisionDto"
+                "$ref": "#/components/schemas/VerificationDecisionDto"
               }
             }
           }
@@ -1502,13 +1502,13 @@
             }
           }
         },
-        "tags": [
-          "verification-events"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verification-events"
         ]
       }
     },
@@ -1530,7 +1530,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DecisionDto"
+                "$ref": "#/components/schemas/VerificationDecisionDto"
               }
             }
           }
@@ -1590,13 +1590,13 @@
             }
           }
         },
-        "tags": [
-          "verification-events"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "verification-events"
         ]
       }
     },
@@ -1669,13 +1669,13 @@
             }
           }
         },
-        "tags": [
-          "orchestrator"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "orchestrator"
         ]
       }
     },
@@ -1688,7 +1688,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DecisionDto"
+                "$ref": "#/components/schemas/OrchestratorDecisionDto"
               }
             }
           }
@@ -1748,13 +1748,13 @@
             }
           }
         },
-        "tags": [
-          "orchestrator"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "orchestrator"
         ]
       }
     },
@@ -1842,13 +1842,13 @@
             }
           }
         },
-        "tags": [
-          "blocks"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "blocks"
         ]
       },
       "post": {
@@ -1919,13 +1919,13 @@
             }
           }
         },
-        "tags": [
-          "blocks"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "blocks"
         ]
       }
     },
@@ -1997,13 +1997,13 @@
             }
           }
         },
-        "tags": [
-          "blocks"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "blocks"
         ]
       },
       "delete": {
@@ -2073,20 +2073,19 @@
             }
           }
         },
-        "tags": [
-          "blocks"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "blocks"
         ]
       }
     },
     "/blocks/{id}/recipients": {
       "get": {
         "operationId": "BlocksController_listRecipients",
-        "summary": "List recipients assigned to a block",
         "parameters": [
           {
             "name": "id",
@@ -2153,18 +2152,18 @@
             }
           }
         },
-        "tags": [
-          "blocks"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "summary": "List recipients assigned to a block",
+        "tags": [
+          "blocks"
         ]
       },
       "post": {
         "operationId": "BlocksController_assignRecipient",
-        "summary": "Assign a recipient to a block",
         "parameters": [
           {
             "name": "id",
@@ -2241,13 +2240,14 @@
             }
           }
         },
-        "tags": [
-          "blocks"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "summary": "Assign a recipient to a block",
+        "tags": [
+          "blocks"
         ]
       }
     },
@@ -2320,13 +2320,13 @@
             }
           }
         },
-        "tags": [
-          "recipients"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "recipients"
         ]
       },
       "get": {
@@ -2406,13 +2406,13 @@
             }
           }
         },
-        "tags": [
-          "recipients"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "recipients"
         ]
       }
     },
@@ -2484,13 +2484,13 @@
             }
           }
         },
-        "tags": [
-          "public-links"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "public-links"
         ]
       },
       "put": {
@@ -2570,13 +2570,13 @@
             }
           }
         },
-        "tags": [
-          "public-links"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "public-links"
         ]
       },
       "delete": {
@@ -2646,13 +2646,13 @@
             }
           }
         },
-        "tags": [
-          "public-links"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "public-links"
         ]
       }
     },
@@ -2724,13 +2724,13 @@
             }
           }
         },
-        "tags": [
-          "heartbeats"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "heartbeats"
         ]
       },
       "patch": {
@@ -2810,13 +2810,13 @@
             }
           }
         },
-        "tags": [
-          "heartbeats"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "heartbeats"
         ]
       }
     },
@@ -2889,13 +2889,13 @@
             }
           }
         },
-        "tags": [
-          "heartbeats"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "heartbeats"
         ]
       }
     },
@@ -3096,13 +3096,13 @@
             }
           }
         },
-        "tags": [
-          "users"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "users"
         ]
       },
       "post": {
@@ -3180,13 +3180,13 @@
             }
           }
         },
-        "tags": [
-          "users"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "users"
         ]
       }
     },
@@ -3265,13 +3265,13 @@
             }
           }
         },
-        "tags": [
-          "users"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "users"
         ]
       },
       "patch": {
@@ -3358,13 +3358,13 @@
             }
           }
         },
-        "tags": [
-          "users"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "users"
         ]
       },
       "delete": {
@@ -3441,13 +3441,13 @@
             }
           }
         },
-        "tags": [
-          "users"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "users"
         ]
       }
     },
@@ -3510,13 +3510,13 @@
             }
           }
         },
-        "tags": [
-          "plans"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "plans"
         ]
       },
       "post": {
@@ -3587,13 +3587,13 @@
             }
           }
         },
-        "tags": [
-          "plans"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "plans"
         ]
       }
     },
@@ -3665,13 +3665,13 @@
             }
           }
         },
-        "tags": [
-          "plans"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "plans"
         ]
       },
       "patch": {
@@ -3751,13 +3751,13 @@
             }
           }
         },
-        "tags": [
-          "plans"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "plans"
         ]
       },
       "delete": {
@@ -3827,13 +3827,13 @@
             }
           }
         },
-        "tags": [
-          "plans"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "plans"
         ]
       }
     },
@@ -3896,13 +3896,13 @@
             }
           }
         },
-        "tags": [
-          "subscriptions"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "subscriptions"
         ]
       },
       "post": {
@@ -3973,13 +3973,13 @@
             }
           }
         },
-        "tags": [
-          "subscriptions"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "subscriptions"
         ]
       }
     },
@@ -4051,13 +4051,13 @@
             }
           }
         },
-        "tags": [
-          "subscriptions"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "subscriptions"
         ]
       },
       "patch": {
@@ -4137,13 +4137,13 @@
             }
           }
         },
-        "tags": [
-          "subscriptions"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "subscriptions"
         ]
       },
       "delete": {
@@ -4213,13 +4213,13 @@
             }
           }
         },
-        "tags": [
-          "subscriptions"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "subscriptions"
         ]
       }
     },
@@ -4282,13 +4282,13 @@
             }
           }
         },
-        "tags": [
-          "audit-logs"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "audit-logs"
         ]
       }
     },
@@ -4360,13 +4360,13 @@
             }
           }
         },
-        "tags": [
-          "audit-logs"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "audit-logs"
         ]
       }
     },
@@ -4438,13 +4438,13 @@
             }
           }
         },
-        "tags": [
-          "recovery-shares"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "recovery-shares"
         ]
       },
       "post": {
@@ -4515,13 +4515,13 @@
             }
           }
         },
-        "tags": [
-          "recovery-shares"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "recovery-shares"
         ]
       }
     },
@@ -4593,13 +4593,13 @@
             }
           }
         },
-        "tags": [
-          "recovery-shares"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "recovery-shares"
         ]
       },
       "patch": {
@@ -4679,13 +4679,13 @@
             }
           }
         },
-        "tags": [
-          "recovery-shares"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "recovery-shares"
         ]
       },
       "delete": {
@@ -4755,13 +4755,13 @@
             }
           }
         },
-        "tags": [
-          "recovery-shares"
-        ],
         "security": [
           {
             "bearer": []
           }
+        ],
+        "tags": [
+          "recovery-shares"
         ]
       }
     }
@@ -5046,7 +5046,27 @@
           "vault_id"
         ]
       },
-      "DecisionDto": {
+      "VerificationDecisionDto": {
+        "type": "object",
+        "properties": {
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "StartEventDto": {
+        "type": "object",
+        "properties": {
+          "vault_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "vault_id"
+        ]
+      },
+      "OrchestratorDecisionDto": {
         "type": "object",
         "properties": {
           "vault_id": {
@@ -5067,18 +5087,6 @@
         "required": [
           "vault_id",
           "decision"
-        ]
-      },
-      "StartEventDto": {
-        "type": "object",
-        "properties": {
-          "vault_id": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "vault_id"
         ]
       },
       "CreateBlockDto": {

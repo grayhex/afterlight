@@ -8,14 +8,14 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { AuthService } from './auth.service';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
+import { AuthService } from './auth.service.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { LoginDto } from './dto/login.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
+import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { Response, Request } from 'express';
-import { Public } from './decorators/public.decorator';
+import { Public } from './decorators/public.decorator.js';
 
 @ApiTags('auth')
 @ApiErrorResponses()
@@ -25,7 +25,10 @@ export class AuthController {
 
   private readonly tokenCookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    // В production cookie только по HTTPS. Для стенда в LAN по http задайте COOKIE_SECURE=false.
+    secure: process.env.COOKIE_SECURE
+      ? process.env.COOKIE_SECURE === 'true'
+      : process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     maxAge: 60 * 60 * 1000,
     path: '/',

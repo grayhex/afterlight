@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { UpdatePublicLinkDto } from './dto/update-public-link.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { UpdatePublicLinkDto } from './dto/update-public-link.dto.js';
 import { createHash, randomBytes } from 'crypto';
 
 function sha256hex(v: string) { return createHash('sha256').update(v).digest('hex'); }

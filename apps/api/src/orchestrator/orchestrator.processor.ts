@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { OrchestratorService } from './orchestrator.service';
+import { OrchestratorService } from './orchestrator.service.js';
 
 @Injectable()
 export class OrchestratorProcessor implements OnModuleInit, OnModuleDestroy {

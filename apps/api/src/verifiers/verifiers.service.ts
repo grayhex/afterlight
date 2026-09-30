@@ -9,13 +9,13 @@ import {
 } from '@nestjs/common';
 import { ActorType } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
-import { PrismaService } from '../prisma/prisma.service';
-import { InviteVerifierDto } from './dto/invite-verifier.dto';
-import { InvitationCreatedDto, VerifierMemberDto } from './dto/verifier-member.dto';
-import { NotificationsService } from '../notifications/notifications.service';
-import { AuditService } from '../audit/audit.service';
-import { VaultAccessService } from '../vault-access/vault-access.service';
-import { AuthenticatedUser } from '../common/current-user.decorator';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { InviteVerifierDto } from './dto/invite-verifier.dto.js';
+import { InvitationCreatedDto, VerifierMemberDto } from './dto/verifier-member.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { VaultAccessService } from '../vault-access/vault-access.service.js';
+import { AuthenticatedUser } from '../common/current-user.decorator.js';
 
 export const hashInvitationToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const normalizeEmail = (email: string) => email.trim().toLowerCase();

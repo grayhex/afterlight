@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { SubscriptionsService } from './subscriptions.service';
-import { CreateSubscriptionDto } from './dto/create-subscription.dto';
-import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { SubscriptionsService } from './subscriptions.service.js';
+import { CreateSubscriptionDto } from './dto/create-subscription.dto.js';
+import { UpdateSubscriptionDto } from './dto/update-subscription.dto.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('subscriptions')

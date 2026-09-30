@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { HeartbeatsService } from './heartbeats.service';
-import { HeartbeatsController } from './heartbeats.controller';
-import { HeartbeatProcessor } from './heartbeats.processor';
-import { AuthModule } from '../auth/auth.module';
+import { HeartbeatsService } from './heartbeats.service.js';
+import { HeartbeatsController } from './heartbeats.controller.js';
+import { HeartbeatProcessor } from './heartbeats.processor.js';
+import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
   imports: [AuthModule],

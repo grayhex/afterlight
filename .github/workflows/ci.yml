@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
 
 jobs:
   api:
@@ -67,8 +67,16 @@ jobs:
       - name: Typecheck (src + tests)
         run: npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
       - name: Build (Nest)
         run: npm run build
+
+      - name: openapi.json is up to date
+        run: |
+          npm run openapi
+          git diff --exit-code -- openapi.json
 
       - name: Unit tests (mocks)
         run: npm run test:unit
@@ -77,7 +85,7 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Schema matches migrations (no drift)
-        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
       - name: Seed
         run: npx prisma db seed
@@ -126,10 +134,20 @@ jobs:
         working-directory: pr/apps/api
         run: npm ci
 
-      # БД в состоянии base-ветки, затем миграции PR поверх неё (как при обновлении существующей установки)
+      # БД в состоянии base-ветки: её миграции применяются CLI текущей версии через временный config
       - name: Apply base migrations
         working-directory: pr/apps/api
-        run: npx prisma migrate deploy --schema ../../../base/apps/api/prisma/schema.prisma
+        run: |
+          cat > prisma.base.config.ts <<'CFG'
+          import { defineConfig, env } from 'prisma/config';
+          export default defineConfig({
+            schema: 'prisma/schema.prisma',
+            migrations: { path: '../../../base/apps/api/prisma/migrations' },
+            datasource: { url: env('DATABASE_URL') },
+          });
+          CFG
+          npx prisma migrate deploy --config prisma.base.config.ts
+          rm prisma.base.config.ts
 
       - name: Apply PR migrations on top
         working-directory: pr/apps/api
@@ -137,7 +155,7 @@ jobs:
 
       - name: No drift after upgrade
         working-directory: pr/apps/api
-        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
 
   web:
     name: web
@@ -149,22 +167,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: |
-            apps/api/package-lock.json
-            apps/web/package-lock.json
-
-      # prebuild web пока копирует Prisma client из apps/api (будет убрано отдельным шагом задачи #148)
-      - name: Install deps (api, for the current web prebuild)
-        working-directory: apps/api
-        run: npm ci
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install deps (web)
         working-directory: apps/web
         run: npm ci
 
+      - name: Lint
+        working-directory: apps/web
+        run: npm run lint
+
       - name: Typecheck
         working-directory: apps/web
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Unit tests
         working-directory: apps/web
@@ -173,6 +188,5 @@ jobs:
       - name: Build
         working-directory: apps/web
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/unused
           NEXT_TELEMETRY_DISABLED: '1'
         run: npm run build

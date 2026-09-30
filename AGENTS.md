@@ -3,12 +3,12 @@
 Краткие правила для агентов и разработчиков. Подробности — в `README.md` и эпике #146.
 
 ## Структура
-- `apps/api` — NestJS + Prisma + PostgreSQL (единый модульный монолит). `apps/web` — Next.js. `k8s/`, `Dockerfile.*` — сборка и деплой.
+- `apps/api` — NestJS 12 (ESM: относительные импорты пишутся с `.js`) + Prisma 7 + PostgreSQL, Node 24. `apps/web` — Next.js 16 / React 19 / Tailwind 4; web не обращается к БД, все данные — через API (`/api/*` проксируется). `k8s/`, `Dockerfile.*` — сборка и деплой.
 
 ## Проверки перед PR
-API (`apps/api`): `npm ci`, `npx prisma generate`, `npm run typecheck`, `npm run build`, `npm run test:unit`;
+API (`apps/api`): `npm ci`, `npx prisma generate`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run test:unit`;
 при наличии PostgreSQL ещё `npx prisma migrate deploy` и `npm run test:integration` (БД с `test` в имени, см. README).
-Web (`apps/web`): `npx tsc --noEmit`, `npm test`, `npm run build`.
+Web (`apps/web`): `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`.
 В PR указывайте реально выполненные команды и их результат.
 
 ## Правила

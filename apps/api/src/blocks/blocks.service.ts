@@ -1,8 +1,8 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateBlockDto } from './dto/create-block.dto';
-import { AssignRecipientDto } from './dto/assign-recipient.dto';
-import { AuditService } from '../audit/audit.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateBlockDto } from './dto/create-block.dto.js';
+import { AssignRecipientDto } from './dto/assign-recipient.dto.js';
+import { AuditService } from '../audit/audit.service.js';
 import { ActorType } from '@prisma/client';
 
 @Injectable()

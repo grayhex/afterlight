@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import InputMask from "react-input-mask";
+import { formatRuPhone } from "@/lib/phone";
 import { httpClient } from "@/shared/api/httpClient";
 import { useAuth } from "@/shared/auth/useAuth";
 import { X } from "lucide-react";
@@ -164,20 +164,15 @@ export default function LoginModal({ open, onClose }: LoginModalProps) {
                 onChange={(e) => setRegEmail(e.target.value)}
                 className="rounded-md border border-white/20 bg-transparent p-3 text-white placeholder:text-white/50 focus:border-bodaghee-accent focus:outline-none"
               />
-              <InputMask
-                mask="+7 (999) 999-99-99"
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="Телефон"
                 value={regPhone}
-                onChange={(e) => setRegPhone(e.target.value)}
-              >
-                {(inputProps: any) => (
-                  <input
-                    {...inputProps}
-                    type="tel"
-                    placeholder="Телефон"
-                    className="rounded-md border border-white/20 bg-transparent p-3 text-white placeholder:text-white/50 focus:border-bodaghee-accent focus:outline-none"
-                  />
-                )}
-              </InputMask>
+                onChange={(e) => setRegPhone(formatRuPhone(e.target.value))}
+                className="rounded-md border border-white/20 bg-transparent p-3 text-white placeholder:text-white/50 focus:border-bodaghee-accent focus:outline-none"
+              />
               <input
                 type="password"
                 placeholder="Пароль"

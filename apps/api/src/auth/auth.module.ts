@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { AuthController } from './auth.controller';
-import { AuthGuard } from './guards/auth.guard';
-import { RolesGuard } from './guards/roles.guard';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { AuthService } from './auth.service.js';
+import { AuthController } from './auth.controller.js';
+import { AuthGuard } from './guards/auth.guard.js';
+import { RolesGuard } from './guards/roles.guard.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
   imports: [NotificationsModule],

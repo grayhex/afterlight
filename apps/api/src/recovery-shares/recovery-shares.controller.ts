@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { RecoverySharesService } from './recovery-shares.service';
-import { CreateRecoveryShareDto } from './dto/create-recovery-share.dto';
-import { UpdateRecoveryShareDto } from './dto/update-recovery-share.dto';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator';
+import { RecoverySharesService } from './recovery-shares.service.js';
+import { CreateRecoveryShareDto } from './dto/create-recovery-share.dto.js';
+import { UpdateRecoveryShareDto } from './dto/update-recovery-share.dto.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator.js';
 
 @ApiTags('recovery-shares')
 @ApiBearerAuth()

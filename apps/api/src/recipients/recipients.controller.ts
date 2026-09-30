@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { RecipientsService } from './recipients.service';
-import { CreateRecipientDto } from './dto/create-recipient.dto';
-import { SearchRecipientsDto } from './dto/search-recipients.dto';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator';
+import { RecipientsService } from './recipients.service.js';
+import { CreateRecipientDto } from './dto/create-recipient.dto.js';
+import { SearchRecipientsDto } from './dto/search-recipients.dto.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator.js';
 
 @ApiTags('recipients')
 @ApiBearerAuth()

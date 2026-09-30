@@ -1,4 +1,4 @@
-import { NotificationsService } from '../../src/notifications/notifications.service';
+import { NotificationsService } from '../../src/notifications/notifications.service.js';
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 

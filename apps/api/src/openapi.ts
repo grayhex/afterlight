@@ -2,9 +2,9 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
-import { AppModule } from './app.module';
-import { PrismaService } from './prisma/prisma.service';
-import { ErrorDto } from './common/error.dto';
+import { AppModule } from './app.module.js';
+import { PrismaService } from './prisma/prisma.service.js';
+import { ErrorDto } from './common/error.dto.js';
 
 async function generate() {
   const moduleRef = await Test.createTestingModule({
@@ -29,7 +29,7 @@ async function generate() {
   });
 
   writeFileSync(
-    join(__dirname, '..', 'openapi.json'),
+    join(process.cwd(), 'openapi.json'),
     JSON.stringify(document, null, 2),
   );
 
