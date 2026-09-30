@@ -25,7 +25,10 @@ export class AuthController {
 
   private readonly tokenCookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    // В production cookie только по HTTPS. Для стенда в LAN по http задайте COOKIE_SECURE=false.
+    secure: process.env.COOKIE_SECURE
+      ? process.env.COOKIE_SECURE === 'true'
+      : process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     maxAge: 60 * 60 * 1000,
     path: '/',

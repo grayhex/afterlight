@@ -11,10 +11,12 @@ export async function middleware(req: NextRequest) {
 
   if (pathname.startsWith('/cabinet')) {
     try {
+      // middleware выполняется на сервере: cookie пользователя нужно передать вручную
       const res = await httpClient('/auth/me', {
         method: 'GET',
         cache: 'no-store',
         base: req.url,
+        headers: { cookie: req.headers.get('cookie') ?? '' },
       });
       if (res.ok) return NextResponse.next();
     } catch {

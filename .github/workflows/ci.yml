@@ -149,14 +149,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: |
-            apps/api/package-lock.json
-            apps/web/package-lock.json
-
-      # prebuild web пока копирует Prisma client из apps/api (будет убрано отдельным шагом задачи #148)
-      - name: Install deps (api, for the current web prebuild)
-        working-directory: apps/api
-        run: npm ci
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install deps (web)
         working-directory: apps/web
@@ -164,7 +157,7 @@ jobs:
 
       - name: Typecheck
         working-directory: apps/web
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Unit tests
         working-directory: apps/web
@@ -173,6 +166,5 @@ jobs:
       - name: Build
         working-directory: apps/web
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/unused
           NEXT_TELEMETRY_DISABLED: '1'
         run: npm run build

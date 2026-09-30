@@ -1,11 +1,12 @@
 import { PrismaClient, UserRole } from '@prisma/client'
-import bcrypt from 'bcryptjs'
+import { hashPassword } from '../src/auth/password'
 
 const prisma = new PrismaClient()
 
 async function main() {
+  // Тот же алгоритм (scrypt), которым API проверяет пароль при входе; bcrypt-хэш войти не позволял
   const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin'
-  const passwordHash = await bcrypt.hash(adminPassword, 10)
+  const passwordHash = await hashPassword(adminPassword)
 
   await prisma.user.upsert({
     where: { email: 'admin@example.com' },

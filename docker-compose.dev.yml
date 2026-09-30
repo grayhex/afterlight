@@ -1,0 +1,24 @@
+# Локальная разработка: только PostgreSQL. API и web запускаются из исходников (см. README).
+# Две БД: рабочая и отдельная для integration-тестов (таблицы в ней очищаются тестами).
+name: afterlight-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: afterlight
+      POSTGRES_PASSWORD: afterlight
+      POSTGRES_DB: afterlight
+    volumes:
+      - dev_pg_data:/var/lib/postgresql/data
+      - ./scripts/dev-init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U afterlight -d afterlight"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  dev_pg_data:
