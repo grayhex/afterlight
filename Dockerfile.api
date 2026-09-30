@@ -22,8 +22,10 @@ COPY --from=deps /app/apps/api/node_modules ./node_modules
 # исходники API
 COPY apps/api ./
 
-# Prisma Client под Debian/OpenSSL 3.0 + сборка, чтобы seed попал в dist
-RUN npx prisma generate --schema=./prisma/schema.prisma && npm run build
+# Prisma Client + сборка, чтобы seed попал в dist. prisma.config.ts требует DATABASE_URL даже для generate:
+# подставляем заглушку только на время сборки (подключения к БД не происходит)
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" npx prisma generate \
+    && npm run build
 
 # оставляем только prod-зависимости
 RUN npm prune --omit=dev
@@ -45,6 +47,7 @@ COPY --from=build /app/apps/api/package*.json ./
 COPY --from=build /app/apps/api/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./dist
 COPY --from=build /app/apps/api/prisma ./prisma
+COPY --from=build /app/apps/api/prisma.config.ts ./prisma.config.ts
 
 # слушать все интерфейсы в k8s
 ENV HOST=0.0.0.0

@@ -107,7 +107,7 @@ npx prisma migrate deploy
 npm run test:integration
 ```
 
-Проверка, что схема совпадает с миграциями: `npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code`.
+Проверка, что схема совпадает с миграциями: `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code`.
 
 Web, из `apps/web`: `npm ci && npx tsc --noEmit && npm test && npm run build`
 (пока сборка web требует выполненного `npm ci` в `apps/api`).

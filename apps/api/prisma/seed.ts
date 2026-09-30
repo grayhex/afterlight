@@ -1,7 +1,8 @@
 import { PrismaClient, UserRole } from '@prisma/client'
 import { hashPassword } from '../src/auth/password'
+import { prismaClientOptions } from '../src/prisma/prisma-options'
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient(prismaClientOptions())
 
 async function main() {
   // Тот же алгоритм (scrypt), которым API проверяет пароль при входе; bcrypt-хэш войти не позволял
