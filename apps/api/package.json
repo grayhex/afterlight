@@ -6,8 +6,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "seed": "ts-node prisma/seed.ts",
-    "test": "jest",
-    "openapi": "ts-node src/openapi.ts"
+    "test": "jest --selectProjects unit",
+    "openapi": "ts-node src/openapi.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test:unit": "jest --selectProjects unit",
+    "test:integration": "jest --selectProjects integration --runInBand",
+    "db:migrate": "prisma migrate deploy"
   },
   "prisma": {
     "seed": "node dist/prisma/seed.js"

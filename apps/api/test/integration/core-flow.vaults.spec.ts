@@ -1,16 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { bootstrapE2eApp, closeE2eApp, mapState } from './test-helper';
+import { bootstrapApp, closeApp, Ctx } from './helper';
 
 describe('core flow: vaults', () => {
-  let ctx: Awaited<ReturnType<typeof bootstrapE2eApp>>;
+  let ctx: Ctx;
 
-  beforeEach(async () => {
-    ctx = await bootstrapE2eApp();
-  });
-
-  afterEach(async () => {
-    if (ctx) await closeE2eApp(ctx.app, ctx.time);
-  });
+  beforeEach(async () => { ctx = await bootstrapApp(); });
+  afterEach(async () => { await closeApp(ctx); });
 
   it('creates vault and returns deterministic structure', async () => {
     const owner = await ctx.factory.createUser({ email: 'owner+vault@test.local' });
@@ -26,15 +21,14 @@ describe('core flow: vaults', () => {
       id: expect.any(String),
       userId: owner.id,
       name: 'Family Vault',
-      status: expect.any(String),
+      status: 'Active',
       quorumThreshold: 2,
       graceHours: 24,
     }));
-    expect(mapState('Submitted')).toBe('pending');
 
     const listRes = await ctx.request('GET', '/vaults', undefined, owner.id);
     expect(listRes.status).toBe(200);
-    expect(Array.isArray(listRes.body)).toBe(true);
+    expect(listRes.body).toHaveLength(1);
     expect(listRes.body[0]).toEqual(expect.objectContaining({
       id: createRes.body.id,
       userId: owner.id,
@@ -42,9 +36,19 @@ describe('core flow: vaults', () => {
     }));
   });
 
-  it('returns 404 for unknown vault', async () => {
+  it('does not show a vault to another user', async () => {
+    const owner = await ctx.factory.createUser();
+    const other = await ctx.factory.createUser();
+    const vault = await ctx.factory.createVault(owner.id);
+    expect((await ctx.request('GET', `/vaults/${vault.id}`, undefined, other.id)).status).toBe(404);
+    expect((await ctx.request('GET', '/vaults', undefined, other.id)).body).toEqual([]);
+  });
+
+  it('returns 404 for an unknown vault and 400 for a malformed id', async () => {
     const owner = await ctx.factory.createUser({ email: 'owner+vault404@test.local' });
-    const res = await ctx.request('GET', '/vaults/not-exists', undefined, owner.id);
-    expect(res.status).toBe(404);
+    const unknown = await ctx.request('GET', '/vaults/6b1d2d6e-7a51-4d0a-9d47-3f3f5b0e0000', undefined, owner.id);
+    expect(unknown.status).toBe(404);
+    const malformed = await ctx.request('GET', '/vaults/not-exists', undefined, owner.id);
+    expect(malformed.status).toBe(400);
   });
 });

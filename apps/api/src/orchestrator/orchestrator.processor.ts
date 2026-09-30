@@ -5,15 +5,17 @@ import { OrchestratorService } from './orchestrator.service';
 export class OrchestratorProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OrchestratorProcessor.name);
   private timer: NodeJS.Timeout | null = null;
+  private initial: NodeJS.Timeout | null = null;
 
   constructor(private orchestrator: OrchestratorService) {}
 
   onModuleInit() {
     this.timer = setInterval(() => this.tick().catch((e) => this.logger.error(e)), 5 * 60 * 1000);
-    setTimeout(() => this.tick().catch((e) => this.logger.error(e)), 10 * 1000);
+    this.initial = setTimeout(() => this.tick().catch((e) => this.logger.error(e)), 10 * 1000);
   }
   onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
+    if (this.initial) clearTimeout(this.initial);
   }
 
   private async tick() {

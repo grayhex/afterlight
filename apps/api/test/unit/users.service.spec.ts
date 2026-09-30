@@ -1,4 +1,4 @@
-import { UsersService } from '../src/users/users.service';
+import { UsersService } from '../../src/users/users.service';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 const sampleUser = {

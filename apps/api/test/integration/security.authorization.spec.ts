@@ -2,21 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import * as jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
 import { OrchestratorService } from '../../src/orchestrator/orchestrator.service';
-import { bootstrapE2eApp, closeE2eApp } from './test-helper';
+import { bootstrapApp, closeApp, Ctx, HOUR } from './helper';
 
-type Ctx = Awaited<ReturnType<typeof bootstrapE2eApp>>;
-
-describe('security: object authorization (real AuthGuard, synthetic accounts)', () => {
+describe('security: object authorization (real AuthGuard, real PostgreSQL, synthetic accounts)', () => {
   let ctx: Ctx;
 
-  beforeEach(async () => {
-    ctx = await bootstrapE2eApp();
-    ctx.time.freeze('2026-01-01T00:00:00.000Z');
-  });
-
-  afterEach(async () => {
-    if (ctx) await closeE2eApp(ctx.app, ctx.time);
-  });
+  beforeEach(async () => { ctx = await bootstrapApp(); });
+  afterEach(async () => { await closeApp(ctx); });
 
   async function scene() {
     const owner = await ctx.factory.createUser({ email: 'owner@test.local' });
@@ -101,7 +93,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
         const res = await ctx.request('POST', `/verification-events/${eventId}/${action}/${s.v2.user.id}`, {}, s.owner.id);
         expect(res.status).toBe(404);
       }
-      expect(ctx.prisma.decisions).toHaveLength(0);
+      expect(await ctx.db.verificationDecision.count()).toBe(0);
     });
 
     it('rejects an attempt to set another author in the body on both APIs', async () => {
@@ -113,7 +105,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
         vault_id: s.vault.id, user_id: s.v2.user.id, decision: 'Confirm',
       }, s.v1.user.id);
       expect(modern.status).toBe(400);
-      expect(ctx.prisma.decisions).toHaveLength(0);
+      expect(await ctx.db.verificationDecision.count()).toBe(0);
     });
 
     it.each([
@@ -132,10 +124,10 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       const modern = await ctx.request('POST', '/orchestration/decision', { vault_id: s.vault.id, decision: 'Confirm' }, userId);
       expect(legacy.status).toBe(expected);
       expect(modern.status).toBe(expected);
-      expect(ctx.prisma.decisions).toHaveLength(0);
+      expect(await ctx.db.verificationDecision.count()).toBe(0);
     });
 
-    it.each(['Revoked', 'Invited'])('rejects a vote from a %s member on both APIs', async (status) => {
+    it.each(['Revoked', 'Invited'] as const)('rejects a vote from a %s member on both APIs', async (status) => {
       const s = await scene();
       const inactive = await ctx.factory.createVerifier(s.vault.id, { status });
       const eventId = await startEvent(s);
@@ -143,7 +135,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       const modern = await ctx.request('POST', '/orchestration/decision', { vault_id: s.vault.id, decision: 'Deny' }, inactive.user.id);
       expect(legacy.status).toBe(403);
       expect(modern.status).toBe(403);
-      expect(ctx.prisma.decisions).toHaveLength(0);
+      expect(await ctx.db.verificationDecision.count()).toBe(0);
     });
 
     it('does not accept a vote once the event left the voting states', async () => {
@@ -170,7 +162,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
 
       const svc = ctx.moduleRef.get(OrchestratorService);
       await svc.processTimers(new Date());
-      expect(ctx.prisma.events.find((e: any) => e.id === eventId).state).not.toBe('Grace');
+      expect((await ctx.db.verificationEvent.findUniqueOrThrow({ where: { id: eventId } })).state).not.toBe('Grace');
     });
   });
 
@@ -195,14 +187,12 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
     it('as=verifier lists only vaults where the caller is an active verifier, not their own', async () => {
       const s = await scene();
       await startEvent(s);
-      // владелец сам — верификатор чужого сейфа
-      await ctx.factory.createVerifier(s.otherVault.id).then(async (v) => {
-        await (ctx.prisma as any).vaultUserRole.update({
-          where: { vaultId_userId: { vaultId: s.otherVault.id, userId: v.user.id } },
-          data: { status: 'Revoked' },
-        });
+      // владелец сам — активный верификатор чужого сейфа; бывший верификатор (Revoked) не должен влиять на выдачу
+      await ctx.db.vaultUserRole.update({
+        where: { vaultId_userId: { vaultId: s.otherVault.id, userId: s.otherVerifier.user.id } },
+        data: { status: 'Revoked' },
       });
-      await ctx.prisma.vaultUserRole.create({ data: { vaultId: s.otherVault.id, userId: s.owner.id, role: 'Verifier', status: 'Active' } });
+      await ctx.db.vaultUserRole.create({ data: { vaultId: s.otherVault.id, userId: s.owner.id, role: 'Verifier', status: 'Active' } });
       await ctx.request('POST', '/orchestration/start', { vault_id: s.otherVault.id }, s.otherOwner.id);
 
       const asVerifier = await ctx.request('GET', '/verification-events?as=verifier', undefined, s.owner.id);
@@ -231,14 +221,14 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       const b = await ctx.request('POST', '/orchestration/start', { vault_id: s.vault.id }, userId);
       expect(a.status).toBe(403);
       expect(b.status).toBe(403);
-      expect(ctx.prisma.events).toHaveLength(0);
+      expect(await ctx.db.verificationEvent.count()).toBe(0);
     });
 
     it('the legacy start endpoint goes through the same orchestrator rules', async () => {
       const s = await scene();
       const res = await ctx.request('POST', '/verification-events', { vault_id: s.vault.id }, s.owner.id);
       expect(res.status).toBe(201);
-      expect(s.vault.status).toBe('Triggered');
+      expect((await ctx.db.vault.findUniqueOrThrow({ where: { id: s.vault.id } })).status).toBe('Triggered');
     });
 
     it('rejects malformed ids with 400 instead of reaching the database', async () => {
@@ -260,7 +250,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       const actor: any = (s as any)[who];
       const res = await invite(s, 'x@test.local', actor.user?.id ?? actor.id);
       expect(res.status).toBe(403);
-      expect(ctx.prisma.invitations).toHaveLength(0);
+      expect(await ctx.db.vaultUserInvitation.count()).toBe(0);
     });
 
     it('owner invites: token goes only to the mailbox, is stored hashed, is not in the response', async () => {
@@ -271,14 +261,16 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
         id: expect.any(String), email: 'new.verifier@test.local', role: 'Verifier', expires_at: expect.any(String),
       });
 
-      const mail = ctx.mail.invitations;
-      expect(mail).toHaveLength(1);
-      const token = mail[0].token;
+      const tokens = await ctx.invitationTokens('new.verifier@test.local');
+      expect(tokens).toHaveLength(1);
+      const token = tokens[0];
+      expect(token.length).toBeGreaterThanOrEqual(43);
       expect(JSON.stringify(res.body)).not.toContain(token);
-      expect(ctx.prisma.invitations[0].token).not.toBe(token);
-      expect(ctx.prisma.invitations[0].token).toBe(createHash('sha256').update(token).digest('hex'));
+      const stored = await ctx.db.vaultUserInvitation.findFirstOrThrow();
+      expect(stored.token).not.toBe(token);
+      expect(stored.token).toBe(createHash('sha256').update(token).digest('hex'));
       // приглашение не создаёт учётную запись за адресата и не делает его участником
-      expect(ctx.prisma.users.find((u: any) => u.email === 'new.verifier@test.local')).toBeUndefined();
+      expect(await ctx.db.user.findUnique({ where: { email: 'new.verifier@test.local' } })).toBeNull();
     });
 
     it('does not invite the vault owner, duplicates or existing members', async () => {
@@ -293,7 +285,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       const s = await scene();
       const invitee = await ctx.factory.createUser({ email: 'new.verifier@test.local' });
       await invite(s);
-      const token = ctx.mail.invitations[0].token;
+      const token = (await ctx.invitationTokens('new.verifier@test.local'))[0];
 
       const eventId = await startEvent(s);
       const before = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, invitee.id);
@@ -314,14 +306,14 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       const s = await scene();
       const invitee = await ctx.factory.createUser({ email: 'new.verifier@test.local' });
       await invite(s);
-      const token = ctx.mail.invitations[0].token;
+      const token = (await ctx.invitationTokens('new.verifier@test.local'))[0];
 
       for (const intruder of [s.outsider, s.v1.user, s.owner]) {
         const res = await ctx.request('POST', '/verifiers/invitations/accept', { token }, intruder.id);
         expect(res.status).toBe(403);
       }
-      expect(ctx.prisma.roles.filter((r: any) => r.vaultId === s.vault.id && r.userId === s.outsider.id)).toHaveLength(0);
-      expect(ctx.prisma.invitations[0].acceptedAt).toBeNull();
+      expect(await ctx.db.vaultUserRole.count({ where: { vaultId: s.vault.id, userId: s.outsider.id } })).toBe(0);
+      expect((await ctx.db.vaultUserInvitation.findFirstOrThrow()).acceptedAt).toBeNull();
 
       const ok = await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id);
       expect(ok.status).toBe(201);
@@ -335,19 +327,19 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       expect(unknown.status).toBe(404);
 
       await invite(s, 'new.verifier@test.local', s.owner.id, 1);
-      const expiredToken = ctx.mail.invitations[0].token;
-      ctx.time.advanceHours(2);
+      const expiredToken = (await ctx.invitationTokens('new.verifier@test.local'))[0];
+      await ctx.db.vaultUserInvitation.updateMany({ data: { expiresAt: new Date(Date.now() - HOUR) } });
       const expired = await ctx.request('POST', '/verifiers/invitations/accept', { token: expiredToken }, invitee.id);
       expect(expired.status).toBe(410);
 
       const again = await invite(s, 'new.verifier@test.local');
       expect(again.status).toBe(201);
-      const freshToken = ctx.mail.invitations[1].token;
+      const freshToken = (await ctx.invitationTokens('new.verifier@test.local'))[1];
       const revoke = await ctx.request('DELETE', `/verifiers/invitations/${again.body.id}`, undefined, s.owner.id);
       expect(revoke.status).toBe(200);
       const revoked = await ctx.request('POST', '/verifiers/invitations/accept', { token: freshToken }, invitee.id);
       expect(revoked.status).toBe(410);
-      expect(ctx.prisma.roles.filter((r: any) => r.userId === invitee.id)).toHaveLength(0);
+      expect(await ctx.db.vaultUserRole.count({ where: { userId: invitee.id } })).toBe(0);
     });
 
     it('only a manager can revoke an invitation or a member', async () => {
@@ -357,15 +349,17 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       expect(del.status).toBe(403);
       const rev = await ctx.request('POST', `/verifiers/${s.vault.id}/${s.v2.user.id}/revoke`, undefined, s.v1.user.id);
       expect(rev.status).toBe(403);
-      expect(ctx.prisma.roles.find((r: any) => r.userId === s.v2.user.id).status).toBe('Active');
+      expect((await ctx.db.vaultUserRole.findFirstOrThrow({ where: { userId: s.v2.user.id } })).status).toBe('Active');
     });
   });
 
   describe('response DTOs do not expose internals', () => {
     it('GET /verifiers returns an explicit safe shape and only to managers', async () => {
       const s = await scene();
-      s.v1.user.passwordHash = 'bcrypt-hash-should-not-leak';
-      s.v1.user.passkeyPub = 'passkey-should-not-leak';
+      await ctx.db.user.update({
+        where: { id: s.v1.user.id },
+        data: { passwordHash: 'bcrypt-hash-should-not-leak', passkeyPub: 'passkey-should-not-leak' },
+      });
       await ctx.request('POST', '/verifiers/invitations', { vault_id: s.vault.id, email: 'p@test.local' }, s.owner.id);
 
       const res = await ctx.request('GET', `/verifiers?vault_id=${s.vault.id}`, undefined, s.owner.id);
@@ -373,7 +367,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       const raw = JSON.stringify(res.body);
       expect(raw).not.toContain('bcrypt-hash-should-not-leak');
       expect(raw).not.toContain('passkey-should-not-leak');
-      expect(raw).not.toContain(ctx.mail.invitations[0].token);
+      expect(raw).not.toContain((await ctx.invitationTokens('p@test.local'))[0]);
       expect(raw).not.toMatch(/passwordHash|password_hash|token/i);
       for (const row of res.body) {
         expect(Object.keys(row).sort()).toEqual(
@@ -425,7 +419,7 @@ describe('security: object authorization (real AuthGuard, synthetic accounts)', 
       expect(first.status).toBe(201);
       const swap = await ctx.request('POST', '/recipients', { vault_id: s.otherVault.id, contact: 'r@mail.test', pubkey: 'KEY-EVIL' }, s.otherOwner.id);
       expect(swap.status).toBe(409);
-      expect(ctx.prisma.recipients[0].pubkey).toBe('KEY-A');
+      expect((await ctx.db.recipient.findFirstOrThrow()).pubkey).toBe('KEY-A');
       const same = await ctx.request('POST', '/recipients', { vault_id: s.otherVault.id, contact: 'r@mail.test', pubkey: 'KEY-A' }, s.otherOwner.id);
       expect(same.status).toBe(201);
     });

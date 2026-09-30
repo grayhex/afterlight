@@ -10,16 +10,18 @@ function addDays(date: Date, days: number) {
 @Injectable()
 export class HeartbeatProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(HeartbeatProcessor.name);
-  private timer: NodeJS.Timeout | null = null; // <-- фикс типа
+  private timer: NodeJS.Timeout | null = null;
+  private initial: NodeJS.Timeout | null = null;
 
   constructor(private prisma: PrismaService) {}
 
   onModuleInit() {
     this.timer = setInterval(() => this.tick().catch((e) => this.logger.error(e)), 15 * 60 * 1000);
-    setTimeout(() => this.tick().catch((e) => this.logger.error(e)), 30 * 1000);
+    this.initial = setTimeout(() => this.tick().catch((e) => this.logger.error(e)), 30 * 1000);
   }
   onModuleDestroy() {
-    if (this.timer) clearInterval(this.timer); // <-- теперь тип совпадает
+    if (this.timer) clearInterval(this.timer);
+    if (this.initial) clearTimeout(this.initial);
   }
 
   private async tick() {
