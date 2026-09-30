@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { AppModule } from './app.module.js';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { PrismaService } from './prisma/prisma.service';
-import { configureApp } from './app.setup';
+import { PrismaService } from './prisma/prisma.service.js';
+import { configureApp } from './app.setup.js';
 
 type RequiredEnvVar = 'JWT_SECRET' | 'DATABASE_URL' | 'CORS_ALLOWED_ORIGINS';
 

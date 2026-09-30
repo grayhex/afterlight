@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { execFileSync } from 'child_process';
-import { bootstrapApp, closeApp, Ctx } from './helper';
+import { bootstrapApp, closeApp, Ctx } from './helper.js';
 
 describe('auth flow (real guard, cookie session, seeded admin)', () => {
   let ctx: Ctx;
@@ -40,7 +40,7 @@ describe('auth flow (real guard, cookie session, seeded admin)', () => {
   });
 
   it('the seeded admin can log in with the documented password and reaches admin-only routes', async () => {
-    execFileSync('npx', ['ts-node', '--transpile-only', 'prisma/seed.ts'], {
+    execFileSync('npx', ['tsx', 'prisma/seed.ts'], {
       env: { ...process.env, ADMIN_PASSWORD: 'seed-admin-password' },
       stdio: 'pipe',
     });

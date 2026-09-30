@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { HeartbeatProcessor } from '../../src/heartbeats/heartbeats.processor';
-import { bootstrapApp, closeApp, Ctx, hoursAgo } from './helper';
+import { HeartbeatProcessor } from '../../src/heartbeats/heartbeats.processor.js';
+import { bootstrapApp, closeApp, Ctx, hoursAgo } from './helper.js';
 
 describe('core flow: heartbeat', () => {
   let ctx: Ctx;

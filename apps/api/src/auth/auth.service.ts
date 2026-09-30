@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { createHash, randomBytes } from 'crypto';
-import { PrismaService } from '../prisma/prisma.service';
-import { hashPassword, verifyPassword } from './password';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { hashPassword, verifyPassword } from './password.js';
 import { User, UserRole } from '@prisma/client';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 @Injectable()
 export class AuthService {

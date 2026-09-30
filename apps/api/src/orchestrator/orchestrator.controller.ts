@@ -1,10 +1,10 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { OrchestratorService } from './orchestrator.service';
-import { StartEventDto } from './dto/start-event.dto';
-import { DecisionDto } from './dto/decision.dto';
-import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { OrchestratorService } from './orchestrator.service.js';
+import { StartEventDto } from './dto/start-event.dto.js';
+import { OrchestratorDecisionDto } from './dto/decision.dto.js';
+import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
 @ApiTags('orchestrator')
 @ApiBearerAuth()
@@ -19,7 +19,7 @@ export class OrchestratorController {
   }
 
   @Post('decision')
-  decide(@CurrentUser() user: AuthenticatedUser, @Body() dto: DecisionDto) {
+  decide(@CurrentUser() user: AuthenticatedUser, @Body() dto: OrchestratorDecisionDto) {
     return this.svc.decide(user.sub, dto.vault_id, dto.decision, dto.signature);
   }
 }

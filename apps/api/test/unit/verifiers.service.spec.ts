@@ -1,4 +1,4 @@
-import { VerifiersService, hashInvitationToken } from '../../src/verifiers/verifiers.service';
+import { VerifiersService, hashInvitationToken } from '../../src/verifiers/verifiers.service.js';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { ForbiddenException, GoneException, NotFoundException } from '@nestjs/common';
 

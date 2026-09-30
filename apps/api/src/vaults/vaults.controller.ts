@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { VaultsService } from './vaults.service';
-import { CreateVaultDto } from './dto/create-vault.dto';
-import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
-import { CurrentUser } from '../common/current-user.decorator';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { VaultsService } from './vaults.service.js';
+import { CreateVaultDto } from './dto/create-vault.dto.js';
+import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto.js';
+import { CurrentUser } from '../common/current-user.decorator.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
 @ApiTags('vaults')
 @ApiBearerAuth()

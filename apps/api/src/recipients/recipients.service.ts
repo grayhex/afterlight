@@ -1,8 +1,8 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateRecipientDto } from './dto/create-recipient.dto';
-import { AuthenticatedUser } from '../common/current-user.decorator';
-import { VaultAccessService } from '../vault-access/vault-access.service';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateRecipientDto } from './dto/create-recipient.dto.js';
+import { AuthenticatedUser } from '../common/current-user.decorator.js';
+import { VaultAccessService } from '../vault-access/vault-access.service.js';
 
 @Injectable()
 export class RecipientsService {

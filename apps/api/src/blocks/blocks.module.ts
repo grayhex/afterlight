@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { BlocksService } from './blocks.service';
-import { BlocksController } from './blocks.controller';
-import { AuthModule } from '../auth/auth.module';
+import { BlocksService } from './blocks.service.js';
+import { BlocksController } from './blocks.controller.js';
+import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
   imports: [AuthModule],

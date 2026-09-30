@@ -1,26 +1,26 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { PrismaModule } from './prisma/prisma.module';
-import { VaultsModule } from './vaults/vaults.module';
-import { VerifiersModule } from './verifiers/verifiers.module';
-import { VerificationEventsModule } from './verification-events/verification-events.module';
-import { BlocksModule } from './blocks/blocks.module';
-import { RecipientsModule } from './recipients/recipients.module';
-import { PublicLinksModule } from './public-links/public-links.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { OrchestratorModule } from './orchestrator/orchestrator.module';
-import { HeartbeatsModule } from './heartbeats/heartbeats.module';
-import { HealthModule } from './health/health.module';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { PlansModule } from './plans/plans.module';
-import { SubscriptionsModule } from './subscriptions/subscriptions.module';
-import { AuditLogsModule } from './audit-logs/audit-logs.module';
-import { RecoverySharesModule } from './recovery-shares/recovery-shares.module';
-import { AuditModule } from './audit/audit.module';
-import { VaultAccessModule } from './vault-access/vault-access.module';
-import { AuthGuard } from './auth/guards/auth.guard';
-import { RolesGuard } from './auth/guards/roles.guard';
+import { PrismaModule } from './prisma/prisma.module.js';
+import { VaultsModule } from './vaults/vaults.module.js';
+import { VerifiersModule } from './verifiers/verifiers.module.js';
+import { VerificationEventsModule } from './verification-events/verification-events.module.js';
+import { BlocksModule } from './blocks/blocks.module.js';
+import { RecipientsModule } from './recipients/recipients.module.js';
+import { PublicLinksModule } from './public-links/public-links.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
+import { OrchestratorModule } from './orchestrator/orchestrator.module.js';
+import { HeartbeatsModule } from './heartbeats/heartbeats.module.js';
+import { HealthModule } from './health/health.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { UsersModule } from './users/users.module.js';
+import { PlansModule } from './plans/plans.module.js';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
+import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
+import { RecoverySharesModule } from './recovery-shares/recovery-shares.module.js';
+import { AuditModule } from './audit/audit.module.js';
+import { VaultAccessModule } from './vault-access/vault-access.module.js';
+import { AuthGuard } from './auth/guards/auth.guard.js';
+import { RolesGuard } from './auth/guards/roles.guard.js';
 
 @Module({
 imports: [

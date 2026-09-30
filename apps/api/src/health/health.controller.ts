@@ -7,9 +7,9 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { PrismaService } from '../prisma/prisma.service';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { Public } from '../auth/decorators/public.decorator';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { Public } from '../auth/decorators/public.decorator.js';
 
 @ApiTags('health')
 @ApiErrorResponses()

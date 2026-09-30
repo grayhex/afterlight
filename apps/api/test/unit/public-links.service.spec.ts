@@ -1,4 +1,4 @@
-import { PublicLinksService } from '../../src/public-links/public-links.service';
+import { PublicLinksService } from '../../src/public-links/public-links.service.js';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 describe('PublicLinksService upsert', () => {

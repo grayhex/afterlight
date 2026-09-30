@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { PublicLinksService } from './public-links.service';
-import { PublicLinksController } from './public-links.controller';
-import { PublicAccessController } from './public.controller';
-import { AuthModule } from '../auth/auth.module';
+import { PublicLinksService } from './public-links.service.js';
+import { PublicLinksController } from './public-links.controller.js';
+import { PublicAccessController } from './public.controller.js';
+import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
   imports: [AuthModule],

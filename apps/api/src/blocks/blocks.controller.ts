@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
-import { BlocksService } from './blocks.service';
-import { CreateBlockDto } from './dto/create-block.dto';
-import { AssignRecipientDto } from './dto/assign-recipient.dto';
-import { CurrentUser } from '../common/current-user.decorator';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { BlocksService } from './blocks.service.js';
+import { CreateBlockDto } from './dto/create-block.dto.js';
+import { AssignRecipientDto } from './dto/assign-recipient.dto.js';
+import { CurrentUser } from '../common/current-user.decorator.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
 @ApiTags('blocks')
 @ApiBearerAuth()

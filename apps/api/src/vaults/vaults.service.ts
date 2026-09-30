@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateVaultDto } from './dto/create-vault.dto';
-import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateVaultDto } from './dto/create-vault.dto.js';
+import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto.js';
 import { randomBytes } from 'crypto';
-import { AuditService } from '../audit/audit.service';
+import { AuditService } from '../audit/audit.service.js';
 import { ActorType } from '@prisma/client';
 
 @Injectable()

@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { HeartbeatsService } from './heartbeats.service';
-import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto';
-import { HeartbeatPingDto } from './dto/ping.dto';
-import { CurrentUser } from '../common/current-user.decorator';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { HeartbeatsService } from './heartbeats.service.js';
+import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto.js';
+import { HeartbeatPingDto } from './dto/ping.dto.js';
+import { CurrentUser } from '../common/current-user.decorator.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
 @ApiTags('heartbeats')
 @ApiBearerAuth()

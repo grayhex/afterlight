@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { bootstrapApp, closeApp, Ctx } from './helper';
+import { bootstrapApp, closeApp, Ctx } from './helper.js';
 
 describe('core flow: public links', () => {
   let ctx: Ctx;

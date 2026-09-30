@@ -1,11 +1,11 @@
 import { Controller, Get, Post, Delete, Body, Query, Param, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { VerifiersService } from './verifiers.service';
-import { InviteVerifierDto } from './dto/invite-verifier.dto';
-import { AcceptInvitationDto } from './dto/accept-invitation.dto';
-import { InvitationCreatedDto, VerifierMemberDto } from './dto/verifier-member.dto';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator';
+import { VerifiersService } from './verifiers.service.js';
+import { InviteVerifierDto } from './dto/invite-verifier.dto.js';
+import { AcceptInvitationDto } from './dto/accept-invitation.dto.js';
+import { InvitationCreatedDto, VerifierMemberDto } from './dto/verifier-member.dto.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator.js';
 
 @ApiTags('verifiers')
 @ApiBearerAuth()

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { OrchestratorService } from '../../src/orchestrator/orchestrator.service';
-import { bootstrapApp, closeApp, Ctx, HOUR } from './helper';
+import { OrchestratorService } from '../../src/orchestrator/orchestrator.service.js';
+import { bootstrapApp, closeApp, Ctx, HOUR } from './helper.js';
 
 describe('core flow: verification events', () => {
   let ctx: Ctx;

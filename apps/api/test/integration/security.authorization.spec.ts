@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
-import { OrchestratorService } from '../../src/orchestrator/orchestrator.service';
-import { bootstrapApp, closeApp, Ctx, HOUR } from './helper';
+import { OrchestratorService } from '../../src/orchestrator/orchestrator.service.js';
+import { bootstrapApp, closeApp, Ctx, HOUR } from './helper.js';
 
 describe('security: object authorization (real AuthGuard, real PostgreSQL, synthetic accounts)', () => {
   let ctx: Ctx;

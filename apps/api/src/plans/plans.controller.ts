@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { PlansService } from './plans.service';
-import { CreatePlanDto } from './dto/create-plan.dto';
-import { UpdatePlanDto } from './dto/update-plan.dto';
-import { ApiErrorResponses } from '../common/api-error-responses.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { PlansService } from './plans.service.js';
+import { CreatePlanDto } from './dto/create-plan.dto.js';
+import { UpdatePlanDto } from './dto/update-plan.dto.js';
+import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('plans')
