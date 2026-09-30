@@ -7,7 +7,7 @@ declare global {
   interface Window {
     particlesJS?: (
       tagId: string,
-      params: any
+      params: Record<string, unknown>
     ) => void;
   }
 }

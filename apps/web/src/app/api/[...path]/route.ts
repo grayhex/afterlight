@@ -10,8 +10,9 @@ function apiBase(): string {
   return (process.env.API_INTERNAL_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '');
 }
 
-async function proxy(req: NextRequest, { params }: { params: { path: string[] } }) {
-  const target = `${apiBase()}/${params.path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;
+async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
+  const { path } = await ctx.params;
+  const target = `${apiBase()}/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;
   const headers = new Headers(req.headers);
   for (const h of HOP_BY_HOP) headers.delete(h);
   const hasBody = !['GET', 'HEAD'].includes(req.method);

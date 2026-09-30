@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test:unit": "NODE_OPTIONS=--experimental-vm-modules jest --selectProjects unit",
     "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest --selectProjects integration --runInBand",
-    "db:migrate": "prisma migrate deploy"
+    "db:migrate": "prisma migrate deploy",
+    "lint": "eslint . --max-warnings 158"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.2",
@@ -33,6 +34,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^12.0.8",
     "@nestjs/schematics": "^12.0.6",
     "@nestjs/testing": "^12.1.2",
@@ -40,11 +42,13 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.19.0",
     "@types/pg": "^8.23.1",
+    "eslint": "^10.11.0",
     "jest": "^30.5.2",
     "ts-jest": "^29.4.14",
     "ts-node": "^10.9.2",
     "tsx": "^4.23.15",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.71.0"
   },
   "engines": {
     "node": ">=24"

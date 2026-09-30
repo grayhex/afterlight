@@ -1,37 +1,61 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-html,
-body {
-  min-height: 100%;
+/* Tailwind 4: тема задаётся в CSS (раньше — tailwind.config.ts) */
+@theme {
+  --color-bodaghee-bg: #040319;
+  --color-bodaghee-accent: #92CBDB;
+  --color-white: #FFFFFF;
+  --animate-card-fade: card-fade 0.6s ease both;
+  --animate-icon-pop: icon-pop 0.3s ease both;
 }
 
-body {
-  background: #040319;
-  color: #FFFFFF;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* v4 по умолчанию красит border в currentColor; v3 использовал gray-200 — сохраняем прежний вид */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
 }
 
-a {
-  color: #92CBDB;
-  text-underline-offset: 4px;
+/* В v4 стили вне @layer перебивают утилиты (text-white, min-h-screen, ...): базовые правила держим в слое base */
+@layer base {
+  html,
+  body {
+    min-height: 100%;
+  }
+
+  body {
+    background: #040319;
+    color: #FFFFFF;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a {
+    color: #92CBDB;
+    text-underline-offset: 4px;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading;
+    color: #FFFFFF;
+  }
 }
 
+/* hover-состояние ссылок, как и в v3, сильнее утилит цвета */
 a:hover {
   color: #92CBDB;
   text-decoration: underline;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  @apply font-heading;
-  color: #FFFFFF;
 }
 
 @keyframes card-fade {
@@ -65,23 +89,22 @@ h6 {
   transition: transform 0.2s;
 }
 
+@utility font-heading {
+  font-family: var(--font-heading), sans-serif;
+}
+
+@utility font-body {
+  font-family: var(--font-body), sans-serif;
+}
+
+@utility font-numeric {
+  font-family: var(--font-numeric), sans-serif;
+}
+
 @layer utilities {
-  .font-heading {
-    font-family: var(--font-heading), sans-serif;
-  }
-  .font-body {
-    font-family: var(--font-body), sans-serif;
-  }
-  .font-numeric {
-    font-family: var(--font-numeric), sans-serif;
-  }
   .text-\[86px\] {
     font-size: 86px;
     line-height: 1;
-  }
-  .text-sm {
-    font-size: 0.875rem;
-    line-height: 1.25rem;
   }
   .tracking-wide {
     letter-spacing: 0.05em;
