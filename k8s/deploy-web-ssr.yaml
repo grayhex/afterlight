@@ -29,6 +29,9 @@ spec:
           value: "3000"
         - name: NEXT_PUBLIC_API_BASE_URL
           value: "https://api.afterl.ru"
+        # web проксирует /api/* в API по этому адресу (читается в рантайме); проверьте имя/порт своего Service
+        - name: API_INTERNAL_URL
+          value: "http://afterlight-api:8080"
         ports:
         - containerPort: 3000
         startupProbe:

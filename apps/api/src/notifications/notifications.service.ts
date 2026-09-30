@@ -31,6 +31,7 @@ export class NotificationsService {
 
   async sendVerifierInvitation(vaultId: string, to: string, token: string) {
     // Токен передаётся во фрагменте (#): браузер не отправляет его на сервер и он не попадает в access-логи.
+    // без localhost-подстановки в production: validateEnv требует WEB_BASE_URL при старте
     const base = (process.env.WEB_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
     const link = `${base}/invite#token=${token}`;
     await this.enqueueEmail(vaultId, to, {

@@ -12,12 +12,17 @@ COMPOSE=(docker compose -f docker-compose.server.yml)
 BASE="http://127.0.0.1:${WEB_PORT}"
 JAR="$(mktemp)"
 
-cat > "$ENV_FILE" <<ENV
+# База — настоящий шаблон .env.example (проверяем, что по нему получается рабочий стек), поверх — одноразовые значения
+# (в env_file при повторе ключа побеждает последний).
+cp .env.example "$ENV_FILE"
+cat >> "$ENV_FILE" <<ENV
+
 JWT_SECRET=smoke-$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
 NODE_ENV=production
 CORS_ALLOWED_ORIGINS=${BASE}
 COOKIE_SECURE=false
 WEB_BASE_URL=${BASE}
+WEB_PORT=${WEB_PORT}
 ADMIN_PASSWORD=smoke-admin-password
 POSTGRES_DB=afterlight
 POSTGRES_USER=afterlight
@@ -44,6 +49,10 @@ expect() { # expect <ожидаемый-код> <описание> curl-аргу
   [ "$got" = "$want" ] || fail "$what: ожидали HTTP $want, получили $got"
   echo "ok  $what ($got)"
 }
+
+# production без WEB_BASE_URL не стартует (ссылки в письмах не должны вести на localhost)
+grep -qE '^WEB_BASE_URL=' .env.example || fail ".env.example не содержит WEB_BASE_URL"
+! grep -qE '^API_INTERNAL_URL=' .env.example || fail ".env.example задаёт API_INTERNAL_URL: значение из .env перебьёт умолчание compose"
 
 "${COMPOSE[@]}" build api web
 "${COMPOSE[@]}" up -d db
