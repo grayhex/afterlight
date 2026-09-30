@@ -187,14 +187,12 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
     it('as=verifier lists only vaults where the caller is an active verifier, not their own', async () => {
       const s = await scene();
       await startEvent(s);
-      // владелец сам — верификатор чужого сейфа
-      await ctx.factory.createVerifier(s.otherVault.id).then(async (v) => {
-        await (ctx.prisma as any).vaultUserRole.update({
-          where: { vaultId_userId: { vaultId: s.otherVault.id, userId: v.user.id } },
-          data: { status: 'Revoked' },
-        });
+      // владелец сам — активный верификатор чужого сейфа; бывший верификатор (Revoked) не должен влиять на выдачу
+      await ctx.db.vaultUserRole.update({
+        where: { vaultId_userId: { vaultId: s.otherVault.id, userId: s.otherVerifier.user.id } },
+        data: { status: 'Revoked' },
       });
-      await ctx.prisma.vaultUserRole.create({ data: { vaultId: s.otherVault.id, userId: s.owner.id, role: 'Verifier', status: 'Active' } });
+      await ctx.db.vaultUserRole.create({ data: { vaultId: s.otherVault.id, userId: s.owner.id, role: 'Verifier', status: 'Active' } });
       await ctx.request('POST', '/orchestration/start', { vault_id: s.otherVault.id }, s.otherOwner.id);
 
       const asVerifier = await ctx.request('GET', '/verification-events?as=verifier', undefined, s.owner.id);
