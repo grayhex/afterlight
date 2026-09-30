@@ -72,10 +72,18 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
       const eventId = await startEvent(s);
       const a = await ctx.request('POST', `/verification-events/${eventId}/confirm`, { signature: 'a' }, s.v1.user.id);
       expect(a.status).toBe(201);
-      expect(a.body).toEqual(expect.objectContaining({ confirms: 1, quorum: 2 }));
+      expect(a.body).toEqual(expect.objectContaining({ id: eventId, confirmsCount: 1, quorumRequired: 2 }));
       const b = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v2.user.id);
       expect(b.status).toBe(201);
-      expect(b.body).toEqual(expect.objectContaining({ state: 'QuorumReached', confirms: 2 }));
+      expect(b.body).toEqual(expect.objectContaining({ state: 'QuorumReached', confirmsCount: 2 }));
+    });
+
+    it('voting via /verification-events returns the updated event (id, counters) that the cabinet renders', async () => {
+      const s = await scene();
+      const eventId = await startEvent(s);
+      const res = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v1.user.id);
+      expect(res.status).toBe(201);
+      expect(res.body).toEqual(expect.objectContaining({ id: eventId, state: 'Confirming', confirmsCount: 1, deniesCount: 0 }));
     });
 
     it('the old confirm/deny URLs with a user id in the path no longer exist', async () => {
@@ -149,7 +157,7 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
 
       const b = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v2.user.id);
       expect(b.status).toBe(201);
-      expect(b.body).toEqual(expect.objectContaining({ confirms: 1, quorum: 2 }));
+      expect(b.body).toEqual(expect.objectContaining({ confirmsCount: 1, quorumRequired: 2 }));
       expect(b.body.state).not.toBe('QuorumReached');
 
       const svc = ctx.moduleRef.get(OrchestratorService);
@@ -174,6 +182,29 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
 
       const byVault = await ctx.request('GET', `/verification-events?vault_id=${s.vault.id}`, undefined, s.outsider.id);
       expect(byVault.status).toBe(403);
+    });
+
+    it('as=verifier lists only vaults where the caller is an active verifier, not their own', async () => {
+      const s = await scene();
+      await startEvent(s);
+      // владелец сам — верификатор чужого сейфа
+      await ctx.factory.createVerifier(s.otherVault.id).then(async (v) => {
+        await (ctx.prisma as any).vaultUserRole.update({
+          where: { vaultId_userId: { vaultId: s.otherVault.id, userId: v.user.id } },
+          data: { status: 'Revoked' },
+        });
+      });
+      await ctx.prisma.vaultUserRole.create({ data: { vaultId: s.otherVault.id, userId: s.owner.id, role: 'Verifier', status: 'Active' } });
+      await ctx.request('POST', '/orchestration/start', { vault_id: s.otherVault.id }, s.otherOwner.id);
+
+      const asVerifier = await ctx.request('GET', '/verification-events?as=verifier', undefined, s.owner.id);
+      expect(asVerifier.status).toBe(200);
+      expect(asVerifier.body.map((e: any) => e.vaultId)).toEqual([s.otherVault.id]);
+
+      const all = await ctx.request('GET', '/verification-events', undefined, s.owner.id);
+      expect(all.body.map((e: any) => e.vaultId).sort()).toEqual([s.vault.id, s.otherVault.id].sort());
+
+      expect((await ctx.request('GET', '/verification-events?as=admin', undefined, s.owner.id)).status).toBe(400);
     });
 
     it('does not show a single event to non-members', async () => {

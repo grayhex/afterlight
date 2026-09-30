@@ -1190,6 +1190,18 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "as",
+            "required": false,
+            "in": "query",
+            "description": "verifier — только сейфы, где вы активный верификатор",
+            "schema": {
+              "enum": [
+                "verifier"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {

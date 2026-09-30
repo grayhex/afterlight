@@ -958,6 +958,8 @@ export interface operations {
       query?: {
         /** @description Без vault_id — события доступных вам сейфов */
         vault_id?: string;
+        /** @description verifier — только сейфы, где вы активный верификатор */
+        as?: "verifier";
       };
     };
     responses: {
