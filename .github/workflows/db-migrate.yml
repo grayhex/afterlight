@@ -1,14 +1,27 @@
 name: DB Migrate
+
+# Только применение уже закоммиченных миграций (prisma migrate deploy). Создавать миграции на рабочей БД из CI нельзя:
+# их пишут в PR (prisma migrate dev локально), проверяют в ci и только потом применяют.
 on:
   workflow_dispatch:
     inputs:
-      name:
-        description: 'Migration name (e.g., init_schema)'
-        required: false
-        default: 'auto'
+      confirm:
+        description: 'Напиши: prod (подтверждаю применение миграций к БД из секрета DATABASE_URL)'
+        required: true
+        default: 'no'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false
+
 jobs:
   migrate:
+    if: ${{ inputs.confirm == 'prod' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
+    environment: production
     defaults:
       run:
         working-directory: apps/api
@@ -17,21 +30,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Install Prisma deps
-        run: |
-          npm i --no-audit --no-fund @prisma/client
-          npm i -D --no-audit --no-fund prisma ts-node
-      - name: Prisma generate
-        run: npx prisma generate
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - name: Prisma migrate (deploy on CI)
-        run: |
-          if [ "${{ github.event.inputs.name }}" = "auto" ]; then
-            npx prisma migrate deploy
-          else
-            npx prisma migrate dev --name "${{ github.event.inputs.name }}" --create-only
-            npx prisma migrate deploy
-          fi
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      # строго по lock-файлу: никаких npm i, меняющих версии на лету
+      - name: Install deps
+        run: npm ci
+      - name: Prisma migrate deploy
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

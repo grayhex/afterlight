@@ -24,7 +24,7 @@ services:
     container_name: afterlight-api
     restart: unless-stopped
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://afterlight:afterlight@db:5432/afterlight?schema=public}
       NODE_ENV: ${NODE_ENV:-production}
@@ -43,7 +43,7 @@ services:
       context: .
       dockerfile: Dockerfile.api
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://afterlight:afterlight@db:5432/afterlight?schema=public}
     depends_on:
@@ -59,7 +59,7 @@ services:
     container_name: afterlight-web
     restart: unless-stopped
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     environment:
       NODE_ENV: production
       # браузер ходит на тот же origin (/api/...), web проксирует запросы в API по этому адресу (рантайм)
@@ -68,6 +68,11 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
     ports:
       - "${WEB_PORT:-80}:3000"
 

@@ -2,6 +2,13 @@ name: ci
 on:
   push:
     branches: [ main ]
+    # как раньше в cd: документация не запускает проверки и, следовательно, выкладку
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE*"
+      - "LICENSE*"
   pull_request:
     branches: [ main ]
 
@@ -190,3 +197,15 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: '1'
         run: npm run build
+
+  containers:
+    name: containers-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      # Образы собираются теми же Dockerfile, что и для выкладки; поднимается стек из docker-compose.server.yml
+      # (PostgreSQL + migrate + api + web) и проходится основной путь через web-прокси.
+      - name: Smoke (build, migrate, health, register/login, cabinet, seed)
+        run: scripts/smoke-compose.sh

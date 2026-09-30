@@ -50,7 +50,10 @@ cp .env.example .env
 - `DATABASE_URL`
 - `JWT_SECRET` (длинный случайный ключ)
 - `CORS_ALLOWED_ORIGINS` (ваш домен)
-- `NEXT_PUBLIC_API_URL` (URL API, видимый фронту)
+- `WEB_BASE_URL` (внешний адрес веба, например `https://app.example.com`: он попадает в ссылки-приглашения в письмах; в production без него API не стартует)
+- `COOKIE_SECURE=false` — только если стенд работает по http (например, в LAN); за HTTPS оставьте пустым
+
+Адрес API для web задавать не нужно: в `docker-compose.server.yml` web проксирует `/api/*` в `http://api:3000` (`API_INTERNAL_URL`). Не ставьте в `.env` `API_INTERNAL_URL=http://localhost:3000`.
 
 Рекомендуемый production-пример:
 
@@ -61,7 +64,7 @@ NODE_ENV="production"
 PORT=3000
 CORS_ALLOWED_ORIGINS="https://app.example.com"
 JSON_BODY_LIMIT="100kb"
-NEXT_PUBLIC_API_URL="https://api.example.com"
+WEB_BASE_URL="https://app.example.com"
 POSTGRES_DB="afterlight"
 POSTGRES_USER="afterlight"
 POSTGRES_PASSWORD="CHANGE_ME_STRONG"
