@@ -1,5 +1,5 @@
-import { scryptAsync } from '@noble/hashes/scrypt';
-import { randomBytes, bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { scryptAsync } from '@noble/hashes/scrypt.js';
+import { randomBytes, bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 
 function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
