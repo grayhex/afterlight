@@ -40,7 +40,7 @@
 
 ### 1) Требования
 
-- Node.js 20+
+- Node.js 24 (LTS)
 - npm 10+
 - PostgreSQL 15+
 

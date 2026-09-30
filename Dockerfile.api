@@ -1,7 +1,7 @@
 # ============================
 # 1) Dependencies
 # ============================
-FROM node:20-slim AS deps
+FROM node:24-slim AS deps
 WORKDIR /app/apps/api
 
 # только манифесты API — быстрый кэш
@@ -13,7 +13,7 @@ RUN npm ci
 # ============================
 # 2) Build (+ Prisma generate)
 # ============================
-FROM node:20-slim AS build
+FROM node:24-slim AS build
 WORKDIR /app/apps/api
 
 # зависимости
@@ -31,7 +31,7 @@ RUN npm prune --omit=dev
 # ============================
 # 3) Runtime
 # ============================
-FROM node:20-slim AS runner
+FROM node:24-slim AS runner
 ENV NODE_ENV=production
 WORKDIR /app/apps/api
 

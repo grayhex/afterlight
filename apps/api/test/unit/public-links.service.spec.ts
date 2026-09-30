@@ -29,7 +29,7 @@ describe('PublicLinksService upsert', () => {
     prisma.block.findUnique.mockResolvedValue({ id: 'b1', deletedAt: null, isPublic: false, vault: { userId: 'u1' } });
     prisma.publicLink.findUnique.mockResolvedValue(existingLink);
 
-    const upsertMock = jest.fn(async () => ({ ...existingLink, enabled: true }));
+    const upsertMock = jest.fn(async (_args: unknown) => ({ ...existingLink, enabled: true }));
     const blockUpdateMock = jest.fn();
     prisma.$transaction.mockImplementation(async (cb: any) => {
       return cb({ publicLink: { upsert: upsertMock }, block: { update: blockUpdateMock } });
