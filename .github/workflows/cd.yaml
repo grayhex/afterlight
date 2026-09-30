@@ -25,13 +25,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: build-and-push
+  # Повторный запуск старого успешного ci тоже даёт workflow_run (push, main, success) для УСТАРЕВШЕГО коммита.
+  # Выкладываем только если head_sha — всё ещё вершина main, иначе откатили бы прод на старую версию.
+  gate:
+    name: is-current-main
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      current: ${{ steps.head.outputs.current }}
+    steps:
+      - name: Compare head_sha with the current tip of main
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.sha" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/main")
+          if [ "$tip" = "$SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$SHA is not the tip of main ($tip): this run is stale (a re-run of an older ci?), nothing is built or deployed"
+          fi
+
+  build:
+    name: build-and-push
+    needs: gate
+    if: needs.gate.outputs.current == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -78,6 +104,18 @@ jobs:
     env:
       NS: afterlight
     steps:
+      # пока шла сборка, в main мог попасть более новый коммит: тогда его собственный запуск cd выложит его, а этот — нет
+      - name: Still the tip of main?
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.sha" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/main")
+          if [ "$tip" != "$SHA" ]; then
+            echo "::error::$SHA is no longer the tip of main ($tip): refusing to deploy a superseded revision"
+            exit 1
+          fi
+
       - name: Write kubeconfig from secret
         run: |
           mkdir -p "$HOME/.kube"
