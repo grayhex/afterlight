@@ -14,6 +14,12 @@ export interface paths {
   "/auth/logout": {
     post: operations["AuthController_logout"];
   };
+  "/auth/forgot-password": {
+    post: operations["AuthController_forgotPassword"];
+  };
+  "/auth/reset-password": {
+    post: operations["AuthController_resetPassword"];
+  };
   "/auth/me": {
     get: operations["AuthController_me"];
   };
@@ -33,8 +39,14 @@ export interface paths {
   "/verifiers/invitations": {
     post: operations["VerifiersController_invite"];
   };
-  "/verifiers/invitations/{vaultId}/{userId}/accept": {
+  "/verifiers/invitations/accept": {
     post: operations["VerifiersController_accept"];
+  };
+  "/verifiers/invitations/{invitationId}": {
+    delete: operations["VerifiersController_revokeInvitation"];
+  };
+  "/verifiers/{vaultId}/{userId}/revoke": {
+    post: operations["VerifiersController_revokeMember"];
   };
   "/verification-events": {
     get: operations["VerificationEventsController_list"];
@@ -43,11 +55,17 @@ export interface paths {
   "/verification-events/{id}": {
     get: operations["VerificationEventsController_get"];
   };
-  "/verification-events/{id}/confirm/{userId}": {
+  "/verification-events/{id}/confirm": {
     post: operations["VerificationEventsController_confirm"];
   };
-  "/verification-events/{id}/deny/{userId}": {
+  "/verification-events/{id}/deny": {
     post: operations["VerificationEventsController_deny"];
+  };
+  "/orchestration/start": {
+    post: operations["OrchestratorController_start"];
+  };
+  "/orchestration/decision": {
+    post: operations["OrchestratorController_decide"];
   };
   "/blocks": {
     get: operations["BlocksController_list"];
@@ -78,12 +96,6 @@ export interface paths {
   };
   "/heartbeats/ping": {
     post: operations["HeartbeatsController_ping"];
-  };
-  "/orchestration/start": {
-    post: operations["OrchestratorController_start"];
-  };
-  "/orchestration/decision": {
-    post: operations["OrchestratorController_decide"];
   };
   "/healthz": {
     get: operations["HealthController_healthz"];
@@ -120,12 +132,9 @@ export interface paths {
   };
   "/audit-logs": {
     get: operations["AuditLogsController_list"];
-    post: operations["AuditLogsController_create"];
   };
   "/audit-logs/{id}": {
     get: operations["AuditLogsController_get"];
-    delete: operations["AuditLogsController_remove"];
-    patch: operations["AuditLogsController_update"];
   };
   "/recovery-shares": {
     get: operations["RecoverySharesController_list"];
@@ -155,17 +164,21 @@ export interface components {
       email: string;
       phone: string;
       password?: string;
-      /** @enum {string} */
-      role?: "Owner" | "Verifier" | "Admin";
     };
     LoginDto: {
       email: string;
       password: string;
     };
+    ForgotPasswordDto: Record<string, never>;
+    ResetPasswordDto: Record<string, never>;
     CreateVaultDto: {
+      /** @description Vault display name */
+      name?: string;
+      /** @description Optional vault description */
+      description?: string;
       /** @default false */
       is_demo?: boolean;
-      /** @default 3 */
+      /** @default 2 */
       quorum_threshold?: number;
       /** @default 5 */
       max_verifiers?: number;
@@ -182,15 +195,51 @@ export interface components {
       /** @description Optional primary verifier id */
       primary_verifier_id?: string;
     };
+    VerifierMemberDto: {
+      /**
+       * Format: uuid
+       * @description Пусто у приглашения, ещё не принятого аккаунтом
+       */
+      user_id?: Record<string, unknown> | null;
+      /**
+       * Format: uuid
+       * @description Заполнено у ожидающего приглашения
+       */
+      invitation_id?: Record<string, unknown> | null;
+      email: string;
+      name?: Record<string, unknown> | null;
+      /** @enum {string} */
+      role: "Owner" | "Verifier" | "Admin";
+      /** @enum {string} */
+      status: "Invited" | "Active" | "Revoked";
+      is_primary: boolean;
+      expires_at?: Record<string, unknown> | null;
+      /** Format: date-time */
+      added_at: string;
+    };
     InviteVerifierDto: {
+      /** Format: uuid */
       vault_id: string;
-      /** @description email for MVP */
+      /** @description Email приглашаемого верификатора */
       email: string;
       /**
-       * @description expires in hours (default 7 days)
+       * @description Срок действия в часах (по умолчанию 7 суток, максимум 30)
        * @default 168
        */
       expires_in_hours?: number;
+    };
+    InvitationCreatedDto: {
+      /** Format: uuid */
+      id: string;
+      email: string;
+      /** @enum {string} */
+      role: "Owner" | "Verifier" | "Admin";
+      /** Format: date-time */
+      expires_at: string;
+    };
+    AcceptInvitationDto: {
+      /** @description Одноразовый токен из письма-приглашения */
+      token: string;
     };
     StartVerificationEventDto: {
       vault_id: string;
@@ -198,14 +247,13 @@ export interface components {
     DecisionDto: {
       /** Format: uuid */
       vault_id: string;
-      /**
-       * Format: uuid
-       * @description ID пользователя (верификатора)
-       */
-      user_id: string;
       /** @enum {string} */
       decision: "Confirm" | "Deny";
       signature?: string;
+    };
+    StartEventDto: {
+      /** Format: uuid */
+      vault_id: string;
     };
     CreateBlockDto: {
       /** Format: uuid */
@@ -231,6 +279,8 @@ export interface components {
       dek_wrapped_for_recipient: string;
     };
     CreateRecipientDto: {
+      /** @description Идентификатор сейфа */
+      vault_id: string;
       /** @description Email получателя (уникальный идентификатор) */
       contact: string;
       /** @description Публичный ключ получателя (если уже есть) */
@@ -253,10 +303,6 @@ export interface components {
       vault_id: string;
       /** @enum {string} */
       method?: "auto" | "manual";
-    };
-    StartEventDto: {
-      /** Format: uuid */
-      vault_id: string;
     };
     UserDto: {
       id: string;
@@ -324,24 +370,6 @@ export interface components {
       /** @enum {string} */
       status?: "trial" | "active" | "canceled";
       currentPeriodEnd?: string;
-    };
-    CreateAuditLogDto: {
-      /** @enum {string} */
-      actorType: "User" | "System";
-      actorId: string;
-      action: string;
-      targetId?: string;
-      targetType?: string;
-      hash?: string;
-    };
-    UpdateAuditLogDto: {
-      /** @enum {string} */
-      actorType?: "User" | "System";
-      actorId?: string;
-      action?: string;
-      targetId?: string;
-      targetType?: string;
-      hash?: string;
     };
     CreateRecoveryShareDto: {
       vaultId: string;
@@ -442,6 +470,80 @@ export interface operations {
     };
   };
   AuthController_logout: {
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  AuthController_forgotPassword: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ForgotPasswordDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  AuthController_resetPassword: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResetPasswordDto"];
+      };
+    };
     responses: {
       201: {
         content: never;
@@ -667,7 +769,9 @@ export interface operations {
     };
     responses: {
       200: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["VerifierMemberDto"][];
+        };
       };
       400: {
         content: {
@@ -704,7 +808,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["InvitationCreatedDto"];
+        };
       };
       400: {
         content: {
@@ -734,6 +840,82 @@ export interface operations {
     };
   };
   VerifiersController_accept: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AcceptInvitationDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: {
+          "application/json": components["schemas"]["VerifierMemberDto"];
+        };
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  VerifiersController_revokeInvitation: {
+    parameters: {
+      path: {
+        invitationId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  VerifiersController_revokeMember: {
     parameters: {
       path: {
         vaultId: string;
@@ -773,8 +955,9 @@ export interface operations {
   };
   VerificationEventsController_list: {
     parameters: {
-      query: {
-        vault_id: string;
+      query?: {
+        /** @description Без vault_id — события доступных вам сейфов */
+        vault_id?: string;
       };
     };
     responses: {
@@ -886,7 +1069,6 @@ export interface operations {
     parameters: {
       path: {
         id: string;
-        userId: string;
       };
     };
     requestBody: {
@@ -929,9 +1111,82 @@ export interface operations {
     parameters: {
       path: {
         id: string;
-        userId: string;
       };
     };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DecisionDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  OrchestratorController_start: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartEventDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  OrchestratorController_decide: {
     requestBody: {
       content: {
         "application/json": components["schemas"]["DecisionDto"];
@@ -1201,7 +1456,9 @@ export interface operations {
   };
   RecipientsController_search: {
     parameters: {
-      query?: {
+      query: {
+        /** @description Идентификатор сейфа */
+        vault_id: string;
         /** @description Подстрока для поиска по contact */
         q?: string;
       };
@@ -1473,80 +1730,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["HeartbeatPingDto"];
-      };
-    };
-    responses: {
-      201: {
-        content: never;
-      };
-      400: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      401: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      403: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      404: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      500: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-    };
-  };
-  OrchestratorController_start: {
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["StartEventDto"];
-      };
-    };
-    responses: {
-      201: {
-        content: never;
-      };
-      400: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      401: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      403: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      404: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      500: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-    };
-  };
-  OrchestratorController_decide: {
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["DecisionDto"];
       };
     };
     responses: {
@@ -2241,43 +2424,6 @@ export interface operations {
       };
     };
   };
-  AuditLogsController_create: {
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CreateAuditLogDto"];
-      };
-    };
-    responses: {
-      201: {
-        content: never;
-      };
-      400: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      401: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      403: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      404: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      500: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-    };
-  };
   AuditLogsController_get: {
     parameters: {
       path: {
@@ -2315,86 +2461,12 @@ export interface operations {
       };
     };
   };
-  AuditLogsController_remove: {
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    responses: {
-      200: {
-        content: never;
-      };
-      400: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      401: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      403: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      404: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      500: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-    };
-  };
-  AuditLogsController_update: {
-    parameters: {
-      path: {
-        id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["UpdateAuditLogDto"];
-      };
-    };
-    responses: {
-      200: {
-        content: never;
-      };
-      400: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      401: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      403: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      404: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      500: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-    };
-  };
   RecoverySharesController_list: {
+    parameters: {
+      query: {
+        vault_id: string;
+      };
+    };
     responses: {
       200: {
         content: never;

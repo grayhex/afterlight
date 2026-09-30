@@ -276,14 +276,20 @@ function OwnerCabinet() {
             <AnimatePresence>
                 {verifiers.map((v: any, idx: number) => (
                   <motion.div
-                    key={v.userId || v.user?.id || idx}
+                    key={v.user_id || v.invitation_id || idx}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="rounded bg-bodaghee-bg p-4 text-white shadow"
                 >
-                    {v.email || v.user?.email}
+                    {v.email}
+                    {v.status === "Invited" && (
+                      <span className="ml-2 text-sm text-white/70">(ожидает принятия)</span>
+                    )}
+                    {v.status === "Revoked" && (
+                      <span className="ml-2 text-sm text-white/70">(отозван)</span>
+                    )}
                   </motion.div>
                 ))}
             </AnimatePresence>
@@ -413,8 +419,14 @@ function VerifierCabinet() {
       method: "POST",
     });
 
-    if (res.status === 403 || res.status === 404) {
-      alert(res.status === 403 ? "Доступ запрещён" : "Событие не найдено");
+    if (res.status === 403 || res.status === 404 || res.status === 409) {
+      alert(
+        res.status === 403
+          ? "Доступ запрещён"
+          : res.status === 404
+            ? "Событие не найдено"
+            : "Событие уже не принимает решения",
+      );
       return;
     }
 

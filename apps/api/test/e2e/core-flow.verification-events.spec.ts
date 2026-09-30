@@ -14,7 +14,7 @@ describe('core flow: verification events', () => {
     if (ctx) await closeE2eApp(ctx.app, ctx.time);
   });
 
-  it('transitions pending -> grace -> finalized', async () => {
+  it('transitions pending -> grace -> finalized with two independent verifier confirmations', async () => {
     const owner = await ctx.factory.createUser({ email: 'owner+ve@test.local' });
     const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2, graceHours: 24 });
     const v1 = await ctx.factory.createVerifier(vault.id);
@@ -23,24 +23,25 @@ describe('core flow: verification events', () => {
     const start = await ctx.request('POST', '/orchestration/start', { vault_id: vault.id }, owner.id);
     expect(start.status).toBe(201);
 
+    // каждый голос — от своей сессии; автор берётся только из токена
     const d1 = await ctx.request('POST', '/orchestration/decision', {
       vault_id: vault.id,
-      user_id: v1.user.id,
       decision: 'Confirm',
       signature: 'sig-1',
-    }, owner.id);
+    }, v1.user.id);
     expect(d1.status).toBe(201);
     expect(mapState(d1.body.state)).toBe('pending');
+    expect(d1.body).toEqual(expect.objectContaining({ confirms: 1, denies: 0, quorum: 2 }));
 
     const d2 = await ctx.request('POST', '/orchestration/decision', {
       vault_id: vault.id,
-      user_id: v2.user.id,
       decision: 'Confirm',
       signature: 'sig-2',
-    }, owner.id);
+    }, v2.user.id);
     expect(d2.status).toBe(201);
-    expect(mapState(d2.body.state)).toBe('pending');
     expect(d2.body).toEqual(expect.objectContaining({ confirms: 2, denies: 0, quorum: 2 }));
+
+    expect(ctx.prisma.decisions.map((d: any) => d.userId).sort()).toEqual([v1.user.id, v2.user.id].sort());
 
     const svc = ctx.moduleRef.get(OrchestratorService);
     const toGrace = await svc.processTimers(new Date());
@@ -58,25 +59,45 @@ describe('core flow: verification events', () => {
     expect(mapState(events.body[0].state)).toBe('finalized');
   });
 
+  it('owner cannot vote for verifiers: one person is one vote', async () => {
+    const owner = await ctx.factory.createUser({ email: 'owner+ve-one@test.local' });
+    const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2 });
+    const v1 = await ctx.factory.createVerifier(vault.id);
+    await ctx.request('POST', '/orchestration/start', { vault_id: vault.id }, owner.id);
+
+    const asOwner = await ctx.request('POST', '/orchestration/decision', {
+      vault_id: vault.id,
+      decision: 'Confirm',
+    }, owner.id);
+    expect(asOwner.status).toBe(403);
+
+    const spoofed = await ctx.request('POST', '/orchestration/decision', {
+      vault_id: vault.id,
+      user_id: v1.user.id,
+      decision: 'Confirm',
+    }, owner.id);
+    expect(spoofed.status).toBe(400);
+    expect(ctx.prisma.decisions).toHaveLength(0);
+  });
+
   it('returns 4xx for negative decisions', async () => {
     const owner = await ctx.factory.createUser({ email: 'owner+ve-neg@test.local' });
     const outsider = await ctx.factory.createUser({ email: 'outsider@test.local' });
     const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2 });
+    const v1 = await ctx.factory.createVerifier(vault.id);
 
     const noActive = await ctx.request('POST', '/orchestration/decision', {
       vault_id: vault.id,
-      user_id: outsider.id,
       decision: 'Confirm',
-    }, owner.id);
+    }, v1.user.id);
     expect(noActive.status).toBe(400);
 
     await ctx.request('POST', '/orchestration/start', { vault_id: vault.id }, owner.id);
 
     const forbidden = await ctx.request('POST', '/orchestration/decision', {
       vault_id: vault.id,
-      user_id: outsider.id,
       decision: 'Confirm',
-    }, owner.id);
+    }, outsider.id);
     expect(forbidden.status).toBe(403);
   });
 });

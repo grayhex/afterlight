@@ -16,7 +16,7 @@ export class BlocksController {
   @Get()
   list(
     @CurrentUser() user: any,
-    @Query('vault_id') vaultId: string,
+    @Query('vault_id', ParseUUIDPipe) vaultId: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: number,
   ) {
@@ -24,7 +24,7 @@ export class BlocksController {
   }
 
   @Get(':id')
-  get(@CurrentUser() user: any, @Param('id') id: string) {
+  get(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(user.sub, id);
   }
 
@@ -34,7 +34,7 @@ export class BlocksController {
   }
 
   @Delete(':id')
-  async remove(@CurrentUser() user: any, @Param('id') id: string) {
+  async remove(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
     await this.service.softDelete(user.sub, id);
     return { status: 'ok' };
   }

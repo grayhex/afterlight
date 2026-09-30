@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { randomBytes } from 'crypto';
+import { Controller, Get, Post, Delete, Body, Query, Param, ParseUUIDPipe } from '@nestjs/common';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { VerifiersService } from './verifiers.service';
 import { InviteVerifierDto } from './dto/invite-verifier.dto';
+import { AcceptInvitationDto } from './dto/accept-invitation.dto';
+import { InvitationCreatedDto, VerifierMemberDto } from './dto/verifier-member.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
 import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator';
 
@@ -14,22 +15,37 @@ export class VerifiersController {
   constructor(private readonly service: VerifiersService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthenticatedUser, @Query('vault_id') vaultId: string) {
+  @ApiOkResponse({ type: VerifierMemberDto, isArray: true })
+  list(@CurrentUser() user: AuthenticatedUser, @Query('vault_id', ParseUUIDPipe) vaultId: string) {
     return this.service.listByVault(user, vaultId);
   }
 
   @Post('invitations')
+  @ApiCreatedResponse({ type: InvitationCreatedDto })
   invite(@CurrentUser() user: AuthenticatedUser, @Body() dto: InviteVerifierDto) {
-    const token = randomBytes(24).toString('hex');
-    return this.service.invite(user, dto, token);
+    return this.service.invite(user, dto);
   }
 
-  @Post('invitations/:vaultId/:userId/accept')
-  accept(
+  @Post('invitations/accept')
+  @ApiCreatedResponse({ type: VerifierMemberDto })
+  accept(@CurrentUser() user: AuthenticatedUser, @Body() dto: AcceptInvitationDto) {
+    return this.service.acceptInvitation(user, dto.token);
+  }
+
+  @Delete('invitations/:invitationId')
+  revokeInvitation(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('vaultId') vaultId: string,
-    @Param('userId') userId: string,
+    @Param('invitationId', ParseUUIDPipe) invitationId: string,
   ) {
-    return this.service.acceptInvitation(user, vaultId, userId);
+    return this.service.revokeInvitation(user, invitationId);
+  }
+
+  @Post(':vaultId/:userId/revoke')
+  revokeMember(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('vaultId', ParseUUIDPipe) vaultId: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+  ) {
+    return this.service.revokeMember(user, vaultId, userId);
   }
 }

@@ -1,43 +1,37 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecipientDto } from './dto/create-recipient.dto';
 import { AuthenticatedUser } from '../common/current-user.decorator';
+import { VaultAccessService } from '../vault-access/vault-access.service';
 
 @Injectable()
 export class RecipientsService {
-  constructor(private prisma: PrismaService) {}
-
-  private async ensureVaultAccess(userId: string, vaultId: string) {
-    const ownedVault = await this.prisma.vault.findFirst({ where: { id: vaultId, userId } });
-    if (ownedVault) return;
-
-    const link = await this.prisma.vaultUserRole.findFirst({
-      where: {
-        vaultId,
-        userId,
-        status: 'Active',
-        role: { in: [UserRole.Admin, UserRole.Owner, UserRole.Verifier] },
-      },
-    });
-    if (!link) {
-      throw new ForbiddenException('Vault not found or access denied');
-    }
-  }
+  constructor(private prisma: PrismaService, private access: VaultAccessService) {}
 
   async createOrGet(user: AuthenticatedUser, dto: CreateRecipientDto) {
-    await this.ensureVaultAccess(user.sub, dto.vault_id);
+    // Назначать получателей вправе только владелец/управляющий сейфом; верификатор — нет.
+    await this.access.assertManager(user.sub, dto.vault_id);
 
-    const r = await this.prisma.recipient.upsert({
-      where: { contact: dto.contact },
-      update: { pubkey: dto.pubkey ?? undefined },
-      create: { contact: dto.contact, pubkey: dto.pubkey ?? null, verificationStatus: 'Invited' as any },
-    });
-    return r;
+    const contact = dto.contact;
+    const existing = await this.prisma.recipient.findUnique({ where: { contact } });
+    if (!existing) {
+      return this.prisma.recipient.create({
+        data: { contact, pubkey: dto.pubkey ?? null, verificationStatus: 'Invited' as any },
+      });
+    }
+    // Запись получателя общая для всех сейфов: уже заданный публичный ключ чужим запросом не подменяется
+    // (иначе DEK, упакованный владельцем под "ключ получателя", достался бы автору подмены).
+    if (dto.pubkey && existing.pubkey && dto.pubkey !== existing.pubkey) {
+      throw new ConflictException('Recipient already has a different public key');
+    }
+    if (dto.pubkey && !existing.pubkey) {
+      return this.prisma.recipient.update({ where: { id: existing.id }, data: { pubkey: dto.pubkey } });
+    }
+    return existing;
   }
 
   async search(user: AuthenticatedUser, vaultId: string, query?: string) {
-    await this.ensureVaultAccess(user.sub, vaultId);
+    await this.access.assertManager(user.sub, vaultId);
 
     const where = query
       ? { contact: { contains: query, mode: 'insensitive' as const } }

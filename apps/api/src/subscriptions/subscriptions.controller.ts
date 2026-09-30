@@ -4,10 +4,13 @@ import { SubscriptionsService } from './subscriptions.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('subscriptions')
 @ApiBearerAuth()
 @ApiErrorResponses()
+@Roles(UserRole.Admin)
 @Controller('subscriptions')
 export class SubscriptionsController {
   constructor(private readonly service: SubscriptionsService) {}

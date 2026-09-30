@@ -3,8 +3,6 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaService } from './prisma/prisma.service';
-import { AuthGuard } from './auth/guards/auth.guard';
-import { RolesGuard } from './auth/guards/roles.guard';
 import helmet from 'helmet';
 import { json } from 'express';
 
@@ -49,9 +47,6 @@ async function bootstrap() {
     transform: true,
     forbidUnknownValues: false,
   }));
-
-  app.useGlobalGuards(app.get(AuthGuard));
-  app.useGlobalGuards(app.get(RolesGuard));
 
   const config = new DocumentBuilder()
     .setTitle('AfterLight API')

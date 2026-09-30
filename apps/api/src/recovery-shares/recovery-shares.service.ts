@@ -1,29 +1,44 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecoveryShareDto } from './dto/create-recovery-share.dto';
 import { UpdateRecoveryShareDto } from './dto/update-recovery-share.dto';
+import { VaultAccessService } from '../vault-access/vault-access.service';
 
+/** Доли восстановления — ключевой материал: доступны только владельцу соответствующего сейфа. */
 @Injectable()
 export class RecoverySharesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private access: VaultAccessService) {}
 
-  list() {
-    return this.prisma.recoveryShare.findMany();
+  private async getOwned(userId: string, id: string) {
+    const share = await this.prisma.recoveryShare.findUnique({ where: { id } });
+    if (!share) throw new NotFoundException('Recovery share not found');
+    await this.access.assertOwner(userId, share.vaultId);
+    return share;
   }
 
-  get(id: string) {
-    return this.prisma.recoveryShare.findUnique({ where: { id } });
+  async list(userId: string, vaultId: string) {
+    await this.access.assertOwner(userId, vaultId);
+    return this.prisma.recoveryShare.findMany({ where: { vaultId } });
   }
 
-  create(dto: CreateRecoveryShareDto) {
+  get(userId: string, id: string) {
+    return this.getOwned(userId, id);
+  }
+
+  async create(userId: string, dto: CreateRecoveryShareDto) {
+    await this.access.assertOwner(userId, dto.vaultId);
     return this.prisma.recoveryShare.create({ data: dto });
   }
 
-  update(id: string, dto: UpdateRecoveryShareDto) {
+  async update(userId: string, id: string, dto: UpdateRecoveryShareDto) {
+    await this.getOwned(userId, id);
+    // Перенос доли в другой сейф этим маршрутом не допускается.
+    if (dto.vaultId !== undefined) throw new ForbiddenException('vaultId cannot be changed');
     return this.prisma.recoveryShare.update({ where: { id }, data: dto });
   }
 
-  remove(id: string) {
+  async remove(userId: string, id: string) {
+    await this.getOwned(userId, id);
     return this.prisma.recoveryShare.delete({ where: { id } });
   }
 }

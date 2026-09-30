@@ -213,6 +213,154 @@
         ]
       }
     },
+    "/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/auth/me": {
       "get": {
         "operationId": "AuthController_me",
@@ -621,7 +769,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VerifierMemberDto"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -700,6 +858,177 @@
         },
         "responses": {
           "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationCreatedDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "verifiers"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/verifiers/invitations/accept": {
+      "post": {
+        "operationId": "VerifiersController_accept",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptInvitationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifierMemberDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "verifiers"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/verifiers/invitations/{invitationId}": {
+      "delete": {
+        "operationId": "VerifiersController_revokeInvitation",
+        "parameters": [
+          {
+            "name": "invitationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           },
           "400": {
@@ -763,9 +1092,9 @@
         ]
       }
     },
-    "/verifiers/invitations/{vaultId}/{userId}/accept": {
+    "/verifiers/{vaultId}/{userId}/revoke": {
       "post": {
-        "operationId": "VerifiersController_accept",
+        "operationId": "VerifiersController_revokeMember",
         "parameters": [
           {
             "name": "vaultId",
@@ -855,8 +1184,9 @@
         "parameters": [
           {
             "name": "vault_id",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Без vault_id — события доступных вам сейфов",
             "schema": {
               "type": "string"
             }
@@ -1082,20 +1412,12 @@
         ]
       }
     },
-    "/verification-events/{id}/confirm/{userId}": {
+    "/verification-events/{id}/confirm": {
       "post": {
         "operationId": "VerificationEventsController_confirm",
         "parameters": [
           {
             "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
             "required": true,
             "in": "path",
             "schema": {
@@ -1178,20 +1500,12 @@
         ]
       }
     },
-    "/verification-events/{id}/deny/{userId}": {
+    "/verification-events/{id}/deny": {
       "post": {
         "operationId": "VerificationEventsController_deny",
         "parameters": [
           {
             "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
             "required": true,
             "in": "path",
             "schema": {
@@ -1266,6 +1580,164 @@
         },
         "tags": [
           "verification-events"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orchestration/start": {
+      "post": {
+        "operationId": "OrchestratorController_start",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "orchestrator"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/orchestration/decision": {
+      "post": {
+        "operationId": "OrchestratorController_decide",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "orchestrator"
         ],
         "security": [
           {
@@ -1849,6 +2321,15 @@
         "operationId": "RecipientsController_search",
         "parameters": [
           {
+            "name": "vault_id",
+            "required": true,
+            "in": "query",
+            "description": "Идентификатор сейфа",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "q",
             "required": false,
             "in": "query",
@@ -2398,164 +2879,6 @@
         },
         "tags": [
           "heartbeats"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/orchestration/start": {
-      "post": {
-        "operationId": "OrchestratorController_start",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartEventDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "orchestrator"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      }
-    },
-    "/orchestration/decision": {
-      "post": {
-        "operationId": "OrchestratorController_decide",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DecisionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "orchestrator"
         ],
         "security": [
           {
@@ -3955,83 +4278,6 @@
             "bearer": []
           }
         ]
-      },
-      "post": {
-        "operationId": "AuditLogsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAuditLogDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "audit-logs"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
       }
     },
     "/audit-logs/{id}": {
@@ -4110,174 +4356,21 @@
             "bearer": []
           }
         ]
-      },
-      "patch": {
-        "operationId": "AuditLogsController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAuditLogDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "audit-logs"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
-      },
-      "delete": {
-        "operationId": "AuditLogsController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "audit-logs"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ]
       }
     },
     "/recovery-shares": {
       "get": {
         "operationId": "RecoverySharesController_list",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "vault_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": ""
@@ -4713,14 +4806,6 @@
           },
           "password": {
             "type": "string"
-          },
-          "role": {
-            "type": "string",
-            "enum": [
-              "Owner",
-              "Verifier",
-              "Admin"
-            ]
           }
         },
         "required": [
@@ -4744,18 +4829,36 @@
           "password"
         ]
       },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreateVaultDto": {
         "type": "object",
         "properties": {
+          "name": {
+            "type": "string",
+            "description": "Vault display name",
+            "maxLength": 120
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional vault description",
+            "maxLength": 500
+          },
           "is_demo": {
             "type": "boolean",
             "default": false
           },
           "quorum_threshold": {
             "type": "number",
-            "minimum": 3,
+            "minimum": 2,
             "maximum": 5,
-            "default": 3
+            "default": 2
           },
           "max_verifiers": {
             "type": "number",
@@ -4778,7 +4881,7 @@
         "properties": {
           "quorum_threshold": {
             "type": "number",
-            "minimum": 3,
+            "minimum": 2,
             "maximum": 5
           },
           "max_verifiers": {
@@ -4798,25 +4901,126 @@
           }
         }
       },
+      "VerifierMemberDto": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Пусто у приглашения, ещё не принятого аккаунтом"
+          },
+          "invitation_id": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Заполнено у ожидающего приглашения"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "object",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Owner",
+              "Verifier",
+              "Admin"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Invited",
+              "Active",
+              "Revoked"
+            ]
+          },
+          "is_primary": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": "object",
+            "nullable": true
+          },
+          "added_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "role",
+          "status",
+          "is_primary",
+          "added_at"
+        ]
+      },
       "InviteVerifierDto": {
         "type": "object",
         "properties": {
           "vault_id": {
-            "type": "string"
+            "type": "string",
+            "format": "uuid"
           },
           "email": {
             "type": "string",
-            "description": "email for MVP"
+            "description": "Email приглашаемого верификатора"
           },
           "expires_in_hours": {
             "type": "number",
             "default": 168,
-            "description": "expires in hours (default 7 days)"
+            "description": "Срок действия в часах (по умолчанию 7 суток, максимум 30)"
           }
         },
         "required": [
           "vault_id",
           "email"
+        ]
+      },
+      "InvitationCreatedDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Owner",
+              "Verifier",
+              "Admin"
+            ]
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "expires_at"
+        ]
+      },
+      "AcceptInvitationDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Одноразовый токен из письма-приглашения"
+          }
+        },
+        "required": [
+          "token"
         ]
       },
       "StartVerificationEventDto": {
@@ -4837,11 +5041,6 @@
             "type": "string",
             "format": "uuid"
           },
-          "user_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "ID пользователя (верификатора)"
-          },
           "decision": {
             "type": "string",
             "enum": [
@@ -4855,8 +5054,19 @@
         },
         "required": [
           "vault_id",
-          "user_id",
           "decision"
+        ]
+      },
+      "StartEventDto": {
+        "type": "object",
+        "properties": {
+          "vault_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "vault_id"
         ]
       },
       "CreateBlockDto": {
@@ -4927,6 +5137,10 @@
       "CreateRecipientDto": {
         "type": "object",
         "properties": {
+          "vault_id": {
+            "type": "string",
+            "description": "Идентификатор сейфа"
+          },
           "contact": {
             "type": "string",
             "description": "Email получателя (уникальный идентификатор)"
@@ -4937,6 +5151,7 @@
           }
         },
         "required": [
+          "vault_id",
           "contact"
         ]
       },
@@ -4990,18 +5205,6 @@
               "auto",
               "manual"
             ]
-          }
-        },
-        "required": [
-          "vault_id"
-        ]
-      },
-      "StartEventDto": {
-        "type": "object",
-        "properties": {
-          "vault_id": {
-            "type": "string",
-            "format": "uuid"
           }
         },
         "required": [
@@ -5206,65 +5409,6 @@
             ]
           },
           "currentPeriodEnd": {
-            "type": "string"
-          }
-        }
-      },
-      "CreateAuditLogDto": {
-        "type": "object",
-        "properties": {
-          "actorType": {
-            "type": "string",
-            "enum": [
-              "User",
-              "System"
-            ]
-          },
-          "actorId": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string"
-          },
-          "targetId": {
-            "type": "string"
-          },
-          "targetType": {
-            "type": "string"
-          },
-          "hash": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "actorType",
-          "actorId",
-          "action"
-        ]
-      },
-      "UpdateAuditLogDto": {
-        "type": "object",
-        "properties": {
-          "actorType": {
-            "type": "string",
-            "enum": [
-              "User",
-              "System"
-            ]
-          },
-          "actorId": {
-            "type": "string"
-          },
-          "action": {
-            "type": "string"
-          },
-          "targetId": {
-            "type": "string"
-          },
-          "targetType": {
-            "type": "string"
-          },
-          "hash": {
             "type": "string"
           }
         }

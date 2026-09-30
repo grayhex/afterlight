@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { VerificationEventsService } from './verification-events.service';
 import { StartVerificationEventDto } from './dto/start-event.dto';
 import { DecisionDto } from './dto/decision.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator';
 
 @ApiTags('verification-events')
 @ApiBearerAuth()
@@ -13,27 +14,39 @@ export class VerificationEventsController {
   constructor(private readonly service: VerificationEventsService) {}
 
   @Get()
-  list(@Query('vault_id') vaultId: string) {
-    return this.service.listByVault(vaultId);
+  @ApiQuery({ name: 'vault_id', required: false, description: 'Без vault_id — события доступных вам сейфов' })
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('vault_id', new ParseUUIDPipe({ optional: true })) vaultId?: string,
+  ) {
+    return this.service.list(user.sub, vaultId);
   }
 
   @Post()
-  start(@Body() dto: StartVerificationEventDto) {
-    return this.service.start(dto);
+  start(@CurrentUser() user: AuthenticatedUser, @Body() dto: StartVerificationEventDto) {
+    return this.service.start(user.sub, dto.vault_id);
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
-    return this.service.get(id);
+  get(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.get(user.sub, id);
   }
 
-  @Post(':id/confirm/:userId')
-  confirm(@Param('id') id: string, @Param('userId') userId: string, @Body() dto: DecisionDto) {
-    return this.service.decide(id, userId, { ...dto, decision: 'Confirm' });
+  @Post(':id/confirm')
+  confirm(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DecisionDto,
+  ) {
+    return this.service.decide(user.sub, id, 'Confirm', dto.signature);
   }
 
-  @Post(':id/deny/:userId')
-  deny(@Param('id') id: string, @Param('userId') userId: string, @Body() dto: DecisionDto) {
-    return this.service.decide(id, userId, { ...dto, decision: 'Deny' });
+  @Post(':id/deny')
+  deny(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DecisionDto,
+  ) {
+    return this.service.decide(user.sub, id, 'Deny', dto.signature);
   }
 }

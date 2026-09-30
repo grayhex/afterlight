@@ -30,10 +30,12 @@ export class NotificationsService {
   }
 
   async sendVerifierInvitation(vaultId: string, to: string, token: string) {
-    const link = `https://example.com/verifiers/invitations/${token}/accept`;
+    // Токен передаётся во фрагменте (#): браузер не отправляет его на сервер и он не попадает в access-логи.
+    const base = (process.env.WEB_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
+    const link = `${base}/invite#token=${token}`;
     await this.enqueueEmail(vaultId, to, {
       subject: 'AfterLight: приглашение доверителя',
-      text: `Вас пригласили стать доверителем. Перейдите по ссылке: ${link}`,
+      text: `Вас пригласили стать доверителем. Войдите под этим адресом и откройте ссылку: ${link}`,
     });
     await this.flushEmailQueue();
   }
@@ -45,7 +47,8 @@ export class NotificationsService {
       orderBy: { createdAt: 'asc' },
     });
     for (const n of queued) {
-      this.logger.log(`[Email][send] to=${n.toContact} payload=${JSON.stringify(n.payload)}`);
+      // Тело письма может содержать одноразовые токены (приглашения, сброс пароля): в логи не попадает.
+      this.logger.log(`[Email][send] id=${n.id} to=${n.toContact} subj=${(n.payload as any)?.subject ?? ''}`);
       await this.prisma.notification.update({
         where: { id: n.id },
         data: { state: 'Sent' as any },

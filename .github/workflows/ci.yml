@@ -32,3 +32,8 @@ jobs:
 
       - name: Build (Nest)
         run: npm run build
+
+      - name: Unit and HTTP regression tests
+        run: npm test -- --runInBand
+        env:
+          JWT_SECRET: ci-test-secret

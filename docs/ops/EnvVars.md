@@ -15,6 +15,7 @@
 - `JSON_BODY_LIMIT` — лимит JSON body (по умолчанию `100kb`).
 - `DEFAULT_DEBUG_USER` — debug-пользователь для локальной отладки.
 - `PUBLIC_BASE_URL` — базовый URL для формирования публичных ссылок блоков.
+- `WEB_BASE_URL` — базовый URL веб-приложения для ссылок в письмах (приглашение: `<WEB_BASE_URL>/invite#token=…`); по умолчанию `http://localhost:3001`.
 - `ADMIN_PASSWORD` — опциональное переопределение пароля admin при сидировании.
 
 ### Пример
@@ -27,6 +28,7 @@ PORT=3000
 JSON_BODY_LIMIT="100kb"
 DEFAULT_DEBUG_USER=""
 PUBLIC_BASE_URL="https://api.example.com"
+WEB_BASE_URL="https://app.example.com"
 ```
 
 ---

@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString } from 'class-validator';
+import { IsInt, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CreateRecoveryShareDto {
   @ApiProperty()
-  @IsString()
+  @IsUUID()
   vaultId!: string;
 
   @ApiProperty()
@@ -12,5 +12,6 @@ export class CreateRecoveryShareDto {
 
   @ApiProperty()
   @IsString()
+  @MaxLength(16384)
   shareCipher!: string;
 }

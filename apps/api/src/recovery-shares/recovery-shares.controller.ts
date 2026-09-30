@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RecoverySharesService } from './recovery-shares.service';
 import { CreateRecoveryShareDto } from './dto/create-recovery-share.dto';
 import { UpdateRecoveryShareDto } from './dto/update-recovery-share.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator';
 
 @ApiTags('recovery-shares')
 @ApiBearerAuth()
@@ -13,27 +14,31 @@ export class RecoverySharesController {
   constructor(private readonly service: RecoverySharesService) {}
 
   @Get()
-  list() {
-    return this.service.list();
+  list(@CurrentUser() user: AuthenticatedUser, @Query('vault_id', ParseUUIDPipe) vaultId: string) {
+    return this.service.list(user.sub, vaultId);
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
-    return this.service.get(id);
+  get(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.get(user.sub, id);
   }
 
   @Post()
-  create(@Body() dto: CreateRecoveryShareDto) {
-    return this.service.create(dto);
+  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateRecoveryShareDto) {
+    return this.service.create(user.sub, dto);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateRecoveryShareDto) {
-    return this.service.update(id, dto);
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRecoveryShareDto,
+  ) {
+    return this.service.update(user.sub, id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.remove(user.sub, id);
   }
 }
