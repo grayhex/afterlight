@@ -1,38 +1,45 @@
 name: cd
 
+# Сборка и выкладка только для коммита, на котором успешно прошли ВСЕ проверки workflow `ci`:
+# запускается по завершению ci для push в main и берёт ровно тот же SHA (head_sha), а не «текущий main».
+# PR (в том числе из форков) сюда не попадают: ни секретов, ни self-hosted runner им недоступны.
 on:
-  push:
+  workflow_run:
+    workflows: [ "ci" ]
+    types: [ completed ]
     branches: [ "main" ]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - ".github/ISSUE_TEMPLATE/**"
-      - ".github/PULL_REQUEST_TEMPLATE*"
-      - "CODE_OF_CONDUCT*"
-      - "CONTRIBUTING*"
-      - "LICENSE*"
-      - "CHANGELOG*"
 
 permissions:
   contents: read
-  packages: write
 
 env:
   REGISTRY: ghcr.io
   IMAGE_OWNER: grayhex
   IMAGE_API: afterlight-api
   IMAGE_WEB: afterlight-web
+  SHA: ${{ github.event.workflow_run.head_sha }}
 
+# Выкладки не отменяем на середине: следующая ждёт своей очереди
 concurrency:
-  group: cd-${{ github.ref }}
-  cancel-in-progress: true
+  group: cd-main
+  cancel-in-progress: false
 
 jobs:
   build:
     name: build-and-push
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -49,7 +56,7 @@ jobs:
           context: .
           file: ./Dockerfile.api
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ env.SHA }}
           provenance: false
 
       - name: Build & push WEB
@@ -58,14 +65,16 @@ jobs:
           context: .
           file: ./Dockerfile.web
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ env.SHA }}
           provenance: false
 
   deploy:
     name: deploy-to-k3s
     runs-on: self-hosted
     needs: build
-    if: ${{ !contains(github.event.head_commit.message, '[skip cd]') }}
+    # environment production позволяет владельцу включить обязательное подтверждение выкладки в настройках репозитория
+    environment: production
+    if: ${{ !contains(github.event.workflow_run.head_commit.message, '[skip cd]') }}
     env:
       NS: afterlight
     steps:
@@ -83,8 +92,8 @@ jobs:
 
       - name: Deploy API & WEB (set image or restart)
         env:
-          NEW_API: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ github.sha }}
-          NEW_WEB: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
+          NEW_API: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_API }}:${{ env.SHA }}
+          NEW_WEB: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_WEB }}:${{ env.SHA }}
         run: |
           set -euo pipefail
 

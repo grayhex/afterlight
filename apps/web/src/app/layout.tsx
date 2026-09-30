@@ -3,11 +3,12 @@ import type { Metadata } from 'next';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { getLandingConfig } from '@/lib/landing';
-import { Questrial } from 'next/font/google';
 import localFont from 'next/font/local';
 
-const headingFont = Questrial({
-  subsets: ['latin'],
+// Questrial (SIL OFL 1.1), подмножество latin: лежит в репозитории, а не скачивается с fonts.googleapis.com
+// при сборке — сборка воспроизводима без доступа к Google и не зависит от его доступности.
+const headingFont = localFont({
+  src: '../../public/fonts/Questrial-Regular-latin.woff2',
   weight: '400',
   variable: '--font-heading',
 });
