@@ -1,3 +1,5 @@
+> **Статус: непервостепенный путь.** Основной путь запуска — Docker Compose (`docs/deploy.md`); манифесты здесь экспериментальные (см. `docs/mvp-contract.md`, D9).
+
 # AfterLight k8s (staging)
 
 Минимальный набор манифестов для запуска API в Kubernetes.

@@ -1,3 +1,5 @@
+> Первичная модель (STRIDE-лайт). Границы доверия и модель ключей MVP — в [`docs/mvp-contract.md`](../mvp-contract.md), разделы 6–7.
+
 # Threat Model v0.1 (STRIDE-лайт)
 
 - Spoofing: компрометированные e-mail; меры — подтверждение e-mail, DKIM/SPF/DMARC, ограничение повторных попыток.
