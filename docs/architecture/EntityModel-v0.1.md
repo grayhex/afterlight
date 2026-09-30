@@ -1,3 +1,5 @@
+> **Статус: устарело** (v0.1, 2025-08). Актуальная модель — `apps/api/prisma/schema.prisma`; правила и роли — [`docs/mvp-contract.md`](../mvp-contract.md).
+
 # Модель сущностей (черновик)
 
 - User (owner, verifier, recipient roles)
