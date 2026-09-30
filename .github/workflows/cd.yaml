@@ -19,19 +19,58 @@ env:
   IMAGE_WEB: afterlight-web
   SHA: ${{ github.event.workflow_run.head_sha }}
 
-# Выкладки не отменяем на середине: следующая ждёт своей очереди
+# Выкладки не отменяем на середине: следующая ждёт своей очереди. Запуски одной группы идут строго по очереди,
+# поэтому более новый коммит не может быть выложен раньше предыдущего и затем перезаписан им.
 concurrency:
   group: cd-main
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: build-and-push
+  # Повторный запуск старого успешного ci тоже даёт workflow_run (push, main, success) для УСТАРЕВШЕГО коммита.
+  # SHA считается актуальным, если он — вершина main ИЛИ после него в main менялись только файлы, которые не запускают ci
+  # (тот же список, что paths-ignore в ci.yml: у такого коммита нет собственного запуска cd, и выкладывать код больше некому).
+  # Иначе это устаревшая версия: у более нового кода свой запуск cd, и откатывать на старую нельзя.
+  gate:
+    name: is-current-main
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      current: ${{ steps.head.outputs.current }}
+    steps:
+      - name: Is head_sha still the latest deployable revision of main?
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$@"; }
+          tip=$(api -H "Accept: application/vnd.github.sha" "https://api.github.com/repos/${{ github.repository }}/commits/main")
+          if [ "$tip" = "$SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          cmp=$(api "https://api.github.com/repos/${{ github.repository }}/compare/$SHA...$tip?per_page=100")
+          status=$(jq -r .status <<<"$cmp")
+          nfiles=$(jq '.files | length' <<<"$cmp")
+          # файлы, не запускающие ci (синхронизировать с on.push.paths-ignore в ci.yml)
+          deployable=$(jq -r '.files[].filename' <<<"$cmp" \
+            | grep -Ev '(\.md$|^docs/|^\.github/ISSUE_TEMPLATE/|^\.github/PULL_REQUEST_TEMPLATE|^LICENSE)' || true)
+          if [ "$status" = "ahead" ] && [ "$nfiles" -lt 300 ] && [ -z "$deployable" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::main moved to $tip, but only documentation changed since $SHA: deploying $SHA"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$SHA is superseded by $tip (status=$status): stale run (re-run of an older ci?), nothing is built or deployed"
+          fi
+
+  build:
+    name: build-and-push
+    needs: gate
+    if: needs.gate.outputs.current == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
