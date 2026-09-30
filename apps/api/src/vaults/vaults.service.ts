@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVaultDto } from './dto/create-vault.dto';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto';
@@ -59,6 +59,10 @@ export class VaultsService {
   async updateSettings(userId: string, id: string, dto: UpdateVaultSettingsDto) {
     await this.getForUser(userId, id);
     if (dto.primary_verifier_id) {
+      const target = await this.prisma.vaultUserRole.findFirst({
+        where: { vaultId: id, userId: dto.primary_verifier_id, role: 'Verifier', status: 'Active' },
+      });
+      if (!target) throw new BadRequestException('primary_verifier_id must be an active verifier of this vault');
       await this.prisma.$transaction([
         this.prisma.vaultUserRole.updateMany({
           where: { vaultId: id, isPrimary: true },

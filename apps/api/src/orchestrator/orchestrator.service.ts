@@ -1,7 +1,8 @@
-import { Injectable, BadRequestException, ConflictException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../audit/audit.service';
+import { VaultAccessService } from '../vault-access/vault-access.service';
 import { ActorType } from '@prisma/client';
 
 type VState = 'Draft'|'Submitted'|'Confirming'|'Disputed'|'QuorumReached'|'HeartbeatTimeout'|'Grace'|'Finalized';
@@ -10,14 +11,12 @@ type VDecision = 'Confirm'|'Deny';
 @Injectable()
 export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
-  constructor(private prisma: PrismaService, private notify: NotificationsService, private audit: AuditService) {}
-
-  private async getVaultOrThrow(userId: string, vaultId: string) {
-    const v = await this.prisma.vault.findUnique({ where: { id: vaultId } });
-    if (!v) throw new NotFoundException('Vault not found');
-    if (v.userId !== userId) throw new ForbiddenException('Access denied');
-    return v;
-  }
+  constructor(
+    private prisma: PrismaService,
+    private notify: NotificationsService,
+    private audit: AuditService,
+    private access: VaultAccessService,
+  ) {}
 
   private async getActiveEvent(vaultId: string) {
     return this.prisma.verificationEvent.findFirst({
@@ -27,7 +26,8 @@ export class OrchestratorService {
   }
 
   async start(userId: string, vaultId: string) {
-    const vault = await this.getVaultOrThrow(userId, vaultId);
+    // Кто именно вправе инициировать событие, окончательно решается в #149; сейчас — только управляющий сейфом.
+    const vault = await this.access.assertManager(userId, vaultId);
 
     const frozen = await this.prisma.verificationEvent.findFirst({
       where: { vaultId, state: { in: ['Disputed','Grace'] as any } },
@@ -63,6 +63,22 @@ export class OrchestratorService {
     return event;
   }
 
+  /** Считаются только голоса тех, кто и сейчас активный верификатор этого сейфа (отозванные не учитываются). */
+  private async countActiveDecisions(eventId: string, vaultId: string) {
+    const roles = await this.prisma.vaultUserRole.findMany({
+      where: { vaultId, role: 'Verifier' as any, status: 'Active' as any },
+    });
+    const userIds = roles.map((r) => r.userId);
+    if (userIds.length === 0) return { confirms: 0, denies: 0 };
+    const decisions = await this.prisma.verificationDecision.findMany({
+      where: { verificationEventId: eventId, userId: { in: userIds } },
+    });
+    return {
+      confirms: decisions.filter((d) => d.decision === ('Confirm' as any)).length,
+      denies: decisions.filter((d) => d.decision === ('Deny' as any)).length,
+    };
+  }
+
   private async recomputeAndTransition(eventId: string, now = new Date()) {
     const ev = await this.prisma.verificationEvent.findUnique({
       where: { id: eventId },
@@ -70,14 +86,13 @@ export class OrchestratorService {
     });
     if (!ev) throw new NotFoundException('Event not found');
 
-    const [confirms, denies] = await Promise.all([
-      this.prisma.verificationDecision.count({
-        where: { verificationEventId: ev.id, decision: 'Confirm' as any },
-      }),
-      this.prisma.verificationDecision.count({
-        where: { verificationEventId: ev.id, decision: 'Deny' as any },
-      }),
-    ]);
+    const { confirms, denies } = await this.countActiveDecisions(ev.id, ev.vaultId);
+    if (ev.confirmsCount !== confirms || ev.deniesCount !== denies) {
+      await this.prisma.verificationEvent.update({
+        where: { id: ev.id },
+        data: { confirmsCount: confirms, deniesCount: denies },
+      });
+    }
 
     const quorum = ev.quorumRequired ?? (ev as any).vault?.quorumThreshold ?? 3;
     const ageMs = now.getTime() - new Date(ev.createdAt).getTime();
@@ -219,7 +234,28 @@ export class OrchestratorService {
     return { state: next, confirms, denies, quorum };
   }
 
-  async decide(actorId: string, vaultId: string, userId: string, decision: VDecision, signature?: string) {
+  /** Голос по активному событию сейфа. Автор голоса — всегда actorId из проверенной сессии. */
+  async decide(actorId: string, vaultId: string, decision: VDecision, signature?: string) {
+    await this.access.assertActiveVerifier(actorId, vaultId);
+    await this.assertNotDisputeLocked(vaultId);
+    const active = await this.getActiveEvent(vaultId);
+    if (!active) throw new BadRequestException('No active event to accept decisions');
+    return this.recordDecision(actorId, active.id, decision, signature);
+  }
+
+  /** Голос по конкретному событию (API /verification-events/:id/confirm|deny). Те же правила, что и у decide. */
+  async decideOnEvent(actorId: string, eventId: string, decision: VDecision, signature?: string) {
+    const event = await this.prisma.verificationEvent.findUnique({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Event not found');
+    await this.access.assertActiveVerifier(actorId, event.vaultId);
+    await this.assertNotDisputeLocked(event.vaultId);
+    if (event.state !== ('Submitted' as any) && event.state !== ('Confirming' as any)) {
+      throw new ConflictException('Event is not accepting decisions');
+    }
+    return this.recordDecision(actorId, event.id, decision, signature);
+  }
+
+  private async assertNotDisputeLocked(vaultId: string) {
     const frozen = await this.prisma.verificationEvent.findFirst({
       where: { vaultId, state: 'Disputed' as any },
       orderBy: { createdAt: 'desc' },
@@ -230,17 +266,16 @@ export class OrchestratorService {
         throw new ConflictException('Event in Disputed lock (24h)');
       }
     }
+  }
 
-    const active = await this.getActiveEvent(vaultId);
-    if (!active) throw new BadRequestException('No active event to accept decisions');
-
-    const hasRight = await this.prisma.vaultUserRole.findFirst({
-      where: { vaultId, userId, status: 'Active' as any },
-    });
-    if (!hasRight) throw new ForbiddenException('Verifier is not active for this vault');
-
+  private async recordDecision(
+    actorId: string,
+    eventId: string,
+    decision: VDecision,
+    signature?: string,
+  ) {
     const existing = await this.prisma.verificationDecision.findFirst({
-      where: { verificationEventId: active.id, userId },
+      where: { verificationEventId: eventId, userId: actorId },
     });
     if (existing) {
       await this.prisma.verificationDecision.update({
@@ -250,23 +285,17 @@ export class OrchestratorService {
     } else {
       await this.prisma.verificationDecision.create({
         data: {
-          verificationEventId: active.id,
-          userId,
+          verificationEventId: eventId,
+          userId: actorId,
           decision: decision as any,
           signature: signature ?? null,
         },
       });
     }
-    await this.audit.log(
-      ActorType.User,
-      actorId,
-      `orchestrator_decide:${decision}`,
-      'VerificationEvent',
-      active.id,
-    );
-    return this.recomputeAndTransition(active.id, new Date());
+    await this.audit.log(ActorType.User, actorId, `orchestrator_decide:${decision}`, 'VerificationEvent', eventId);
+    return this.recomputeAndTransition(eventId, new Date());
   }
-  
+
   async processTimers(now = new Date()) {
     let finalized = 0, unlocked = 0;
 

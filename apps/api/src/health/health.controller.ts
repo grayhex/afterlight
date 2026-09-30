@@ -9,9 +9,11 @@ import { ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('health')
 @ApiErrorResponses()
+@Public()
 @Controller()
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);

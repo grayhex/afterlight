@@ -6,9 +6,25 @@ import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { NotificationsService } from '../../src/notifications/notifications.service';
 import { AuditService } from '../../src/audit/audit.service';
+import { AuthService } from '../../src/auth/auth.service';
 
 function asDate(input: string | Date): Date {
   return input instanceof Date ? input : new Date(input);
+}
+
+/** Минимальный where-матчер Prisma: равенство, null, { in }, { gt }. */
+function matches(row: any, where: Record<string, any> = {}): boolean {
+  return Object.entries(where).every(([k, v]) => {
+    if (v === undefined) return true;
+    const actual = row[k];
+    if (v instanceof Date) return actual instanceof Date && +actual === +v;
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      if ('in' in v) return v.in.includes(actual);
+      if ('gt' in v) return actual != null && +new Date(actual) > +new Date(v.gt);
+      return false;
+    }
+    return (actual ?? null) === v;
+  });
 }
 
 class InMemoryPrisma {
@@ -76,12 +92,10 @@ class InMemoryPrisma {
       return args.include?.user ? { ...row, user: this.users.find((u) => u.id === row.userId) } : row;
     },
     findMany: async (args: any) => {
-      const where = args?.where || {};
-      return this.roles.filter((r) => Object.entries(where).every(([k, v]) => {
-        if ((v as any)?.in) return (v as any).in.includes((r as any)[k]);
-        if ((v as any)?.role?.in) return (v as any).role.in.includes((r as any)[k]);
-        return (r as any)[k] === v;
-      })).map((r) => (args?.include?.user ? { ...r, user: this.users.find((u) => u.id === r.userId) } : r));
+      let list = this.roles.filter((r) => matches(r, args?.where));
+      if (args?.orderBy?.addedAt === 'desc') list = [...list].sort((a, b) => +b.addedAt - +a.addedAt);
+      // include.select намеренно не эмулируется: сервис обязан сам отдавать только безопасные поля
+      return list.map((r) => (args?.include?.user ? { ...r, user: this.users.find((u) => u.id === r.userId) } : r));
     },
     findFirst: async (args: any) => (await this.vaultUserRole.findMany(args))[0] || null,
     findUnique: async (args: any) => {
@@ -95,18 +109,41 @@ class InMemoryPrisma {
       Object.assign(row, args.data);
       return row;
     },
+    upsert: async (args: any) => {
+      const key = args.where.vaultId_userId;
+      const row = this.roles.find((r) => r.vaultId === key.vaultId && r.userId === key.userId);
+      if (row) return Object.assign(row, args.update);
+      return this.vaultUserRole.create({ data: args.create });
+    },
     updateMany: async (args: any) => {
       let count = 0;
       for (const row of this.roles) {
-        if (Object.entries(args.where || {}).every(([k, v]) => (row as any)[k] === v)) {
-          Object.assign(row, args.data); count += 1;
-        }
+        if (matches(row, args.where)) { Object.assign(row, args.data); count += 1; }
       }
       return { count };
     },
   };
 
-  vaultUserInvitation = { create: async (args: any) => { const row = { id: this.id('inv'), createdAt: new Date(), ...args.data }; this.invitations.push(row); return row; } };
+  vaultUserInvitation = {
+    create: async (args: any) => {
+      const row = { id: this.id('inv'), createdAt: new Date(), acceptedAt: null, revokedAt: null, invitedBy: null, ...args.data };
+      this.invitations.push(row);
+      return row;
+    },
+    findUnique: async (args: any) => this.invitations.find((i) => matches(i, args.where)) || null,
+    findFirst: async (args: any) => this.invitations.find((i) => matches(i, args.where)) || null,
+    findMany: async (args: any) => {
+      const list = this.invitations.filter((i) => matches(i, args.where));
+      return args?.orderBy?.createdAt === 'desc' ? [...list].sort((a, b) => +b.createdAt - +a.createdAt) : list;
+    },
+    updateMany: async (args: any) => {
+      let count = 0;
+      for (const row of this.invitations) {
+        if (matches(row, args.where)) { Object.assign(row, args.data); count += 1; }
+      }
+      return { count };
+    },
+  };
 
   verificationEvent = {
     create: async (args: any) => { const row = { id: this.id('event'), confirmsCount: 0, deniesCount: 0, createdAt: new Date(), ...args.data }; this.events.push(row); return row; },
@@ -129,6 +166,7 @@ class InMemoryPrisma {
   };
 
   verificationDecision = {
+    findMany: async (args: any) => this.decisions.filter((d) => matches(d, args?.where)),
     findFirst: async (args: any) => this.decisions.find((d) => Object.entries(args.where || {}).every(([k, v]) => (d as any)[k] === v)) || null,
     create: async (args: any) => { const row = { id: this.id('decision'), decidedAt: new Date(), ...args.data }; this.decisions.push(row); return row; },
     update: async (args: any) => { const row = this.decisions.find((d) => d.id === args.where.id); if (!row) throw new Error('Decision not found'); Object.assign(row, args.data); return row; },
@@ -198,7 +236,17 @@ class InMemoryPrisma {
       this.recipients.push(row);
       return row;
     },
-    findUnique: async (args: any) => this.recipients.find((r) => r.id === args.where.id) || null,
+    findUnique: async (args: any) => this.recipients.find((r) => matches(r, args.where)) || null,
+    create: async (args: any) => {
+      const row = { id: this.id('recipient'), createdAt: new Date(), pubkey: null, ...args.data };
+      this.recipients.push(row);
+      return row;
+    },
+    update: async (args: any) => {
+      const row = this.recipients.find((r) => matches(r, args.where));
+      if (!row) throw new Error('Recipient not found');
+      return Object.assign(row, args.data);
+    },
     findMany: async () => this.recipients,
   };
 
@@ -215,7 +263,10 @@ class InMemoryPrisma {
   };
 
   notification = { create: async () => ({}), update: async () => ({}), findMany: async () => [] };
-  auditLog = { create: async () => ({}) };
+  auditLog = { create: async () => ({}), findMany: async () => [] as any[], findUnique: async () => null };
+  recoveryShare = { findMany: async () => [] as any[], findUnique: async () => null };
+  subscription = { findMany: async () => [] as any[] };
+  plan = { create: async (args: any) => ({ id: 'p', ...args.data }) };
 
   async $transaction(arg: any) {
     if (Array.isArray(arg)) return Promise.all(arg);
@@ -224,7 +275,12 @@ class InMemoryPrisma {
   }
 }
 
-class NotificationsStub { async enqueueEmail() {} async flushEmailQueue() {} async sendVerifierInvitation() {} }
+class NotificationsStub {
+  invitations: Array<{ vaultId: string; to: string; token: string }> = [];
+  async enqueueEmail() {}
+  async flushEmailQueue() {}
+  async sendVerifierInvitation(vaultId: string, to: string, token: string) { this.invitations.push({ vaultId, to, token }); }
+}
 class AuditStub { async log() {} }
 
 export function mapState(state: string): string {
@@ -237,23 +293,27 @@ export async function bootstrapE2eApp() {
   process.env.CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || "http://localhost";
   process.env.DATABASE_URL = process.env.DATABASE_URL || "postgresql://test:test@localhost:5432/test";
   const prisma = new InMemoryPrisma();
+  const mail = new NotificationsStub();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(PrismaService).useValue(prisma as any)
-    .overrideProvider(NotificationsService).useValue(new NotificationsStub())
+    .overrideProvider(NotificationsService).useValue(mail)
     .overrideProvider(AuditService).useValue(new AuditStub())
     .compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidUnknownValues: false }));
-  app.use((req: any, _res: any, next: any) => { req.user = { sub: req.header('x-user-id') || prisma.users[0]?.id || 'anonymous' }; next(); });
+  // Авторизация — настоящая: AuthGuard/RolesGuard подключены через APP_GUARD в AppModule, JWT подписывает AuthService.
   await app.listen(0);
+  const auth = moduleRef.get(AuthService);
   const address = app.getHttpServer().address();
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
-  const request = async (method: string, path: string, body?: unknown, userId?: string) => {
+  /** userId → запрос от имени этого пользователя с настоящим JWT; без userId — аноним. rawToken — произвольный bearer. */
+  const request = async (method: string, path: string, body?: unknown, userId?: string, rawToken?: string) => {
+    const token = rawToken ?? (userId ? auth.sign(userId) : undefined);
     const res = await fetch(`${baseUrl}${path}`, {
       method,
-      headers: { 'content-type': 'application/json', ...(userId ? { 'x-user-id': userId } : {}) },
+      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
@@ -277,7 +337,7 @@ export async function bootstrapE2eApp() {
     reset: () => jest.useRealTimers(),
   };
 
-  return { app, moduleRef, prisma, request, factory, time };
+  return { app, moduleRef, prisma, request, factory, time, mail };
 }
 
 export async function closeE2eApp(app: INestApplication, time: { reset: () => void }) {

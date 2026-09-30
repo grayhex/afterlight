@@ -221,13 +221,17 @@ model VaultUserRole {
 }
 
 model VaultUserInvitation {
-  id        String   @id @default(uuid()) @map("id") @db.Uuid
-  vaultId   String   @map("vault_id") @db.Uuid
-  email     String
-  role      UserRole @map("role")
-  token     String   @map("token")
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String    @id @default(uuid()) @map("id") @db.Uuid
+  vaultId    String    @map("vault_id") @db.Uuid
+  email      String
+  role       UserRole  @map("role")
+  // SHA-256 (hex) одноразового токена; сам токен хранится только у получателя письма
+  token      String    @unique(map: "uq_vault_user_invitation_token") @map("token")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  invitedBy  String?   @map("invited_by") @db.Uuid
+  acceptedAt DateTime? @map("accepted_at")
+  revokedAt  DateTime? @map("revoked_at")
 
   vault Vault @relation(fields: [vaultId], references: [id])
 

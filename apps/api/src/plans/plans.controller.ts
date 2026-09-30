@@ -4,6 +4,8 @@ import { PlansService } from './plans.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('plans')
 @ApiBearerAuth()
@@ -22,16 +24,19 @@ export class PlansController {
     return this.service.get(id);
   }
 
+  @Roles(UserRole.Admin)
   @Post()
   create(@Body() dto: CreatePlanDto) {
     return this.service.create(dto);
   }
 
+  @Roles(UserRole.Admin)
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
     return this.service.update(id, dto);
   }
 
+  @Roles(UserRole.Admin)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);

@@ -15,6 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Response, Request } from 'express';
+import { Public } from './decorators/public.decorator';
 
 @ApiTags('auth')
 @ApiErrorResponses()
@@ -30,6 +31,7 @@ export class AuthController {
     path: '/',
   };
 
+  @Public()
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     const user = await this.auth.register(
@@ -42,6 +44,7 @@ export class AuthController {
     return { id, email, role };
   }
 
+  @Public()
   @Post('login')
   async login(
     @Body() { email, password }: LoginDto,
@@ -57,6 +60,7 @@ export class AuthController {
     return { id, email: userEmail, role };
   }
 
+  @Public()
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
     res.clearCookie('token', {
@@ -68,12 +72,14 @@ export class AuthController {
     return {};
   }
 
+  @Public()
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     await this.auth.forgotPassword(dto.email);
     return {};
   }
 
+  @Public()
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
     const ok = await this.auth.resetPassword(dto.token, dto.password);

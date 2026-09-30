@@ -1,71 +1,58 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { StartVerificationEventDto } from './dto/start-event.dto';
-import { DecisionDto } from './dto/decision.dto';
+import { OrchestratorService } from '../orchestrator/orchestrator.service';
+import { VaultAccessService } from '../vault-access/vault-access.service';
 
+/**
+ * Тонкий слой над оркестратором: ни запуск, ни голосование не реализованы здесь отдельно,
+ * поэтому второго пути с другими проверками нет.
+ */
 @Injectable()
 export class VerificationEventsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private orchestrator: OrchestratorService,
+    private access: VaultAccessService,
+  ) {}
 
-  async listByVault(vaultId: string) {
+  /** asRole='verifier' — только события сейфов, где вызывающий активный верификатор (для кабинета верификатора). */
+  async list(userId: string, vaultId?: string, asRole?: string) {
+    if (asRole !== undefined && asRole !== 'verifier') {
+      throw new BadRequestException('as must be "verifier"');
+    }
+    let vaultIds: string[];
+    if (asRole === 'verifier') {
+      const mine = await this.access.verifierVaultIds(userId);
+      vaultIds = vaultId ? mine.filter((id) => id === vaultId) : mine;
+    } else if (vaultId) {
+      await this.access.assertCanReadEvents(userId, vaultId);
+      vaultIds = [vaultId];
+    } else {
+      vaultIds = await this.access.readableVaultIds(userId);
+    }
+    if (vaultIds.length === 0) return [];
     return this.prisma.verificationEvent.findMany({
-      where: { vaultId },
+      where: { vaultId: { in: vaultIds } },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async start(dto: StartVerificationEventDto) {
-    const v = await this.prisma.vault.findUnique({ where: { id: dto.vault_id } });
-    if (!v) throw new NotFoundException('Vault not found');
-    return this.prisma.verificationEvent.create({
-      data: {
-        vaultId: dto.vault_id,
-        state: 'Submitted',
-        quorumRequired: v.quorumThreshold,
-      },
-    });
+  start(userId: string, vaultId: string) {
+    return this.orchestrator.start(userId, vaultId);
   }
 
-  async get(id: string) {
-    const e = await this.prisma.verificationEvent.findUnique({ where: { id } });
-    if (!e) throw new NotFoundException('Event not found');
-    return e;
+  async get(userId: string, id: string) {
+    const event = await this.prisma.verificationEvent.findUnique({ where: { id } });
+    if (!event) throw new NotFoundException('Event not found');
+    await this.access.assertCanReadEvents(userId, event.vaultId);
+    return event;
   }
 
-  async decide(id: string, userId: string, dto: DecisionDto) {
-    const event = await this.get(id);
-    await this.prisma.verificationDecision.upsert({
-      where: { verificationEventId_userId: { verificationEventId: id, userId } },
-      create: {
-        verificationEventId: id,
-        userId,
-        decision: dto.decision,
-        signature: dto.signature,
-      },
-      update: { decision: dto.decision, signature: dto.signature },
-    });
-
-    const decisions = await this.prisma.verificationDecision.groupBy({
-      by: ['decision'],
-      where: { verificationEventId: id },
-      _count: { decision: true },
-    });
-
-    const confirms = decisions.find(d => d.decision === 'Confirm')?._count.decision ?? 0;
-    const denies = decisions.find(d => d.decision === 'Deny')?._count.decision ?? 0;
-
-    let newState = event.state;
-    if (confirms >= event.quorumRequired) {
-      newState = 'QuorumReached';
-    } else if (confirms > 0 && denies > 0) {
-      newState = 'Disputed';
-    } else if (confirms > 0) {
-      newState = 'Confirming';
-    }
-
-    return this.prisma.verificationEvent.update({
-      where: { id },
-      data: { confirmsCount: confirms, deniesCount: denies, state: newState },
-    });
+  /** Возвращает обновлённое событие (id, state, confirmsCount, deniesCount), как и раньше, — клиент заменяет им элемент списка. */
+  async decide(userId: string, eventId: string, decision: 'Confirm' | 'Deny', signature?: string) {
+    await this.orchestrator.decideOnEvent(userId, eventId, decision, signature);
+    const updated = await this.prisma.verificationEvent.findUnique({ where: { id: eventId } });
+    if (!updated) throw new NotFoundException('Event not found');
+    return updated;
   }
 }

@@ -1,26 +1,20 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { AuthService } from '../auth.service';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService, private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest();
-    const openPaths = new Set([
-      '/auth/login',
-      '/auth/register',
-      '/auth/logout',
-      '/auth/forgot-password',
-      '/auth/reset-password',
-      '/healthz',
-      '/readyz',
-      '/docs-json',
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
     ]);
-    const openPrefixes = ['/docs'];
-    if (openPaths.has(req.path) || openPrefixes.some((p) => req.path.startsWith(p))) {
-      return true;
-    }
+    if (isPublic) return true;
+
+    const req = context.switchToHttp().getRequest();
     const authHeader = req.headers['authorization'] || '';
     const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const cookies = (req.headers['cookie'] || '')
@@ -35,7 +29,7 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
     const payload = this.auth.verify(token);
-    if (!payload) {
+    if (!payload || typeof payload.sub !== 'string') {
       throw new UnauthorizedException();
     }
     req.user = payload;

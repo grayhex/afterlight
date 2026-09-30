@@ -42,7 +42,7 @@ describe('core flow: public links', () => {
     }));
 
     const token = String(put.body.url).split('/p/')[1];
-    const open1 = await ctx.request('GET', `/p/${token}`);
+    const open1 = await ctx.request('GET', `/p/${token}`, undefined, owner.id);
     expect(open1.status).toBe(200);
     expect(open1.body).toEqual(expect.objectContaining({
       block_id: blockRes.body.id,
@@ -51,7 +51,7 @@ describe('core flow: public links', () => {
       updated_at: expect.any(String),
     }));
 
-    const open2 = await ctx.request('GET', `/p/${token}`);
+    const open2 = await ctx.request('GET', `/p/${token}`, undefined, owner.id);
     expect([404, 410]).toContain(open2.status);
   });
 

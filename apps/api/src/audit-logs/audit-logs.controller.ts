@@ -1,13 +1,16 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { AuditLogsService } from './audit-logs.service';
-import { CreateAuditLogDto } from './dto/create-audit-log.dto';
-import { UpdateAuditLogDto } from './dto/update-audit-log.dto';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
+// Журнал аудита только для чтения и только для администратора платформы: записи пишет сервер,
+// создавать, менять или удалять их через API нельзя.
 @ApiTags('audit-logs')
 @ApiBearerAuth()
 @ApiErrorResponses()
+@Roles(UserRole.Admin)
 @Controller('audit-logs')
 export class AuditLogsController {
   constructor(private readonly service: AuditLogsService) {}
@@ -18,22 +21,7 @@ export class AuditLogsController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
+  get(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(id);
-  }
-
-  @Post()
-  create(@Body() dto: CreateAuditLogDto) {
-    return this.service.create(dto);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateAuditLogDto) {
-    return this.service.update(id, dto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
   }
 }

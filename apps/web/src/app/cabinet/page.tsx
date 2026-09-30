@@ -18,7 +18,14 @@ export default function CabinetPage() {
   const { role } = useAuth();
 
   if (role === "owner") {
-    return <OwnerCabinet />;
+    // Глобальная роль Owner у всех, кто регистрировался сам; принятое приглашение даёт только членство
+    // в чужом сейфе. Поэтому кабинет верификатора показывается и владельцу — если у него есть такие сейфы.
+    return (
+      <>
+        <OwnerCabinet />
+        <VerifierCabinet embedded />
+      </>
+    );
   }
 
   if (role === "verifier") {
@@ -276,14 +283,20 @@ function OwnerCabinet() {
             <AnimatePresence>
                 {verifiers.map((v: any, idx: number) => (
                   <motion.div
-                    key={v.userId || v.user?.id || idx}
+                    key={v.user_id || v.invitation_id || idx}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="rounded bg-bodaghee-bg p-4 text-white shadow"
                 >
-                    {v.email || v.user?.email}
+                    {v.email}
+                    {v.status === "Invited" && (
+                      <span className="ml-2 text-sm text-white/70">(ожидает принятия)</span>
+                    )}
+                    {v.status === "Revoked" && (
+                      <span className="ml-2 text-sm text-white/70">(отозван)</span>
+                    )}
                   </motion.div>
                 ))}
             </AnimatePresence>
@@ -394,15 +407,20 @@ function OwnerCabinet() {
   );
 }
 
-function VerifierCabinet() {
+function VerifierCabinet({ embedded = false }: { embedded?: boolean }) {
   const [events, setEvents] = useState<VerificationEvent[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    httpClient("/verification-events", { method: "GET" })
-      .then((res) => res.json())
+    httpClient("/verification-events?as=verifier", { method: "GET" })
+      .then((res) => (res.ok ? res.json() : []))
       .then(setEvents)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
+
+  // во встроенном виде показываем блок, только если пользователь действительно верификатор каких-то сейфов
+  if (embedded && (!loaded || events.length === 0)) return null;
 
   const updateEvent = (evt: VerificationEvent) => {
     setEvents((prev) => prev.map((e) => (e.id === evt.id ? evt : e)));
@@ -413,8 +431,14 @@ function VerifierCabinet() {
       method: "POST",
     });
 
-    if (res.status === 403 || res.status === 404) {
-      alert(res.status === 403 ? "Доступ запрещён" : "Событие не найдено");
+    if (res.status === 403 || res.status === 404 || res.status === 409) {
+      alert(
+        res.status === 403
+          ? "Доступ запрещён"
+          : res.status === 404
+            ? "Событие не найдено"
+            : "Событие уже не принимает решения",
+      );
       return;
     }
 

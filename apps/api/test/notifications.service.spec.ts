@@ -1,5 +1,6 @@
 import { NotificationsService } from '../src/notifications/notifications.service';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { Logger } from '@nestjs/common';
 
 describe('NotificationsService', () => {
   let prisma: any;
@@ -45,5 +46,28 @@ describe('NotificationsService', () => {
     await service.sendVerifierInvitation('v1', 'to@example.com', 'tok');
     expect(enqueueSpy).toHaveBeenCalledWith('v1', 'to@example.com', expect.objectContaining({ subject: expect.any(String) }));
     expect(flushSpy).toHaveBeenCalled();
+  });
+
+  describe('logs', () => {
+    afterEach(() => { jest.restoreAllMocks(); });
+
+    it('never log the email body, which may carry one-time tokens', async () => {
+      const lines: string[] = [];
+      jest.spyOn(Logger.prototype, 'log').mockImplementation((m: any) => { lines.push(String(m)); });
+      prisma.notification.findMany.mockResolvedValue([
+        { id: 'n1', toContact: 'a@example.com', payload: { subject: 'Reset', text: 'token=SECRET-TOKEN-123' } },
+      ]);
+      await service.flushEmailQueue();
+      expect(lines.join('\n')).toContain('a@example.com');
+      expect(lines.join('\n')).not.toContain('SECRET-TOKEN-123');
+    });
+
+    it('puts the invitation token into the URL fragment so it stays out of access logs', async () => {
+      prisma.notification.findMany.mockResolvedValue([]);
+      await service.sendVerifierInvitation('v1', 'ver@example.com', 'tok123');
+      const text = (prisma.notification.create.mock.calls[0][0] as any).data.payload.text as string;
+      expect(text).toContain('/invite#token=tok123');
+      expect(text).not.toContain('?token=');
+    });
   });
 });
