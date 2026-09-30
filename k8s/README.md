@@ -1,4 +1,4 @@
-> **Статус: непервостепенный путь.** Основной путь запуска — Docker Compose (`docs/deploy.md`); манифесты здесь экспериментальные (см. `docs/mvp-contract.md`, D9).
+> **Предложение (D9 в [`docs/mvp-contract.md`](../docs/mvp-contract.md), не принято владельцем):** считать k3s-манифесты непервостепенным путём, а основным — Docker Compose (`docs/deploy.md`). До подтверждения D9 текущий способ развёртывания не меняется.
 
 # AfterLight k8s (staging)
 
