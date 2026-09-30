@@ -19,14 +19,17 @@ env:
   IMAGE_WEB: afterlight-web
   SHA: ${{ github.event.workflow_run.head_sha }}
 
-# Выкладки не отменяем на середине: следующая ждёт своей очереди
+# Выкладки не отменяем на середине: следующая ждёт своей очереди. Запуски одной группы идут строго по очереди,
+# поэтому более новый коммит не может быть выложен раньше предыдущего и затем перезаписан им.
 concurrency:
   group: cd-main
   cancel-in-progress: false
 
 jobs:
   # Повторный запуск старого успешного ci тоже даёт workflow_run (push, main, success) для УСТАРЕВШЕГО коммита.
-  # Выкладываем только если head_sha — всё ещё вершина main, иначе откатили бы прод на старую версию.
+  # SHA считается актуальным, если он — вершина main ИЛИ после него в main менялись только файлы, которые не запускают ci
+  # (тот же список, что paths-ignore в ci.yml: у такого коммита нет собственного запуска cd, и выкладывать код больше некому).
+  # Иначе это устаревшая версия: у более нового кода свой запуск cd, и откатывать на старую нельзя.
   gate:
     name: is-current-main
     if: >-
@@ -40,18 +43,28 @@ jobs:
     outputs:
       current: ${{ steps.head.outputs.current }}
     steps:
-      - name: Compare head_sha with the current tip of main
+      - name: Is head_sha still the latest deployable revision of main?
         id: head
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tip=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.sha" \
-            "https://api.github.com/repos/${{ github.repository }}/commits/main")
+          api() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$@"; }
+          tip=$(api -H "Accept: application/vnd.github.sha" "https://api.github.com/repos/${{ github.repository }}/commits/main")
           if [ "$tip" = "$SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          cmp=$(api "https://api.github.com/repos/${{ github.repository }}/compare/$SHA...$tip?per_page=100")
+          status=$(jq -r .status <<<"$cmp")
+          nfiles=$(jq '.files | length' <<<"$cmp")
+          # файлы, не запускающие ci (синхронизировать с on.push.paths-ignore в ci.yml)
+          deployable=$(jq -r '.files[].filename' <<<"$cmp" \
+            | grep -Ev '(\.md$|^docs/|^\.github/ISSUE_TEMPLATE/|^\.github/PULL_REQUEST_TEMPLATE|^LICENSE)' || true)
+          if [ "$status" = "ahead" ] && [ "$nfiles" -lt 300 ] && [ -z "$deployable" ]; then
             echo "current=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::main moved to $tip, but only documentation changed since $SHA: deploying $SHA"
           else
             echo "current=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::$SHA is not the tip of main ($tip): this run is stale (a re-run of an older ci?), nothing is built or deployed"
+            echo "::notice::$SHA is superseded by $tip (status=$status): stale run (re-run of an older ci?), nothing is built or deployed"
           fi
 
   build:
@@ -104,18 +117,6 @@ jobs:
     env:
       NS: afterlight
     steps:
-      # пока шла сборка, в main мог попасть более новый коммит: тогда его собственный запуск cd выложит его, а этот — нет
-      - name: Still the tip of main?
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tip=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.sha" \
-            "https://api.github.com/repos/${{ github.repository }}/commits/main")
-          if [ "$tip" != "$SHA" ]; then
-            echo "::error::$SHA is no longer the tip of main ($tip): refusing to deploy a superseded revision"
-            exit 1
-          fi
-
       - name: Write kubeconfig from secret
         run: |
           mkdir -p "$HOME/.kube"
