@@ -18,7 +18,14 @@ export default function CabinetPage() {
   const { role } = useAuth();
 
   if (role === "owner") {
-    return <OwnerCabinet />;
+    // Глобальная роль Owner у всех, кто регистрировался сам; принятое приглашение даёт только членство
+    // в чужом сейфе. Поэтому кабинет верификатора показывается и владельцу — если у него есть такие сейфы.
+    return (
+      <>
+        <OwnerCabinet />
+        <VerifierCabinet embedded />
+      </>
+    );
   }
 
   if (role === "verifier") {
@@ -400,15 +407,20 @@ function OwnerCabinet() {
   );
 }
 
-function VerifierCabinet() {
+function VerifierCabinet({ embedded = false }: { embedded?: boolean }) {
   const [events, setEvents] = useState<VerificationEvent[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    httpClient("/verification-events", { method: "GET" })
-      .then((res) => res.json())
+    httpClient("/verification-events?as=verifier", { method: "GET" })
+      .then((res) => (res.ok ? res.json() : []))
       .then(setEvents)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoaded(true));
   }, []);
+
+  // во встроенном виде показываем блок, только если пользователь действительно верификатор каких-то сейфов
+  if (embedded && (!loaded || events.length === 0)) return null;
 
   const updateEvent = (evt: VerificationEvent) => {
     setEvents((prev) => prev.map((e) => (e.id === evt.id ? evt : e)));

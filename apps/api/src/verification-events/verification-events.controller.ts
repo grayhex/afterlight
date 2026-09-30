@@ -15,11 +15,13 @@ export class VerificationEventsController {
 
   @Get()
   @ApiQuery({ name: 'vault_id', required: false, description: 'Без vault_id — события доступных вам сейфов' })
+  @ApiQuery({ name: 'as', required: false, enum: ['verifier'], description: 'verifier — только сейфы, где вы активный верификатор' })
   list(
     @CurrentUser() user: AuthenticatedUser,
     @Query('vault_id', new ParseUUIDPipe({ optional: true })) vaultId?: string,
+    @Query('as') asRole?: string,
   ) {
-    return this.service.list(user.sub, vaultId);
+    return this.service.list(user.sub, vaultId, asRole);
   }
 
   @Post()

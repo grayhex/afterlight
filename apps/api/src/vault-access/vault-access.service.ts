@@ -75,4 +75,12 @@ export class VaultAccessService {
     ]);
     return [...new Set([...owned.map((v) => v.id), ...links.map((l) => l.vaultId)])];
   }
+
+  /** Сейфы, где пользователь — активный верификатор (не владелец): именно там он голосует. */
+  async verifierVaultIds(userId: string): Promise<string[]> {
+    const links = await this.prisma.vaultUserRole.findMany({
+      where: { userId, status: 'Active', role: UserRole.Verifier },
+    });
+    return links.map((l) => l.vaultId);
+  }
 }
