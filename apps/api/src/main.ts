@@ -1,10 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { PrismaService } from './prisma/prisma.service';
-import helmet from 'helmet';
-import { json } from 'express';
+import { configureApp } from './app.setup';
 
 type RequiredEnvVar = 'JWT_SECRET' | 'DATABASE_URL' | 'CORS_ALLOWED_ORIGINS';
 
@@ -39,14 +37,7 @@ async function bootstrap() {
     .filter(Boolean);
   app.enableCors({ origin: corsOrigins, credentials: true });
 
-  app.use(helmet());
-  app.use(json({ limit: process.env.JSON_BODY_LIMIT || '100kb' }));
-
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    transform: true,
-    forbidUnknownValues: false,
-  }));
+  configureApp(app);
 
   const config = new DocumentBuilder()
     .setTitle('AfterLight API')

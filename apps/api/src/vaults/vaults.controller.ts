@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { VaultsService } from './vaults.service';
 import { CreateVaultDto } from './dto/create-vault.dto';
@@ -23,7 +23,7 @@ export class VaultsController {
   }
 
   @Get(':id')
-  get(@CurrentUser() user: any, @Param('id') id: string) {
+  get(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.getForUser(user.sub, id);
   }
 
@@ -35,7 +35,7 @@ export class VaultsController {
   @Patch(':id/settings')
   updateSettings(
     @CurrentUser() user: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateVaultSettingsDto,
   ) {
     return this.service.updateSettings(user.sub, id, dto);

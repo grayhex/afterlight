@@ -84,6 +84,36 @@ cd apps/web && npm run dev
 
 ---
 
+## ✅ Проверки (то же, что в CI)
+
+API, из `apps/api`:
+
+```bash
+npm ci
+npx prisma validate && npx prisma format --check
+npx prisma generate
+npm run typecheck          # src + тесты
+npm run build
+npm run test:unit          # изолированные тесты с моками (npm test — то же самое)
+```
+
+Integration-тесты ходят по HTTP в настоящее приложение (те же guard'ы и pipes, что в runtime) и в настоящий PostgreSQL.
+Им нужна **отдельная** БД, в имени которой есть `test`, — перед каждым тестом таблицы очищаются, с другой БД тесты откажутся работать:
+
+```bash
+docker run -d --name afterlight-test-db -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=afterlight_test postgres:16
+export DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/afterlight_test?schema=public"
+npx prisma migrate deploy
+npm run test:integration
+```
+
+Проверка, что схема совпадает с миграциями: `npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code`.
+
+Web, из `apps/web`: `npm ci && npx tsc --noEmit && npm test && npm run build`
+(пока сборка web требует выполненного `npm ci` в `apps/api`).
+
+---
+
 ## 🖥️ Deploy на сервер (рекомендуемый путь)
 
 Для VPS/dedicated сервера добавлен готовый сценарий через Docker Compose:

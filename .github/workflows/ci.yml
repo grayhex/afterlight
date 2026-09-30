@@ -5,12 +5,41 @@ on:
   pull_request:
     branches: [ main ]
 
+# Только чтение: проверки PR (в том числе из форков) не получают ни секретов, ни прав на запись,
+# работают на GitHub-hosted runner.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
 jobs:
   api:
+    name: api
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: afterlight_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      # Достаточно, чтобы Prisma прочитал схему; подключения не будет
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/afterlight_ci?schema=public
+      # Имя БД содержит "test": integration-тесты очищают таблицы и отказываются работать с другой БД
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/afterlight_test?schema=public
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else
+      CORS_ALLOWED_ORIGINS: http://localhost:3001
     defaults:
       run:
         working-directory: apps/api
@@ -19,21 +48,131 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
 
+      # Только по lock-файлу, без fallback на npm i
       - name: Install deps
-        run: npm ci || npm i
+        run: npm ci
 
-      - name: Prisma validate
-        run: npx prisma validate
+      - name: Prisma validate / format
+        run: |
+          npx prisma validate
+          npx prisma format --check
 
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Typecheck (src + tests)
+        run: npm run typecheck
+
       - name: Build (Nest)
         run: npm run build
 
-      - name: Unit and HTTP regression tests
-        run: npm test -- --runInBand
+      - name: Unit tests (mocks)
+        run: npm run test:unit
+
+      - name: Migrate from scratch
+        run: npx prisma migrate deploy
+
+      - name: Schema matches migrations (no drift)
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
+      - name: Seed
+        run: npx prisma db seed
+
+      - name: Integration tests (real PostgreSQL, real guards)
+        run: npm run test:integration
+
+  migrations-upgrade:
+    name: migrations-upgrade
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
         env:
-          JWT_SECRET: ci-test-secret
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: afterlight_upgrade
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/afterlight_upgrade?schema=public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pr
+
+      - name: Checkout base branch (previous DB state)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: pr/apps/api/package-lock.json
+
+      - name: Install deps
+        working-directory: pr/apps/api
+        run: npm ci
+
+      # БД в состоянии base-ветки, затем миграции PR поверх неё (как при обновлении существующей установки)
+      - name: Apply base migrations
+        working-directory: pr/apps/api
+        run: npx prisma migrate deploy --schema ../../../base/apps/api/prisma/schema.prisma
+
+      - name: Apply PR migrations on top
+        working-directory: pr/apps/api
+        run: npx prisma migrate deploy
+
+      - name: No drift after upgrade
+        working-directory: pr/apps/api
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+
+      # prebuild web пока копирует Prisma client из apps/api (будет убрано отдельным шагом задачи #148)
+      - name: Install deps (api, for the current web prebuild)
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Install deps (web)
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: apps/web
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        working-directory: apps/web
+        run: npm test
+
+      - name: Build
+        working-directory: apps/web
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/unused
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run build

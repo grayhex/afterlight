@@ -1,4 +1,4 @@
-import { OrchestratorService } from '../src/orchestrator/orchestrator.service';
+import { OrchestratorService } from '../../src/orchestrator/orchestrator.service';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 /** Голоса считаются только у активных верификаторов сейфа: findMany ролей + findMany решений. */

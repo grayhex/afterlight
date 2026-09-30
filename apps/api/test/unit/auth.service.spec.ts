@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { AuthService } from '../src/auth/auth.service';
+import { AuthService } from '../../src/auth/auth.service';
 import { createHash } from 'crypto';
 
 describe('AuthService password reset flow', () => {

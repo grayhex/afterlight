@@ -1,22 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { bootstrapE2eApp, closeE2eApp } from './test-helper';
+import { bootstrapApp, closeApp, Ctx } from './helper';
 
 describe('core flow: public links', () => {
-  let ctx: Awaited<ReturnType<typeof bootstrapE2eApp>>;
+  let ctx: Ctx;
 
-  beforeEach(async () => {
-    ctx = await bootstrapE2eApp();
-  });
-
-  afterEach(async () => {
-    if (ctx) await closeE2eApp(ctx.app, ctx.time);
-  });
+  beforeEach(async () => { ctx = await bootstrapApp(); });
+  afterEach(async () => { await closeApp(ctx); });
 
   it('creates public link and returns deterministic payload', async () => {
     const owner = await ctx.factory.createUser({ email: 'owner+pl@test.local' });
     const vault = await ctx.factory.createVault(owner.id);
-    const recipient = await ctx.factory.createRecipient({ contact: 'recipient+pl@mail.test' });
-    expect(recipient).toBeDefined();
 
     const blockRes = await ctx.request('POST', '/blocks', {
       vault_id: vault.id,
