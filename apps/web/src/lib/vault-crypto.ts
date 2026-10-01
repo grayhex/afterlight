@@ -46,16 +46,29 @@ export async function generateKey(): Promise<CryptoKey> {
 }
 
 export const exportRawKey = async (key: CryptoKey): Promise<Bytes> => new Uint8Array(await subtle().exportKey('raw', key));
-export const importRawKey = (raw: Uint8Array): Promise<CryptoKey> =>
-  subtle().importKey('raw', raw as Bytes, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+
+const AES_KEY_BYTES = 32;
+
+/** `length: 256` не ограничивает импорт сырого ключа: 16 или 24 байта дали бы AES-128/192, поэтому длину проверяем сами. */
+export async function importRawKey(raw: Uint8Array): Promise<CryptoKey> {
+  if (raw.byteLength !== AES_KEY_BYTES) throw new CryptoFormatError('Key must be 32 bytes (AES-256)');
+  return subtle().importKey('raw', raw as Bytes, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+}
+
+function assertAes256(key: CryptoKey): void {
+  const a = key.algorithm as Partial<AesKeyAlgorithm>;
+  if (a.name !== 'AES-GCM' || a.length !== 256) throw new CryptoFormatError('Key must be AES-256-GCM');
+}
 
 export async function seal(key: CryptoKey, plaintext: Uint8Array, context: Uint8Array): Promise<string> {
+  assertAes256(key);
   const iv = random(IV_BYTES);
   const ct = new Uint8Array(await subtle().encrypt({ name: 'AES-GCM', iv, additionalData: context as Bytes }, key, plaintext as Bytes));
   return `${ENVELOPE_VERSION}.${toB64Url(iv)}.${toB64Url(ct)}`;
 }
 
 export async function open(key: CryptoKey, envelope: string, context: Uint8Array): Promise<Bytes> {
+  assertAes256(key);
   const parts = envelope.split('.');
   if (parts.length !== 3 || parts[0] !== ENVELOPE_VERSION) throw new CryptoFormatError('Unsupported envelope');
   const iv = fromB64Url(parts[1]);

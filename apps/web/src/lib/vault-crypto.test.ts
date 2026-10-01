@@ -11,6 +11,7 @@ import {
   generateKey,
   generateRecipientKeyPair,
   generateRecoveryCode,
+  importRawKey,
   importKeyBackup,
   keyFingerprint,
   open,
@@ -67,6 +68,21 @@ describe('block envelope (AES-256-GCM, v1)', () => {
     const ctx = contextOf('mk', VAULT);
     const payload = new Uint8Array([0, 1, 2, 255]);
     expect(Array.from(await open(key, await seal(key, payload, ctx), ctx))).toEqual([0, 1, 2, 255]);
+  });
+});
+
+describe('symmetric keys are always AES-256', () => {
+  it('rejects raw keys that are not 32 bytes, and AES-128 keys passed to seal/open', async () => {
+    for (const n of [0, 16, 24, 31, 33, 64]) {
+      await expect(importRawKey(new Uint8Array(n))).rejects.toBeInstanceOf(CryptoFormatError);
+    }
+    expect(await importRawKey(new Uint8Array(32))).toBeTruthy();
+
+    const aes128 = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 128 }, true, ['encrypt', 'decrypt']);
+    await expect(seal(aes128, new Uint8Array([1]), contextOf('block', VAULT, BLOCK))).rejects.toBeInstanceOf(CryptoFormatError);
+    const good = await generateKey();
+    const envelope = await seal(good, new Uint8Array([1]), contextOf('block', VAULT, BLOCK));
+    await expect(open(aes128, envelope, contextOf('block', VAULT, BLOCK))).rejects.toBeInstanceOf(CryptoFormatError);
   });
 });
 
