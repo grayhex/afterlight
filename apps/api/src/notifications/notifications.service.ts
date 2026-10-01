@@ -224,14 +224,14 @@ export class NotificationsService implements OnModuleDestroy {
         WHERE channel = 'email'::"NotificationChannel" AND state = 'Queued'::"NotificationState"
           AND next_attempt_at <= ${iso}::timestamp
           AND (locked_until IS NULL OR locked_until <= ${iso}::timestamp)
-          -- порядок: пока другое письмо того же вида и ключа в полёте (в т.ч. снятое во время отправки или
-          -- отправка которого ещё не завершилась после таймаута), это письмо ждёт. Время создания для порядка не используется:
+          -- порядок: пока другое письмо того же вида и ключа в полёте (в любом состоянии: Queued, снятое во время
+          -- отправки или Failed после финального таймаута, пока отправка ещё не завершилась), это письмо ждёт. Время создания для порядка не используется:
           -- более старое Queued-письмо при появлении нового снимается, поэтому «в полёте» может быть только предшественник
           AND NOT EXISTS (
             SELECT 1 FROM notification o
             WHERE o.kind = notification.kind AND o.supersede_key = notification.supersede_key
               AND o.id <> notification.id
-              AND o.locked_until > ${iso}::timestamp AND o.state IN ('Queued'::"NotificationState", 'Cancelled'::"NotificationState"))
+              AND o.locked_until > ${iso}::timestamp)
         ORDER BY next_attempt_at, created_at
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED`);

@@ -391,6 +391,22 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       expect(ctx.mail.to('newer@test.local')).toHaveLength(1);
       expect(ctx.mail.to('older@test.local')).toHaveLength(0);
     });
+
+    it('the ordering blocker also covers a leased Failed mail (final attempt timed out while the send is still running)', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      const key = `${vault.id}:someone-else`;
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'old2@test.local', { subject: 'Started', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      await ctx.mail.start();
+      await ctx.db.notification.updateMany({ data: { state: 'Failed', lockedUntil: secs(60), attempts: 4, lastError: 'ETIMEDOUT: no confirmation within the send timeout' } });
+      await svc().enqueueEmail(vault.id, 'new2@test.local', { subject: 'Cancelled', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 0 });
+      ctx.clock.setNow(secs(61)); // аренда истекла: отправка гарантированно завершилась или оборвалась
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 1, sent: 1 });
+      expect(ctx.mail.to('new2@test.local')).toHaveLength(1);
+    });
   });
 
   describe('account recovery works without a vault', () => {
