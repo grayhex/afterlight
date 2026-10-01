@@ -33,7 +33,7 @@
 - **Backend**: NestJS 12 (ESM) + Prisma 7 + PostgreSQL 16, TypeScript 6
 - **Frontend**: Next.js 16 (SSR), React 19, Tailwind 4
 - **Runtime**: Node.js 24 LTS
-- **Infra**: Docker / Docker Compose, Kubernetes manifests (`k8s/`)
+- **Infra**: Docker / Docker Compose (единственный поддерживаемый путь запуска; манифесты `k8s/` — архив)
 
 ---
 
@@ -140,7 +140,7 @@ docker compose -f docker-compose.server.yml run --rm migrate
 - `docs/INSTALL.md` — установка и запуск.
 - `docs/web.md` — структура web-части.
 - `docs/ops/EnvVars.md` — переменные окружения.
-- `k8s/README.md` — Kubernetes сценарий.
+- `k8s/README.md` — архив: k3s не поддерживается (решение D9).
 
 ---
 
