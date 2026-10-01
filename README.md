@@ -131,13 +131,15 @@ Web, из `apps/web`: `npm ci && npm run lint && npm run typecheck && npm test &
 cp .env.example .env
 # отредактируйте секреты в .env
 
-docker compose -f docker-compose.server.yml up -d --build db api web
-docker compose -f docker-compose.server.yml run --rm migrate
+docker compose -f docker-compose.server.yml build api web migrate
+docker compose -f docker-compose.server.yml up -d db
+docker compose -f docker-compose.server.yml run --rm migrate   # миграции — до запуска/замены API
+docker compose -f docker-compose.server.yml up -d api web
 ```
 
 **Аккаунты.** Адрес электронной почты нормализуется (регистр не важен) и подтверждается письмом: ссылка `/verify-email#token=…` одноразовая и живёт 24 часа. До подтверждения закрыты создание сейфа, принятие приглашения, запуск процесса и голосование (ответ 403 «Email address is not verified»); повторное письмо — `POST /auth/resend-verification` (пауза 60 с, не более 5 писем в час). Приглашённый без аккаунта регистрируется по токену из письма-приглашения: получение письма доказывает владение адресом, и подтверждение не требуется; приглашение затем принимается отдельным действием после входа.
 
-**Почта.** В production API не стартует без `MAIL_FROM` и `MAIL_SMTP_HOST` (домены `example.*`/localhost запрещены); параметры SMTP-сервера, TLS и очереди — в `.env.example` (раздел MAIL). Реальные рассылки не запускайте, пока не настроен и не проверен почтовый сервер: сначала используйте sandbox. Восстановление **аккаунта** (сброс пароля) работает по почте и не требует сейфа; ключи шифрования и содержимое сейфа по почте **не восстанавливаются**.
+**Почта.** В production API не стартует без `MAIL_FROM` и `MAIL_SMTP_HOST` (домены `example.*`/localhost запрещены); параметры SMTP-сервера, TLS и очереди — в `.env.example` (раздел MAIL). Реальные рассылки не запускайте, пока не настроен и не проверен почтовый сервер: сначала используйте sandbox. Восстановление **аккаунта** (сброс пароля) работает по почте и не требует сейфа; ключи шифрования и содержимое сейфа по почте **не восстанавливаются**. Ссылка из письма ведёт на `/reset-password#token=…` (токен во фрагменте, не в query). Сброс пароля и выход отзывают все выданные токены сессии: `user.session_version` входит в JWT и проверяется при каждом запросе.
 
 **CSRF.** Запросы, меняющие состояние, с заголовком `Origin` не из `CORS_ALLOWED_ORIGINS` отклоняются (403) — защита cookie-сессии поверх `SameSite=Lax`; значение должно совпадать с адресом, с которого пользователи открывают веб. Клиенты без `Origin` (curl, серверные вызовы) не браузерные и допускаются.
 

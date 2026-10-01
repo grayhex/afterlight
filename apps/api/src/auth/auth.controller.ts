@@ -18,6 +18,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { VerifyEmailDto } from './dto/verify-email.dto.js';
 import { Response, Request } from 'express';
 import { Public } from './decorators/public.decorator.js';
+import { extractToken } from './guards/auth.guard.js';
 
 @ApiTags('auth')
 @ApiErrorResponses()
@@ -60,14 +61,20 @@ export class AuthController {
       throw new UnauthorizedException();
     }
     await this.auth.recordLogin(user.id);
-    const token = this.auth.sign(user.id);
+    const token = this.auth.sign(user.id, user.sessionVersion);
     res.cookie('token', token, this.tokenCookieOptions);
     return { id: user.id, email: user.email, role: user.role, email_verified: !!user.emailVerifiedAt };
   }
 
   @Public()
   @Post('logout')
-  async logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    // выход отзывает токены на сервере (все устройства), а не только очищает cookie
+    const token = extractToken(req);
+    const payload = token ? this.auth.verify(token) : null;
+    if (payload && typeof payload.sub === 'string' && (await this.auth.isSessionCurrent(payload))) {
+      await this.auth.revokeSessions(payload.sub);
+    }
     res.clearCookie('token', {
       path: this.tokenCookieOptions.path,
       sameSite: this.tokenCookieOptions.sameSite,

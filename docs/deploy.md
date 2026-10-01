@@ -76,14 +76,17 @@ WEB_PORT=80
 ## 4) Первый запуск
 
 ```bash
-# 1) Собрать и поднять базовые сервисы
-docker compose -f docker-compose.server.yml up -d --build db api web
+# 1) Собрать образы и поднять базу
+docker compose -f docker-compose.server.yml build api web migrate
+docker compose -f docker-compose.server.yml up -d db
 
-# 2) Прогнать миграции
-# (job завершится с кодом 0)
+# 2) Прогнать миграции до запуска API (job завершится с кодом 0)
 docker compose -f docker-compose.server.yml run --rm migrate
 
-# 3) Проверить статус
+# 3) Поднять API и web
+docker compose -f docker-compose.server.yml up -d api web
+
+# 4) Проверить статус
 docker compose -f docker-compose.server.yml ps
 curl -f http://127.0.0.1:${WEB_PORT:-80}/ || true
 curl -f http://127.0.0.1:${WEB_PORT:-80}/api/healthz || true
@@ -95,9 +98,13 @@ curl -f http://127.0.0.1:${WEB_PORT:-80}/api/healthz || true
 
 ```bash
 git pull
-docker compose -f docker-compose.server.yml up -d --build api web
+docker compose -f docker-compose.server.yml build api web migrate
+# миграции — до замены API: новый код читает новые колонки и без них отвечает 500
 docker compose -f docker-compose.server.yml run --rm migrate
+docker compose -f docker-compose.server.yml up -d api web
 ```
+
+Поэтому каждая миграция должна быть совместима с предыдущей версией API (только добавление: новые колонки с умолчанием, таблицы, индексы; удаление и переименование — отдельным релизом после того, как старый код перестал их использовать). Иначе старый API на время между шагами работает с изменённой схемой.
 
 ---
 

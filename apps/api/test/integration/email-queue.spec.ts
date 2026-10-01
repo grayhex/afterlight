@@ -160,7 +160,7 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       await svc().dispatchDue();
       const mails = ctx.mail.to('twice@test.local');
       expect(mails).toHaveLength(1);
-      const token = mails[0].text.match(/: ([0-9a-f]{64})/)?.[1] as string;
+      const token = mails[0].text.match(/\/reset-password#token=([0-9a-f]{64})/)?.[1] as string;
       const stored = await ctx.db.passwordResetToken.findFirstOrThrow();
       expect(createHash('sha256').update(token).digest('hex')).toBe(stored.tokenHash); // письмо несёт действующий токен
     });
@@ -202,7 +202,7 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       await svc().dispatchDue();
       const mails = ctx.mail.to('burst@test.local');
       expect(mails).toHaveLength(1);
-      const token = mails[0].text.match(/: ([0-9a-f]{64})/)?.[1] as string;
+      const token = mails[0].text.match(/\/reset-password#token=([0-9a-f]{64})/)?.[1] as string;
       expect(createHash('sha256').update(token).digest('hex')).toBe((await ctx.db.passwordResetToken.findFirstOrThrow()).tokenHash);
     });
 
@@ -234,7 +234,7 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       await ctx.mail.stop();
       await ctx.request('POST', '/auth/forgot-password', { email: 'consumed@test.local' });
       const [queued] = await rows();
-      const token = (queued.payload as any).text.match(/: ([0-9a-f]{64})/)[1] as string; // письмо «ушло, но подтверждение потерялось»
+      const token = (queued.payload as any).text.match(/\/reset-password#token=([0-9a-f]{64})/)[1] as string; // письмо «ушло, но подтверждение потерялось»
       expect((await ctx.request('POST', '/auth/reset-password', { token, password: 'new-password-1' })).status).toBe(201);
       expect((await rows())[0]).toMatchObject({ state: 'Cancelled', lastError: 'token consumed' });
 
@@ -472,7 +472,7 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
 
       const mails = ctx.mail.to('novault@test.local');
       expect(mails).toHaveLength(1);
-      const token = mails[0].text.match(/: ([0-9a-f]{64})/)?.[1] as string;
+      const token = mails[0].text.match(/\/reset-password#token=([0-9a-f]{64})/)?.[1] as string;
       expect(token).toBeTruthy();
       expect(mails[0].text).toContain('ключи шифрования по почте не восстанавливаются');
 

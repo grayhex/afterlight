@@ -11,8 +11,18 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   private toDto(user: User): UserDto {
-    const { passwordHash, passkeyPub, phone, ...data } = user;
-    return { ...data, ...(phone ? { phone } : {}) };
+    // Явный список полей (как UserDto): внутренние passwordHash, passkeyPub, sessionVersion и прочее наружу не попадают
+    return {
+      id: user.id,
+      email: user.email,
+      ...(user.phone ? { phone: user.phone } : {}),
+      twoFaEnabled: user.twoFaEnabled,
+      emailVerifiedAt: user.emailVerifiedAt,
+      role: user.role,
+      locale: user.locale,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   async list(): Promise<UserDto[]> {
