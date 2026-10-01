@@ -38,7 +38,9 @@ describe('email templates', () => {
 
   it('the finalization mail does not promise a content handover that the system does not perform yet', () => {
     const { owner, verifiers } = eventMessages.finalized();
-    expect(owner.text).toMatch(/отдельным шагом/);
+    expect(owner.text).toMatch(/не выполняется/);
+    expect(owner.text).toMatch(/получатель этим письмом не уведомляется/);
+    expect(owner.text).not.toMatch(/уведомляется отдельно/);
     expect(verifiers.text).toMatch(/не передаётся/);
   });
 });
