@@ -43,6 +43,37 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Контакты приводятся к каноническому виду (нижний регистр, без пробелов по краям), как это делают новые запросы.
+-- Записи одного сейфа, совпавшие после приведения, сливаются в одну: остаётся запись с ключом (затем самая старая),
+-- назначения остальных переносятся к ней (если такое назначение у неё уже есть — дубликат отбрасывается).
+UPDATE recipient SET contact = lower(btrim(contact)) WHERE vault_id IS NULL;
+DO $$
+DECLARE
+  grp RECORD;
+  keeper UUID;
+  other RECORD;
+BEGIN
+  FOR grp IN
+    SELECT vault_id AS vid, lower(btrim(contact)) AS c
+    FROM recipient WHERE vault_id IS NOT NULL
+    GROUP BY 1, 2 HAVING count(*) > 1
+  LOOP
+    SELECT id INTO keeper FROM recipient
+      WHERE vault_id = grp.vid AND lower(btrim(contact)) = grp.c
+      ORDER BY (pubkey IS NOT NULL AND btrim(pubkey) <> '') DESC, created_at, id LIMIT 1;
+    FOR other IN
+      SELECT id FROM recipient WHERE vault_id = grp.vid AND lower(btrim(contact)) = grp.c AND id <> keeper
+    LOOP
+      UPDATE block_recipient br SET recipient_id = keeper
+        WHERE br.recipient_id = other.id
+          AND NOT EXISTS (SELECT 1 FROM block_recipient k WHERE k.block_id = br.block_id AND k.recipient_id = keeper);
+      DELETE FROM block_recipient WHERE recipient_id = other.id;
+      DELETE FROM recipient WHERE id = other.id;
+    END LOOP;
+  END LOOP;
+END $$;
+UPDATE recipient SET contact = lower(btrim(contact)) WHERE vault_id IS NOT NULL;
+
 -- Унаследованный ключ никем не подтверждён: заявленным он считается, но подтверждённого отпечатка нет,
 -- а прежние упаковки DEK (wrapped_for_fingerprint IS NULL) недействительны, пока владелец не подтвердит ключ и не назначит заново.
 UPDATE "recipient"
