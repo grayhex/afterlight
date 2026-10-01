@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
-import { User } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
 import { UserDto } from './dto/user.dto.js';
 import { normalizeEmail } from '../common/email.js';
 
@@ -34,6 +34,8 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto): Promise<UserDto> {
     const normalized = dto.email ? normalizeEmail(dto.email) : undefined;
     const user = await this.prisma.$transaction(async (tx) => {
+      // Та же блокировка строки пользователя, что у выдачи токенов (forgot/resend): смена адреса и выдача токена идут по очереди
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "user" WHERE id = ${id}::uuid FOR UPDATE`);
       const current = normalized ? await tx.user.findUnique({ where: { id }, select: { email: true } }) : null;
       const changed = !!normalized && !!current && current.email !== normalized;
       const updated = await tx.user.update({

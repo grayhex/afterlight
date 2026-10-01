@@ -176,6 +176,9 @@ export class AuthService {
       // Параллельные запросы одного пользователя выстраиваются в очередь: каждый видит результат предыдущего,
       // поэтому остаётся ровно один действующий токен и одно неотправленное письмо
       await tx.$queryRaw(Prisma.sql`SELECT id FROM "user" WHERE id = ${user.id}::uuid FOR UPDATE`);
+      // Пока ждали блокировку, адрес могли сменить (администратором): письмо со свежим токеном на прежний адрес не отправляем
+      const fresh = await tx.user.findUnique({ where: { id: user.id }, select: { email: true } });
+      if (!fresh || fresh.email !== email) return false;
       // Анти-спам: слишком частые запросы молча не создают новое письмо (ответ API одинаков, существование адреса не раскрывается)
       const recent = await tx.passwordResetToken.findFirst({
         where: { userId: user.id, createdAt: { gt: new Date(now.getTime() - RESET_COOLDOWN_MS) } },

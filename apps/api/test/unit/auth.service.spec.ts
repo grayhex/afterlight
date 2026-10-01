@@ -28,7 +28,7 @@ describe('AuthService password reset flow', () => {
         return callback({
           $queryRaw: prisma.$queryRaw,
           notification: { count: prisma.notification.count },
-          user: { update: prisma.user.update },
+          user: { update: prisma.user.update, findUnique: prisma.user.findUnique },
           passwordResetToken: {
             delete: prisma.passwordResetToken.delete,
             deleteMany: prisma.passwordResetToken.deleteMany,
