@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { httpClient } from '@/shared/api/httpClient';
 import { takeTokenFromHash } from '@/lib/hash-token';
+import { auth } from '@/shared/auth/store';
 
 type Status = 'form' | 'saving' | 'done' | 'invalid' | 'error';
 
@@ -44,6 +45,8 @@ export default function ResetPasswordPage() {
       });
       if (res.ok) {
         token.current = null;
+        // сброс отозвал и текущую сессию (если она была): шапка должна снова предлагать вход
+        auth.logout();
         setPassword('');
         setRepeat('');
         setStatus('done');

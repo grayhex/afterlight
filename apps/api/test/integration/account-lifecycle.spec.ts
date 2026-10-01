@@ -339,6 +339,17 @@ describe('account lifecycle (real PostgreSQL, real SMTP sandbox)', () => {
       expect((await ctx.request('POST', '/auth/logout')).status).toBe(201); // без сессии выход ничего не ломает
     });
 
+    it('administrator user responses never expose internal fields', async () => {
+      const admin = await ctx.factory.createUser({ email: 'adm@test.local', role: 'Admin', passwordHash: await hashPassword('correct horse'), phone: '+70000000001', name: 'Adm' });
+      const keys = (u: Record<string, unknown>) => Object.keys(u).sort();
+      const expected = ['createdAt', 'email', 'emailVerifiedAt', 'id', 'locale', 'phone', 'role', 'twoFaEnabled', 'updatedAt'];
+      const list = await ctx.request('GET', '/users', undefined, admin.id);
+      expect(list.status).toBe(200);
+      expect(keys(list.body[0])).toEqual(expected);
+      expect(keys((await ctx.request('GET', `/users/${admin.id}`, undefined, admin.id)).body)).toEqual(expected);
+      expect(JSON.stringify(list.body)).not.toMatch(/sessionVersion|passwordHash|passkeyPub|lastLoginAt/);
+    });
+
     it('a token of a deleted user stops working', async () => {
       const user = await ctx.factory.createUser({ email: 'gone@test.local' });
       const token = ctx.moduleRef.get(AuthService).sign(user.id);
