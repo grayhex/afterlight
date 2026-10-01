@@ -30,6 +30,12 @@ export const POLICIES = {
 
 export type PolicyName = keyof typeof POLICIES;
 
+export interface Reservation {
+  name: PolicyName;
+  subject: string;
+  windowStart: Date;
+}
+
 export interface HitResult {
   allowed: boolean;
   count: number;
@@ -75,8 +81,11 @@ export class RateLimitService {
     return `${name}:${createHash('sha256').update(subject).digest('hex')}`;
   }
 
-  /** Учитывает обращение и сообщает, укладывается ли оно в лимит. */
-  async hit(name: PolicyName, subject: string): Promise<HitResult> {
+  /**
+   * Учитывает обращение и сообщает, укладывается ли оно в лимит. Счётчик растёт и при отказе (для простых маршрутов это
+   * нормально: он считает обращения). `audit: false` — когда отказ обрабатывает вызывающий (см. reserve).
+   */
+  async hit(name: PolicyName, subject: string, audit = true): Promise<HitResult> {
     const policy = policyOf(name);
     const { start, retryAfterSec } = this.window(policy);
     const rows = await this.prisma.$queryRaw<Array<{ count: number }>>`
@@ -85,9 +94,49 @@ export class RateLimitService {
       RETURNING "count"`;
     const count = Number(rows[0].count);
     // в журнал — только первое превышение окна: поток запросов не должен превращаться в поток записей аудита
-    if (count === policy.max + 1) await this.audit.log(ActorType.System, 'rate-limit', 'rate_limited', 'RateLimit', name).catch(() => undefined);
+    if (audit && count === policy.max + 1) await this.audit.log(ActorType.System, 'rate-limit', 'rate_limited', 'RateLimit', name).catch(() => undefined);
     void this.maybeCleanup();
     return { allowed: count <= policy.max, count, retryAfterSec, windowStart: start };
+  }
+
+  /**
+   * Допуск нескольких лимитов одной попытки с резервом: либо все счётчики приняли обращение (оно остаётся учтённым,
+   * пока вызывающий не вернёт его `releaseAll`), либо отказал хотя бы один, и тогда откатываются ВСЕ резервы этой попытки,
+   * включая отказавшие. Иначе параллельная пачка попыток навсегда раздувала бы общие счётчики сверх числа реально
+   * допущенных и блокировала бы чужих пользователей (по IP или по аккаунту). В журнал аудита — первый отказ окна по
+   * политике, а не каждая отклонённая попытка.
+   */
+  async reserve(entries: Array<[PolicyName, string]>): Promise<{ allowed: boolean; retryAfterSec: number; reservations: Reservation[] }> {
+    const reservations: Reservation[] = [];
+    const rejected: Reservation[] = [];
+    let retryAfterSec = 0;
+    for (const [name, subject] of entries) {
+      const r = await this.hit(name, subject, false);
+      const reservation = { name, subject, windowStart: r.windowStart };
+      reservations.push(reservation);
+      if (!r.allowed) {
+        rejected.push(reservation);
+        retryAfterSec = Math.max(retryAfterSec, r.retryAfterSec);
+      }
+    }
+    if (rejected.length === 0) return { allowed: true, retryAfterSec: 0, reservations };
+    await this.releaseAll(reservations);
+    for (const r of rejected) await this.auditFirstRejection(r);
+    return { allowed: false, retryAfterSec, reservations: [] };
+  }
+
+  /** Возвращает резервы попытки (успешный вход или отказ). */
+  async releaseAll(reservations: Reservation[]): Promise<void> {
+    await Promise.all(reservations.map((r) => this.release(r.name, r.subject, r.windowStart)));
+  }
+
+  /** Первый отказ окна по политике и субъекту: отметка в той же таблице счётчиков, аудит — только если отметка новая. */
+  private async auditFirstRejection(r: Reservation): Promise<void> {
+    const rows = await this.prisma.$queryRaw<Array<{ count: number }>>`
+      INSERT INTO rate_limit_bucket ("key", window_start, "count") VALUES (${`audit:${this.bucketKey(r.name, r.subject)}`}, ${r.windowStart}, 1)
+      ON CONFLICT ("key", window_start) DO UPDATE SET "count" = rate_limit_bucket."count" + 1
+      RETURNING "count"`;
+    if (Number(rows[0].count) === 1) await this.audit.log(ActorType.System, 'rate-limit', 'rate_limited', 'RateLimit', r.name).catch(() => undefined);
   }
 
   /** Текущее значение без учёта нового обращения (только для справки и тестов: для допуска используйте `hit`, он атомарен). */

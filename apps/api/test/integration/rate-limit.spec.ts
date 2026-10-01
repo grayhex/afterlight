@@ -59,6 +59,26 @@ describe('rate limiting (real app, PostgreSQL counters)', () => {
       expect(ipBucket[0].count).toBe(5);
     });
 
+    it('a large burst leaves every counter at the number of admitted attempts, so it cannot lock out other IPs or other users', async () => {
+      await boot({ TRUST_PROXY: 'loopback' });
+      await makeUser('victim2@test.local');
+      await makeUser('bystander@test.local');
+      const burst = await Promise.all(Array.from({ length: 100 }, () => login('victim2@test.local', 'wrong', '203.0.113.50')));
+      expect(burst.filter((r) => r.status === 401)).toHaveLength(5);
+      expect(burst.filter((r) => r.status === 429)).toHaveLength(95);
+      // отклонённые попытки откатили ВСЕ свои резервы, включая отказавшие: счётчики равны числу допущенных попыток
+      const counts = Object.fromEntries((await ctx.db.rateLimitBucket.findMany()).filter((r) => r.key.startsWith('login_fail')).map((r) => [r.key.split(':')[0], r.count]));
+      expect(counts).toEqual({ login_fail_ip: 5, login_fail_account_ip: 5, login_fail_account: 5 });
+      // законный владелец с другого адреса и посторонний за тем же IP не заблокированы
+      expect((await login('victim2@test.local', 'correct horse', '198.51.100.77')).status).toBe(201);
+      expect((await login('bystander@test.local', 'correct horse', '203.0.113.50')).status).toBe(201);
+      // а целевая пара по-прежнему заблокирована
+      expect((await login('victim2@test.local', 'correct horse', '203.0.113.50')).status).toBe(429);
+      // в аудите — один отказ окна по политике, а не по записи на каждую из 95 отклонённых попыток
+      const audited = await ctx.db.auditLog.findMany({ where: { action: 'rate_limited' } });
+      expect(audited.map((a) => a.targetId)).toEqual(['login_fail_account_ip']);
+    });
+
     it('successful logins give their reservation back: any number of them never trips the limits', async () => {
       await boot({ RATE_LIMIT_LOGIN_FAIL_IP_MAX: '3', RATE_LIMIT_LOGIN_FAIL_ACCOUNT_MAX: '3' });
       await makeUser('regular@test.local');

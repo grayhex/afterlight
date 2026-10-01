@@ -76,26 +76,19 @@ export class AuthController {
       ['login_fail_account', account],
     ];
     // Допуск и резерв — одной атомарной операцией ДО проверки пароля: параллельная пачка попыток не может прочитать один и тот
-    // же «ещё не превышенный» счётчик. Успешный вход возвращает резерв, неудачный оставляет его израсходованным.
-    const reserved: Array<{ name: PolicyName; subject: string; windowStart: Date; allowed: boolean }> = [];
-    let retryAfterSec = 0;
-    for (const [name, subject] of counters) {
-      const result = await this.limiter.hit(name, subject);
-      reserved.push({ name, subject, windowStart: result.windowStart, allowed: result.allowed });
-      if (!result.allowed) retryAfterSec = Math.max(retryAfterSec, result.retryAfterSec);
-    }
-    if (retryAfterSec > 0) {
-      // попытка не обрабатывается: резервы в счётчиках, где лимит ещё не превышен, ей не принадлежат
-      await Promise.all(reserved.filter((r) => r.allowed).map((r) => this.limiter.release(r.name, r.subject, r.windowStart)));
-      res.setHeader('Retry-After', String(retryAfterSec));
-      throw new TooManyRequestsException(retryAfterSec);
+    // же «ещё не превышенный» счётчик. При отказе любого лимита откатываются все резервы попытки, при успешном входе — тоже;
+    // неудачный вход оставляет резерв израсходованным.
+    const admission = await this.limiter.reserve(counters);
+    if (!admission.allowed) {
+      res.setHeader('Retry-After', String(admission.retryAfterSec));
+      throw new TooManyRequestsException(admission.retryAfterSec);
     }
     const user = await this.auth.validateUser(email, password);
     if (!user) {
       throw new UnauthorizedException();
     }
     // правильный пароль возвращает резерв и снимает счётчик пары «аккаунт + IP»: опечатки законного пользователя не копятся
-    await Promise.all(reserved.map((r) => this.limiter.release(r.name, r.subject, r.windowStart)));
+    await this.limiter.releaseAll(admission.reservations);
     await this.limiter.reset('login_fail_account_ip', `${account}|${ip}`);
     await this.auth.recordLogin(user.id);
     const token = this.auth.sign(user.id, user.sessionVersion);
