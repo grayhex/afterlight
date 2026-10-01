@@ -49,7 +49,7 @@ export class NotificationsService implements OnModuleDestroy {
   private readonly config: MailConfig = loadMailConfig();
   private draining: Promise<void> | null = null;
   private readonly lateSends = new Set<Promise<unknown>>();
-  private readonly renewTimers = new Set<NodeJS.Timeout>();
+  private readonly renewTimers = new Map<string, NodeJS.Timeout>();
   private again = false;
 
   constructor(
@@ -147,12 +147,20 @@ export class NotificationsService implements OnModuleDestroy {
 
   async onModuleDestroy() {
     // Ждём фоновые отправки не дольше их собственного предела: зависший SMTP не должен блокировать остановку процесса
+    const hold = this.config.sendTimeoutMs * 3;
     let timer: NodeJS.Timeout | undefined;
-    await Promise.race([this.idle(), new Promise<void>((resolve) => { timer = setTimeout(resolve, this.config.sendTimeoutMs * 3); })]);
+    await Promise.race([this.idle(), new Promise<void>((resolve) => { timer = setTimeout(resolve, hold); })]);
     clearTimeout(timer);
-    // Остановка: продление аренд прекращаем (она истечёт сама), чтобы после закрытия БД не оставалось фоновых запросов
-    for (const t of this.renewTimers) clearInterval(t);
+    // Не успевшие завершиться отправки оборвутся вместе с процессом; на время смены процесса даём им последнюю
+    // аренду, чтобы заменяющий воркер не обогнал их более новым письмом
+    const pending = [...this.renewTimers.keys()];
+    for (const t of this.renewTimers.values()) clearInterval(t);
     this.renewTimers.clear();
+    if (pending.length > 0) {
+      await this.prisma.notification
+        .updateMany({ where: { id: { in: pending } }, data: { lockedUntil: new Date(this.clock.now().getTime() + hold) } })
+        .catch((e) => this.logger.error(`[Email] final lease extension failed: ${String(e)}`));
+    }
   }
 
   /** Отправка задач, срок которых наступил. Безопасно вызывать параллельно из нескольких экземпляров. */
@@ -228,7 +236,7 @@ export class NotificationsService implements OnModuleDestroy {
         .catch((e) => this.logger.error(`[Email] lease renewal failed: ${String(e)}`));
     }, this.config.sendTimeoutMs);
     renew.unref();
-    this.renewTimers.add(renew);
+    this.renewTimers.set(id, renew);
     const settled = (async () => {
       let ok = false;
       try {
@@ -238,8 +246,8 @@ export class NotificationsService implements OnModuleDestroy {
         // отказ после дедлайна: повтор уже запланирован markFailure
       }
       clearInterval(renew);
-      this.renewTimers.delete(renew);
-      if (ok) await this.markSent(id, subject);
+      this.renewTimers.delete(id);
+      if (ok) await this.markSentLate(id, subject);
       await this.prisma.notification.updateMany({ where: { id, lockedUntil: { not: null } }, data: { lockedUntil: null } });
     })()
       .catch((e) => this.logger.error(`[Email] late send bookkeeping failed: ${String(e)}`))
@@ -297,6 +305,17 @@ export class NotificationsService implements OnModuleDestroy {
   private async markSent(id: string, subject: string) {
     await this.prisma.notification.updateMany({
       where: { id, state: 'Queued' },
+      data: { state: 'Sent', sentAt: this.clock.now(), lockedUntil: null, lastError: null, payload: { subject, redacted: true } },
+    });
+  }
+
+  /**
+   * Запрос к SMTP завершился успешно уже после дедлайна: сервер принял письмо, поэтому итог — `Sent`, даже если за это
+   * время задача ушла в повтор, стала `Failed` (финальная попытка) или была снята новым состоянием.
+   */
+  private async markSentLate(id: string, subject: string) {
+    await this.prisma.notification.updateMany({
+      where: { id, state: { in: ['Queued', 'Failed', 'Cancelled'] } },
       data: { state: 'Sent', sentAt: this.clock.now(), lockedUntil: null, lastError: null, payload: { subject, redacted: true } },
     });
   }

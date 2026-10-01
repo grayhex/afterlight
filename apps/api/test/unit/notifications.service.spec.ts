@@ -176,6 +176,40 @@ describe('NotificationsService', () => {
     expect(calls.at(-1).data).toEqual({ lockedUntil: null }); // и аренда снята
   });
 
+  it('a late success on the final attempt turns Failed into Sent: the server did accept the message', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    process.env.MAIL_MAX_ATTEMPTS = '1';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+      delete process.env.MAIL_MAX_ATTEMPTS;
+    }
+    claimOne(row({ attempts: 1, lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 1700)));
+    expect(await service.dispatchDue()).toMatchObject({ failed: 1, sent: 0 });
+    await service.idle();
+    const late = prisma.notification.updateMany.mock.calls.map((c: any[]) => c[0]).find((c: any) => c.data.state === 'Sent');
+    expect(late.where.state).toEqual({ in: ['Queued', 'Failed', 'Cancelled'] });
+  });
+
+  it('on shutdown a still-pending send gets a final lease before the renewal stops (it dies with the process)', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise(() => undefined)); // не завершится никогда
+    await service.dispatchDue();
+    prisma.notification.updateMany.mockClear();
+    await service.onModuleDestroy(); // ждёт предел (3 с), затем ставит последнюю аренду
+    const final = prisma.notification.updateMany.mock.calls.map((c: any[]) => c[0]).find((c: any) => c.where.id?.in);
+    expect(final.where.id.in).toEqual(['n1']);
+    expect(final.data.lockedUntil).toEqual(new Date(now.getTime() + 3000));
+  });
+
   it('sizes the lease for the whole claimed batch (send timeout x batch size + margin)', async () => {
     prisma.$queryRaw.mockResolvedValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
     prisma.notification.findMany.mockResolvedValue([]);
