@@ -176,6 +176,34 @@ describe('NotificationsService', () => {
     expect(calls.at(-1).data).toEqual({ lockedUntil: null }); // и аренда снята
   });
 
+  it('a renewal still running when the SMTP promise settles is awaited before the lease is cleared (it cannot bring the lease back)', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 2100))); // успех после двух продлений
+    const order: string[] = [];
+    let slowRenewal = true;
+    prisma.notification.updateMany.mockImplementation(async (args: any) => {
+      const isRenewal = args.where.state === undefined && args.where.OR === undefined && args.data.lockedUntil instanceof Date;
+      if (isRenewal && slowRenewal) {
+        slowRenewal = false;
+        await new Promise((resolve) => setTimeout(resolve, 600)); // запрос продления «застрял» в очереди к БД
+        order.push('renewal-finished');
+      } else if (args.data.lockedUntil === null && args.where.lockedUntil) {
+        order.push('lease-cleared');
+      }
+      return { count: 1 };
+    });
+    await service.dispatchDue();
+    await service.idle();
+    expect(order.indexOf('renewal-finished')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('lease-cleared')).toBeGreaterThan(order.indexOf('renewal-finished'));
+  });
+
   it('a late success on the final attempt turns Failed into Sent: the server did accept the message', async () => {
     process.env.MAIL_SEND_TIMEOUT_MS = '1000';
     process.env.MAIL_MAX_ATTEMPTS = '1';

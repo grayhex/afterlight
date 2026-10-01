@@ -230,10 +230,17 @@ export class NotificationsService implements OnModuleDestroy {
    */
   private holdLease(id: string, subject: string, send: Promise<void>) {
     const hold = this.config.sendTimeoutMs * 3;
+    let stopped = false;
+    let renewing: Promise<unknown> | null = null;
     const renew = setInterval(() => {
-      this.prisma.notification
+      if (stopped || renewing) return; // не плодим запросы продления и не запускаем новые после завершения
+      const p: Promise<unknown> = this.prisma.notification
         .updateMany({ where: { id }, data: { lockedUntil: new Date(this.clock.now().getTime() + hold) } })
-        .catch((e) => this.logger.error(`[Email] lease renewal failed: ${String(e)}`));
+        .catch((e) => this.logger.error(`[Email] lease renewal failed: ${String(e)}`))
+        .finally(() => {
+          if (renewing === p) renewing = null;
+        });
+      renewing = p;
     }, this.config.sendTimeoutMs);
     renew.unref();
     this.renewTimers.set(id, renew);
@@ -245,8 +252,11 @@ export class NotificationsService implements OnModuleDestroy {
       } catch {
         // отказ после дедлайна: повтор уже запланирован markFailure
       }
+      stopped = true;
       clearInterval(renew);
       this.renewTimers.delete(id);
+      // Уже запущенный запрос продления дожидаемся: иначе он мог бы завершиться после снятия аренды и вернуть её
+      await renewing;
       if (ok) await this.markSentLate(id, subject);
       await this.prisma.notification.updateMany({ where: { id, lockedUntil: { not: null } }, data: { lockedUntil: null } });
     })()
