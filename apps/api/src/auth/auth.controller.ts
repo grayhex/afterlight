@@ -6,6 +6,7 @@ import {
   Res,
   Get,
   Req,
+  GoneException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
@@ -14,6 +15,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
+import { VerifyEmailDto } from './dto/verify-email.dto.js';
 import { Response, Request } from 'express';
 import { Public } from './decorators/public.decorator.js';
 
@@ -42,9 +44,9 @@ export class AuthController {
       dto.email,
       dto.phone,
       dto.password,
+      dto.invitation_token,
     );
-    const { id, email, role } = user;
-    return { id, email, role };
+    return { id: user.id, email: user.email, role: user.role, email_verified: !!user.emailVerifiedAt };
   }
 
   @Public()
@@ -60,8 +62,7 @@ export class AuthController {
     await this.auth.recordLogin(user.id);
     const token = this.auth.sign(user.id);
     res.cookie('token', token, this.tokenCookieOptions);
-    const { id, email: userEmail, role } = user;
-    return { id, email: userEmail, role };
+    return { id: user.id, email: user.email, role: user.role, email_verified: !!user.emailVerifiedAt };
   }
 
   @Public()
@@ -93,12 +94,29 @@ export class AuthController {
     return {};
   }
 
+  @Public()
+  @Post('verify-email')
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    if (!(await this.auth.verifyEmail(dto.token))) {
+      throw new GoneException('The link is invalid, expired or already used');
+    }
+    return {};
+  }
+
+  @Post('resend-verification')
+  async resendVerification(@Req() req: Request) {
+    const userId = (req as any).user?.sub;
+    if (!userId) throw new UnauthorizedException();
+    await this.auth.resendVerification(userId);
+    return {};
+  }
+
   @Get('me')
   async me(@Req() req: Request) {
     const userId = (req as any).user?.sub;
     if (!userId) throw new UnauthorizedException();
     const user = await this.auth.getUser(userId);
     if (!user) throw new UnauthorizedException();
-    return { id: user.id, email: user.email, role: user.role };
+    return { id: user.id, email: user.email, role: user.role, email_verified: !!user.emailVerifiedAt };
   }
 }

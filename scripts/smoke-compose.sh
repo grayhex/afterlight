@@ -78,19 +78,30 @@ expect 201 "логин" -c "$JAR" -X POST "$BASE/api/auth/login" "${JSON[@]}" -d
 grep -q $'\ttoken\t' "$JAR" || fail "cookie сессии не выставлена"
 expect 200 "/auth/me по cookie" -b "$JAR" "$BASE/api/auth/me"
 expect 200 "/cabinet по cookie (middleware передаёт cookie)" -b "$JAR" "$BASE/cabinet"
-expect 201 "создание сейфа" -b "$JAR" -X POST "$BASE/api/vaults" "${JSON[@]}" -d '{"name":"Smoke vault"}'
+# mail_text <адрес> <фрагмент темы>: текст последнего письма из sandbox (ждёт до 30 с)
+mail_text() {
+  local id=""
+  for _ in $(seq 1 30); do
+    id=$(curl -fsS "$MAILPIT/api/v1/messages" | jq -r --arg e "$1" --arg s "$2" '[.messages[] | select(any(.To[]; .Address == $e)) | select(.Subject | contains($s))][0].ID // empty')
+    [ -n "$id" ] && break
+    sleep 1
+  done
+  [ -n "$id" ] || return 1
+  curl -fsS "$MAILPIT/api/v1/message/$id" | jq -r '.Text'
+}
+
+# До подтверждения адреса чувствительные действия закрыты; ссылка из письма подтверждает адрес один раз
+expect 403 "создание сейфа до подтверждения адреса" -b "$JAR" -X POST "$BASE/api/vaults" "${JSON[@]}" -d '{"name":"Smoke vault"}'
+VERIFY_TOKEN=$(mail_text "$EMAIL" "подтвердите адрес" | grep -oE 'verify-email#token=[A-Za-z0-9_-]+' | head -1 | sed 's/.*token=//') || fail "письмо подтверждения не дошло до почтового sandbox"
+[ -n "$VERIFY_TOKEN" ] || fail "в письме подтверждения нет токена"
+expect 201 "подтверждение адреса по ссылке из письма" -X POST "$BASE/api/auth/verify-email" "${JSON[@]}" -d "{\"token\":\"$VERIFY_TOKEN\"}"
+expect 410 "ссылка подтверждения одноразовая" -X POST "$BASE/api/auth/verify-email" "${JSON[@]}" -d "{\"token\":\"$VERIFY_TOKEN\"}"
+expect 201 "создание сейфа после подтверждения" -b "$JAR" -X POST "$BASE/api/vaults" "${JSON[@]}" -d '{"name":"Smoke vault"}'
 
 # Письмо восстановления доходит по SMTP до sandbox; пользователь без сейфа тоже получает его (здесь сейф есть, но не нужен)
 expect 201 "forgot-password: известный адрес" -X POST "$BASE/api/auth/forgot-password" "${JSON[@]}" -d "{\"email\":\"$EMAIL\"}"
 expect 201 "forgot-password: неизвестный адрес (ответ тот же)" -X POST "$BASE/api/auth/forgot-password" "${JSON[@]}" -d '{"email":"nobody-smoke@test.local"}'
-RESET_TOKEN=""
-for _ in $(seq 1 30); do
-  MSG_ID=$(curl -fsS "$MAILPIT/api/v1/messages" | jq -r --arg e "$EMAIL" '[.messages[] | select(any(.To[]; .Address == $e))][0].ID // empty')
-  [ -n "$MSG_ID" ] && break
-  sleep 1
-done
-[ -n "${MSG_ID:-}" ] || fail "письмо восстановления не дошло до почтового sandbox"
-RESET_TOKEN=$(curl -fsS "$MAILPIT/api/v1/message/$MSG_ID" | jq -r '.Text' | grep -oE '[0-9a-f]{64}' | head -1)
+RESET_TOKEN=$(mail_text "$EMAIL" "восстановление пароля" | grep -oE '[0-9a-f]{64}' | head -1) || fail "письмо восстановления не дошло до почтового sandbox"
 [ -n "$RESET_TOKEN" ] || fail "в письме нет токена сброса"
 [ "$(curl -fsS "$MAILPIT/api/v1/messages" | jq -r '[.messages[] | select(any(.To[]; .Address == "nobody-smoke@test.local"))] | length')" = "0" ] || fail "письмо ушло на неизвестный адрес"
 echo "ok  письмо восстановления доставлено в sandbox"

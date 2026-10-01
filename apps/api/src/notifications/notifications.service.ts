@@ -105,6 +105,12 @@ export class NotificationsService implements OnModuleDestroy {
     });
   }
 
+  /** Письмо подтверждения адреса в транзакции вызывающего: прежние неотправленные письма этого пользователя снимаются. */
+  async sendEmailVerification(to: string, token: string, userId: string, expiresAt: Date, tx: Prisma.TransactionClient) {
+    await this.cancelQueued('email_verification', userId, 'superseded by a newer request', tx);
+    await this.enqueueEmail(null, to, templates.emailVerification(token), tx, { kind: 'email_verification', supersedeKey: userId, expiresAt });
+  }
+
   /** Письмо сброса пароля в транзакции вызывающего: прежние неотправленные письма сброса этого пользователя снимаются. */
   async sendPasswordReset(to: string, token: string, userId: string, expiresAt: Date, tx: Prisma.TransactionClient) {
     await this.cancelQueued('password_reset', userId, 'superseded by a newer request', tx);

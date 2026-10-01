@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Delete, Body, Query, Param, ParseUUIDPipe } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { VerifiersService } from './verifiers.service.js';
 import { InviteVerifierDto } from './dto/invite-verifier.dto.js';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto.js';
-import { InvitationCreatedDto, VerifierMemberDto } from './dto/verifier-member.dto.js';
+import { InvitationCreatedDto, InvitationPreviewDto, VerifierMemberDto } from './dto/verifier-member.dto.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator.js';
+import { Public } from '../auth/decorators/public.decorator.js';
+import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
 
 @ApiTags('verifiers')
 @ApiBearerAuth()
@@ -26,6 +28,16 @@ export class VerifiersController {
     return this.service.invite(user, dto);
   }
 
+  @Public()
+  @Post('invitations/preview')
+  // публичный маршрут: класс помечен bearer-авторизацией, для этой операции требование снимаем
+  @ApiOperation({ summary: 'Адрес и признак аккаунта по токену приглашения (без входа)', security: [] })
+  @ApiCreatedResponse({ type: InvitationPreviewDto })
+  preview(@Body() dto: AcceptInvitationDto) {
+    return this.service.previewInvitation(dto.token);
+  }
+
+  @RequireVerifiedEmail()
   @Post('invitations/accept')
   @ApiCreatedResponse({ type: VerifierMemberDto })
   accept(@CurrentUser() user: AuthenticatedUser, @Body() dto: AcceptInvitationDto) {

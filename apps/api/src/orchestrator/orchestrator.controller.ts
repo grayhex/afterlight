@@ -5,6 +5,7 @@ import { StartEventDto } from './dto/start-event.dto.js';
 import { OrchestratorDecisionDto } from './dto/decision.dto.js';
 import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
 
 @ApiTags('orchestrator')
 @ApiBearerAuth()
@@ -13,6 +14,7 @@ import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 export class OrchestratorController {
   constructor(private readonly svc: OrchestratorService) {}
 
+  @RequireVerifiedEmail()
   @Post('start')
   start(@CurrentUser() user: AuthenticatedUser, @Body() dto: StartEventDto) {
     return this.svc.start(user.sub, dto.vault_id);
@@ -24,6 +26,7 @@ export class OrchestratorController {
     return this.svc.cancel(user.sub, dto.vault_id);
   }
 
+  @RequireVerifiedEmail()
   @Post('decision')
   decide(@CurrentUser() user: AuthenticatedUser, @Body() dto: OrchestratorDecisionDto) {
     return this.svc.decide(user.sub, dto.vault_id, dto.decision, dto.signature);

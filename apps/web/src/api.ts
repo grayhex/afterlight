@@ -20,6 +20,12 @@ export interface paths {
   "/auth/reset-password": {
     post: operations["AuthController_resetPassword"];
   };
+  "/auth/verify-email": {
+    post: operations["AuthController_verifyEmail"];
+  };
+  "/auth/resend-verification": {
+    post: operations["AuthController_resendVerification"];
+  };
   "/auth/me": {
     get: operations["AuthController_me"];
   };
@@ -47,6 +53,10 @@ export interface paths {
   };
   "/verifiers/invitations": {
     post: operations["VerifiersController_invite"];
+  };
+  "/verifiers/invitations/preview": {
+    /** Адрес и признак аккаунта по токену приглашения (без входа) */
+    post: operations["VerifiersController_preview"];
   };
   "/verifiers/invitations/accept": {
     post: operations["VerifiersController_accept"];
@@ -169,7 +179,8 @@ export interface components {
       name: string;
       email: string;
       phone: string;
-      password?: string;
+      password: string;
+      invitation_token?: string;
     };
     LoginDto: {
       email: string;
@@ -177,6 +188,9 @@ export interface components {
     };
     ForgotPasswordDto: Record<string, never>;
     ResetPasswordDto: Record<string, never>;
+    VerifyEmailDto: {
+      token: string;
+    };
     StartEventDto: {
       /** Format: uuid */
       vault_id: string;
@@ -258,6 +272,13 @@ export interface components {
       /** @description Одноразовый токен из письма-приглашения */
       token: string;
     };
+    InvitationPreviewDto: {
+      email: string;
+      /** Format: date-time */
+      expires_at: string;
+      /** @description Есть ли уже учётная запись с этим адресом: если да, нужно войти, иначе — зарегистрироваться */
+      has_account: boolean;
+    };
     StartVerificationEventDto: {
       vault_id: string;
     };
@@ -318,6 +339,11 @@ export interface components {
       email: string;
       phone?: string;
       twoFaEnabled: boolean;
+      /**
+       * Format: date-time
+       * @description Когда подтверждён адрес; null — не подтверждён
+       */
+      emailVerifiedAt: string | null;
       /** @enum {string} */
       role: "Owner" | "Verifier" | "Admin";
       locale: string;
@@ -553,6 +579,75 @@ export interface operations {
         "application/json": components["schemas"]["ResetPasswordDto"];
       };
     };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  AuthController_verifyEmail: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VerifyEmailDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  AuthController_resendVerification: {
     responses: {
       201: {
         content: never;
@@ -930,6 +1025,46 @@ export interface operations {
       201: {
         content: {
           "application/json": components["schemas"]["InvitationCreatedDto"];
+        };
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  /** Адрес и признак аккаунта по токену приглашения (без входа) */
+  VerifiersController_preview: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AcceptInvitationDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: {
+          "application/json": components["schemas"]["InvitationPreviewDto"];
         };
       };
       400: {

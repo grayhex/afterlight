@@ -44,3 +44,11 @@ export class InvitationCreatedDto {
   @ApiProperty()
   expires_at!: Date;
 }
+
+/** Что видно по токену приглашения до входа: адрес, на который оно выписано, и срок (токен знает только получатель письма) */
+export class InvitationPreviewDto {
+  @ApiProperty() email!: string;
+  @ApiProperty() expires_at!: Date;
+  @ApiProperty({ description: 'Есть ли уже учётная запись с этим адресом: если да, нужно войти, иначе — зарегистрироваться' })
+  has_account!: boolean;
+}

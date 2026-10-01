@@ -5,6 +5,7 @@ import { CreateVaultDto } from './dto/create-vault.dto.js';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto.js';
 import { CurrentUser } from '../common/current-user.decorator.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
+import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
 
 @ApiTags('vaults')
 @ApiBearerAuth()
@@ -27,6 +28,7 @@ export class VaultsController {
     return this.service.getForUser(user.sub, id);
   }
 
+  @RequireVerifiedEmail()
   @Post()
   create(@CurrentUser() user: any, @Body() dto: CreateVaultDto) {
     return this.service.createForUser(user.sub, dto);
