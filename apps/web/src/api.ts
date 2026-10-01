@@ -188,11 +188,21 @@ export interface components {
       password: string;
       invitation_token?: string;
     };
+    AuthUserDto: {
+      /** Format: uuid */
+      id: string;
+      email: string;
+      /** @enum {string} */
+      role: "Owner" | "Verifier" | "Admin";
+      /** @description Адрес подтверждён: до этого создание сейфа, приглашения и голосование закрыты */
+      email_verified: boolean;
+    };
     LoginDto: {
       email: string;
       password: string;
     };
     ForgotPasswordDto: Record<string, never>;
+    EmptyResponseDto: Record<string, never>;
     ResetPasswordDto: Record<string, never>;
     VerifyEmailDto: {
       token: string;
@@ -502,7 +512,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["AuthUserDto"];
+        };
       };
       400: {
         content: {
@@ -520,6 +532,12 @@ export interface operations {
         };
       };
       404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      /** @description Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить */
+      429: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
         };
@@ -539,7 +557,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["AuthUserDto"];
+        };
       };
       400: {
         content: {
@@ -557,6 +577,12 @@ export interface operations {
         };
       };
       404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      /** @description Слишком много неудачных попыток входа; Retry-After — через сколько секунд повторить */
+      429: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
         };
@@ -608,7 +634,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["EmptyResponseDto"];
+        };
       };
       400: {
         content: {
@@ -626,6 +654,12 @@ export interface operations {
         };
       };
       404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      /** @description Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить */
+      429: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
         };
@@ -645,7 +679,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["EmptyResponseDto"];
+        };
       };
       400: {
         content: {
@@ -663,6 +699,12 @@ export interface operations {
         };
       };
       404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      /** @description Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить */
+      429: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
         };
@@ -682,7 +724,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["EmptyResponseDto"];
+        };
       };
       400: {
         content: {
@@ -700,6 +744,12 @@ export interface operations {
         };
       };
       404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      /** @description Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить */
+      429: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
         };
@@ -714,7 +764,9 @@ export interface operations {
   AuthController_resendVerification: {
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["EmptyResponseDto"];
+        };
       };
       400: {
         content: {
@@ -732,6 +784,12 @@ export interface operations {
         };
       };
       404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      /** @description Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить */
+      429: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
         };
@@ -1151,6 +1209,12 @@ export interface operations {
           "application/json": components["schemas"]["ErrorDto"];
         };
       };
+      /** @description Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить */
+      429: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
       500: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
@@ -1186,6 +1250,12 @@ export interface operations {
         };
       };
       404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      /** @description Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить */
+      429: {
         content: {
           "application/json": components["schemas"]["ErrorDto"];
         };

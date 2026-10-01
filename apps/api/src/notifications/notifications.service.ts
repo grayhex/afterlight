@@ -199,6 +199,9 @@ export class NotificationsService implements OnModuleDestroy {
         const outcome = await this.markFailure(n.id, n.attempts, err);
         // После таймаута отправка ещё идёт в фоне: аренду не снимаем (её держит markFailure), иначе новое письмо обгонит старое
         if (!err.inFlight) await this.release(n.id);
+        // Но запрос к SMTP мог завершиться, пока markFailure писал аренду: тогда holdLease уже снял её, а markFailure записал
+        // заново, и снять её больше некому (до истечения она бы держала письмо). Раз отправка завершилась, аренда не нужна
+        else if (!this.renewals.has(n.id)) await this.clearLease(n.id);
         result[outcome]++;
         continue;
       }
@@ -207,6 +210,11 @@ export class NotificationsService implements OnModuleDestroy {
       result.sent++;
     }
     return result;
+  }
+
+  /** Безусловно снимает аренду: отправка по этой задаче завершилась, ничто больше не должно её удерживать. */
+  private async clearLease(id: string) {
+    await this.prisma.notification.updateMany({ where: { id, lockedUntil: { not: null } }, data: { lockedUntil: null } });
   }
 
   /** Снять аренду у задачи, которую отменили во время отправки (у живых задач аренду снимает markSent/markFailure). */

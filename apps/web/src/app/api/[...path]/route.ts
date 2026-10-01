@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { withTrustedClientAddress } from '@/lib/forwarded-headers';
 
 // Браузер и middleware ходят в API через тот же origin (`/api/...`): cookie первая сторона, CORS не нужен,
 // адрес API задаётся окружением РАНТАЙМА (API_INTERNAL_URL), а не зашивается в сборку.
@@ -13,7 +14,8 @@ function apiBase(): string {
 async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
   const target = `${apiBase()}/${path.map(encodeURIComponent).join('/')}${req.nextUrl.search}`;
-  const headers = new Headers(req.headers);
+  // адрес клиента для API: присланные клиентом заголовки не доверяем (TRUST_EDGE_PROXY — только за граничным прокси)
+  const headers = withTrustedClientAddress(req.headers, process.env.TRUST_EDGE_PROXY === 'true');
   for (const h of HOP_BY_HOP) headers.delete(h);
   const hasBody = !['GET', 'HEAD'].includes(req.method);
   let upstream: Response;

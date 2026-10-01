@@ -360,6 +360,17 @@ model Notification {
   @@map("notification")
 }
 
+// Счётчики ограничения частоты запросов (#179): фиксированные окна, ключ — хэш субъекта (адреса и IP открытым текстом не храним)
+model RateLimitBucket {
+  key         String
+  windowStart DateTime @map("window_start")
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart], map: "ix_rate_limit_window")
+  @@map("rate_limit_bucket")
+}
+
 model AuditLog {
   id         String    @id @default(uuid()) @map("id") @db.Uuid
   actorType  ActorType @map("actor_type")
