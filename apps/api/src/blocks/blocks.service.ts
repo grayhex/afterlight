@@ -7,7 +7,7 @@ import { ActorType, Prisma } from '@prisma/client';
 import { normalizeFingerprint } from '../common/key-fingerprint.js';
 import { BlockRecipientDto } from './dto/block-recipient.dto.js';
 import { BlockDetailDto, BlockDto } from './dto/block-response.dto.js';
-import { isRsa3072Wrap } from '../common/envelope.js';
+import { hasVaultKey, isRsa3072Wrap } from '../common/envelope.js';
 
 @Injectable()
 export class BlocksService {
@@ -66,7 +66,7 @@ export class BlocksService {
   async create(userId: string, dto: CreateBlockDto): Promise<BlockDetailDto> {
     const v = await this.ensureVaultOwner(userId, dto.vault_id);
     // Без ключа сейфа у владельца нет способа прочитать блок обратно: сначала настройка ключа (PUT /vaults/:id/key)
-    if (!v.mkWrapped) throw new ConflictException('The vault key is not set up yet');
+    if (!hasVaultKey(v.mkWrapped)) throw new ConflictException('The vault key is not set up yet');
 
     let metadata: any = undefined;
     if (typeof dto.metadata === 'string') {
