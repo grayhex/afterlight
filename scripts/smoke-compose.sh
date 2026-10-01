@@ -69,6 +69,8 @@ expect 200 "api через web-прокси /api/healthz" "$BASE/api/healthz"
 expect 200 "api /readyz (БД доступна) через прокси" "$BASE/api/readyz"
 expect 200 "главная страница" "$BASE/"
 expect 401 "защищённый маршрут API без входа" "$BASE/api/vaults"
+expect 404 "документация API выключена в production (/docs открыт без входа)" "$BASE/api/docs"
+expect 404 "описание OpenAPI выключено в production" "$BASE/api/docs-json"
 expect 307 "/cabinet без входа → редирект" "$BASE/cabinet"
 
 EMAIL="smoke$RANDOM@test.local"

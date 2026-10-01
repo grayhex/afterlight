@@ -8,6 +8,10 @@ import { IS_PUBLIC_KEY } from '../../src/auth/decorators/public.decorator.js';
 import { ROLES_KEY } from '../../src/auth/decorators/roles.decorator.js';
 import { REQUIRE_VERIFIED_EMAIL_KEY } from '../../src/auth/decorators/require-verified-email.decorator.js';
 import { RATE_LIMIT_KEY } from '../../src/rate-limit/rate-limit.decorator.js';
+import { setupDocs } from '../../src/docs.setup.js';
+import { Test } from '@nestjs/testing';
+import { AppModule } from '../../src/app.module.js';
+import { configureApp } from '../../src/app.setup.js';
 import { bootstrapApp, closeApp, Ctx } from './helper.js';
 
 /**
@@ -144,6 +148,8 @@ function renderTable(routes: RouteInfo[]): string {
     '- **данные выбираются по сессии**, **справочник** и **секретная ссылка** — вход нужен, но доступ не зависит от объекта (решает токен, а не сейф: публичная ссылка, приглашение); каждый такой маршрут перечислен в тесте с причиной (`SESSION_SCOPED`, `REFERENCE_DATA`, `CAPABILITY`);',
     '- **объектный** — всё остальное: сервис проверяет доступ к конкретному сейфу, блоку или событию по сессии (`VaultAccessService` или проверка владения); глобальная роль `Admin` чужого сейфа не открывает. Это вид **по умолчанию**: новый маршрут попадает сюда, пока его не отнесли к другому виду явно, поэтому отрицательные сценарии по каждому модулю (`object-authorization.spec.ts`, `security.authorization.spec.ts`) обязательны для каждого нового объектного маршрута.',
     '',
+    'Вне контроллеров на HTTP-адаптере регистрируются только `/docs` и `/docs-json` (Swagger): они доступны без входа, поэтому **в production выключены по умолчанию** (`SWAGGER_ENABLED=true` включает); это проверяет тест.',
+    '',
     '| Маршрут | Доступ | Аноним | Обычный пользователь | Администратор платформы | Особенности |',
     '|---|---|---|---|---|---|',
     ...rows,
@@ -167,6 +173,29 @@ describe('route access table (every registered route, real guards)', () => {
   it('only the explicit allowlist is public: a new route without authentication has to be added here on purpose', () => {
     const publicRoutes = discoverRoutes(ctx).filter((r) => r.isPublic).map((r) => r.key).sort();
     expect(publicRoutes).toEqual([...PUBLIC_ALLOWLIST].sort());
+  });
+
+  it('routes registered on the HTTP adapter outside controllers (Swagger) are not served in production and are the only extra public paths otherwise', async () => {
+    // Swagger подключается к адаптеру мимо guard'ов, поэтому обход контроллеров его не видит: проверяем боевой вызов setupDocs
+    // на приложениях, собранных так же, как в main.ts (setupDocs до listen)
+    const statusOf = async (env: Record<string, string>) => {
+      const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+      const app = moduleRef.createNestApplication();
+      configureApp(app);
+      const registered = setupDocs(app, env as NodeJS.ProcessEnv);
+      await app.listen(0);
+      try {
+        const base = `http://127.0.0.1:${(app.getHttpServer().address() as { port: number }).port}`;
+        return { registered, statuses: [(await fetch(`${base}/docs`)).status, (await fetch(`${base}/docs-json`)).status] };
+      } finally {
+        await app.close();
+      }
+    };
+    expect(await statusOf({ NODE_ENV: 'production' })).toEqual({ registered: false, statuses: [404, 404] });
+    expect(await statusOf({ NODE_ENV: 'production', SWAGGER_ENABLED: 'false' })).toEqual({ registered: false, statuses: [404, 404] });
+    // вне production и при явном включении документация открыта без входа: единственные пути вне контроллеров
+    expect(await statusOf({ NODE_ENV: 'development' })).toEqual({ registered: true, statuses: [200, 200] });
+    expect(await statusOf({ NODE_ENV: 'production', SWAGGER_ENABLED: 'true' })).toEqual({ registered: true, statuses: [200, 200] });
   });
 
   it('every non-public route answers 401 to an anonymous caller, for any method and well-formed parameters', async () => {

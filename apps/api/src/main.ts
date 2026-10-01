@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { setupDocs } from './docs.setup.js';
 import { PrismaService } from './prisma/prisma.service.js';
 import { configureApp } from './app.setup.js';
 import { validateEnv } from './env.js';
@@ -19,14 +19,7 @@ async function bootstrap() {
 
   configureApp(app);
 
-  const config = new DocumentBuilder()
-    .setTitle('AfterLight API')
-    .setDescription('MVP endpoints for vaults, verifiers, and verification events')
-    .setVersion('0.2.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  setupDocs(app);
 
   const prismaService = app.get(PrismaService);
   await prismaService.enableShutdownHooks(app);

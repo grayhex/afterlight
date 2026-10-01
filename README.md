@@ -23,7 +23,7 @@
 - 🗂️ Сейфы, блоки данных, получатели, публичные ссылки.
 - ✅ Верификаторы, события верификации, оркестрация решений.
 - 🩺 Health/readiness endpoints: `/healthz`, `/readyz`.
-- 📘 Swagger документация: `/docs`.
+- 📘 Swagger документация: `/docs` (вне production; в production выключена, включается `SWAGGER_ENABLED=true`, см. `docs/deploy.md`).
 - 🖥️ Web-интерфейс: landing, регистрация, кабинет, policies, contacts.
 
 ---
