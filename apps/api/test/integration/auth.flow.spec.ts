@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { execFileSync } from 'child_process';
 import { bootstrapApp, closeApp, Ctx } from './helper.js';
+import { trustedOrigins } from '../../src/common/origin-check.middleware.js';
 
 describe('auth flow (real guard, cookie session, seeded admin)', () => {
   let ctx: Ctx;
@@ -52,5 +53,29 @@ describe('auth flow (real guard, cookie session, seeded admin)', () => {
     const cookie = (login.headers.get('set-cookie') ?? '').split(';')[0];
     const users = await call('/users', { headers: { cookie } });
     expect(users.status).toBe(200);
+  });
+
+  describe('origin check for state-changing requests (CSRF on top of SameSite=Lax)', () => {
+    const post = (origin?: string) =>
+      call('/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) },
+        body: JSON.stringify({ email: 'nobody@test.local', password: 'x' }),
+      });
+
+    // доверенный адрес берётся из окружения: в CI он http://localhost:3001, локально — http://localhost
+    const trusted = trustedOrigins()[0];
+
+    it('rejects a foreign or null Origin, allows a trusted one and requests without Origin', async () => {
+      expect((await post('https://evil.example')).status).toBe(403);
+      expect((await post('null')).status).toBe(403);
+      expect((await post(trusted)).status).toBe(401); // доверенный origin доходит до проверки пароля
+      expect((await post(`${trusted}/`)).status).toBe(401);
+      expect((await post()).status).toBe(401); // не браузерный клиент
+    });
+
+    it('does not touch safe methods', async () => {
+      expect((await call('/healthz', { headers: { origin: 'https://evil.example' } })).status).toBe(200);
+    });
   });
 });
