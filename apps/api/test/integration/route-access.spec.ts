@@ -46,7 +46,12 @@ const REFERENCE_DATA: Record<string, string> = {
   'GET /plans/:id': 'справочник тарифов: доступен любому вошедшему',
 };
 
-type Scope = 'public' | 'admin' | 'session' | 'reference' | 'object';
+/** Доступ по секрету в самой ссылке (токен-«ключ»), а не по сейфу: любой вошедший, знающий токен, получает ответ. */
+const CAPABILITY: Record<string, string> = {
+  'GET /p/:token': 'доступ по секретному токену ссылки без проверки сейфа; сейчас дополнительно требует входа, ответ — только метаданные блока (#171)',
+};
+
+type Scope = 'public' | 'admin' | 'session' | 'reference' | 'capability' | 'object';
 
 interface RouteInfo {
   key: string;
@@ -87,7 +92,7 @@ function discoverRoutes(ctx: Ctx): RouteInfo[] {
         const key = `${method} ${path}`;
         const isPublic = !!reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler as never, type]);
         const adminOnly = roles.includes('Admin');
-        const scope: Scope = isPublic ? 'public' : adminOnly ? 'admin' : key in SESSION_SCOPED ? 'session' : key in REFERENCE_DATA ? 'reference' : 'object';
+        const scope: Scope = isPublic ? 'public' : adminOnly ? 'admin' : key in SESSION_SCOPED ? 'session' : key in REFERENCE_DATA ? 'reference' : key in CAPABILITY ? 'capability' : 'object';
         routes.set(key, {
           key,
           method,
@@ -95,7 +100,7 @@ function discoverRoutes(ctx: Ctx): RouteInfo[] {
           isPublic,
           adminOnly,
           scope,
-          scopeNote: SESSION_SCOPED[key] ?? REFERENCE_DATA[key] ?? '',
+          scopeNote: SESSION_SCOPED[key] ?? REFERENCE_DATA[key] ?? CAPABILITY[key] ?? '',
           verifiedEmail: !!reflector.getAllAndOverride<boolean>(REQUIRE_VERIFIED_EMAIL_KEY, [handler as never, type]),
           rateLimit: rl ? `${rl.policy} (${rl.by})` : null,
         });
@@ -116,6 +121,7 @@ const ACCESS_TEXT: Record<Scope, [string, string, string, string]> = {
   admin: ['только администратор платформы', '401', '403', 'допущен'],
   session: ['вошедший пользователь; данные выбираются по сессии', '401', 'допущен к своим данным', 'как обычный пользователь'],
   reference: ['вошедший пользователь; справочник без привязки к объекту', '401', 'допущен', 'допущен'],
+  capability: ['вошедший пользователь, знающий секретный токен ссылки', '401', 'допущен при верном токене (иначе 404)', 'как обычный пользователь'],
   object: ['вошедший пользователь; доступ определяет объект (сейф, блок, событие) по сессии', '401', '403/404 для чужого объекта', 'как обычный пользователь: глобальная роль доступа к сейфу не даёт'],
 };
 
@@ -134,7 +140,7 @@ function renderTable(routes: RouteInfo[]): string {
     'Виды доступа:',
     '- **публичный** — без входа (закрытый список `PUBLIC_ALLOWLIST` в тесте);',
     '- **только администратор платформы** — аноним `401`, обычный пользователь `403` независимо от владения сейфом;',
-    '- **данные выбираются по сессии** и **справочник** — вход нужен, но доступ не зависит от объекта; каждый такой маршрут перечислен в тесте с причиной (`SESSION_SCOPED`, `REFERENCE_DATA`);',
+    '- **данные выбираются по сессии**, **справочник** и **секретная ссылка** — вход нужен, но доступ не зависит от объекта (для ссылки решает токен, а не сейф); каждый такой маршрут перечислен в тесте с причиной (`SESSION_SCOPED`, `REFERENCE_DATA`, `CAPABILITY`);',
     '- **объектный** — всё остальное: сервис проверяет доступ к конкретному сейфу, блоку или событию по сессии (`VaultAccessService`); глобальная роль `Admin` чужого сейфа не открывает. Отрицательные сценарии по каждому модулю — `object-authorization.spec.ts` и `security.authorization.spec.ts`.',
     '',
     '| Маршрут | Доступ | Аноним | Обычный пользователь | Администратор платформы | Особенности |',
@@ -189,7 +195,7 @@ describe('route access table (every registered route, real guards)', () => {
   it('routes marked as not object-scoped really work for any signed-in user, and the markings stay in sync with the routes', async () => {
     const routes = discoverRoutes(ctx);
     const keys = new Set(routes.map((r) => r.key));
-    for (const key of [...Object.keys(SESSION_SCOPED), ...Object.keys(REFERENCE_DATA)]) expect(keys.has(key)).toBe(true); // нет устаревших записей
+    for (const key of [...Object.keys(SESSION_SCOPED), ...Object.keys(REFERENCE_DATA), ...Object.keys(CAPABILITY)]) expect(keys.has(key)).toBe(true); // нет устаревших записей
     const person = await ctx.factory.createUser({ email: 'person@test.local' });
     const open = [['GET', '/auth/me'], ['GET', '/vaults'], ['GET', '/plans'], ['POST', '/vaults', { name: 'Mine' }], ['PUT', '/recipients/me/key', { pubkey: 'KEY' }]] as Array<[string, string, unknown?]>;
     for (const [method, path, body] of open) {
