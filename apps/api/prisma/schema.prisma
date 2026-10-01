@@ -90,18 +90,18 @@ enum UserRole {
 //* ===== Models ===== *
 
 model User {
-  id           String   @id @default(uuid()) @map("id") @db.Uuid
-  email        String   @unique
-  name         String?  @map("name")
+  id           String    @id @default(uuid()) @map("id") @db.Uuid
+  email        String    @unique
+  name         String?   @map("name")
   phone        String?
-  passwordHash String?  @map("password_hash")
-  passkeyPub   String?  @map("passkey_pub")
-  twoFaEnabled Boolean  @default(false) @map("two_fa_enabled")
+  passwordHash String?   @map("password_hash")
+  passkeyPub   String?   @map("passkey_pub")
+  twoFaEnabled Boolean   @default(false) @map("two_fa_enabled")
   lastLoginAt  DateTime? @map("last_login_at")
-  role         UserRole @default(Owner)
-  locale       String   @default("ru-RU")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  role         UserRole  @default(Owner)
+  locale       String    @default("ru-RU")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   vaults        Vault[]
   vaultRoles    VaultUserRole[]
