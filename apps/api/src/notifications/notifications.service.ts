@@ -49,7 +49,8 @@ export class NotificationsService implements OnModuleDestroy {
   private readonly config: MailConfig = loadMailConfig();
   private draining: Promise<void> | null = null;
   private readonly lateSends = new Set<Promise<unknown>>();
-  private readonly renewTimers = new Map<string, NodeJS.Timeout>();
+  /** Продление аренды зависшей отправки по id задачи; stop() прекращает продление и дожидается уже запущенного запроса */
+  private readonly renewals = new Map<string, { stop: () => Promise<void> }>();
   private again = false;
 
   constructor(
@@ -152,10 +153,11 @@ export class NotificationsService implements OnModuleDestroy {
     await Promise.race([this.idle(), new Promise<void>((resolve) => { timer = setTimeout(resolve, hold); })]);
     clearTimeout(timer);
     // Не успевшие завершиться отправки оборвутся вместе с процессом; на время смены процесса даём им последнюю
-    // аренду, чтобы заменяющий воркер не обогнал их более новым письмом
-    const pending = [...this.renewTimers.keys()];
-    for (const t of this.renewTimers.values()) clearInterval(t);
-    this.renewTimers.clear();
+    // аренду, чтобы заменяющий воркер не обогнать их более новым письмом. Сначала останавливаем продление и дожидаемся
+    // уже запущенных запросов: иначе более ранний срок мог бы записаться поверх финального
+    const pending = [...this.renewals.keys()];
+    await Promise.all([...this.renewals.values()].map((r) => r.stop()));
+    this.renewals.clear();
     if (pending.length > 0) {
       await this.prisma.notification
         .updateMany({ where: { id: { in: pending } }, data: { lockedUntil: new Date(this.clock.now().getTime() + hold) } })
@@ -243,7 +245,12 @@ export class NotificationsService implements OnModuleDestroy {
       renewing = p;
     }, this.config.sendTimeoutMs);
     renew.unref();
-    this.renewTimers.set(id, renew);
+    const stop = async () => {
+      stopped = true;
+      clearInterval(renew);
+      await renewing; // уже запущенный запрос продления дожидаемся: он не должен завершиться позже следующей записи аренды
+    };
+    this.renewals.set(id, { stop });
     const settled = (async () => {
       let ok = false;
       try {
@@ -252,11 +259,9 @@ export class NotificationsService implements OnModuleDestroy {
       } catch {
         // отказ после дедлайна: повтор уже запланирован markFailure
       }
-      stopped = true;
-      clearInterval(renew);
-      this.renewTimers.delete(id);
+      this.renewals.delete(id);
       // Уже запущенный запрос продления дожидаемся: иначе он мог бы завершиться после снятия аренды и вернуть её
-      await renewing;
+      await stop();
       if (ok) await this.markSentLate(id, subject);
       await this.prisma.notification.updateMany({ where: { id, lockedUntil: { not: null } }, data: { lockedUntil: null } });
     })()
