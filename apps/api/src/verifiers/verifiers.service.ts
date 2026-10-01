@@ -136,14 +136,19 @@ export class VerifiersService {
 
     const now = new Date();
     const link = await this.prisma.$transaction(async (tx) => {
-      // D4: во время процесса состав не меняется — принять приглашение можно после его завершения или отмены
-      await this.access.lockVaultAssertNoActiveEvent(tx, invitation.vaultId);
+      await this.access.lockVault(tx, invitation.vaultId);
       // Условное обновление делает "использовать один раз" атомарным при параллельных запросах.
+      // Недействительное приглашение (использовано, отозвано, истекло) получает 410 раньше проверки процесса,
+      // чтобы по ответу нельзя было узнать, идёт ли у сейфа событие.
       const claimed = await tx.vaultUserInvitation.updateMany({
         where: { id: invitation.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: now } },
         data: { acceptedAt: now },
       });
       if (claimed.count !== 1) throw new GoneException('Invitation is no longer valid');
+
+      // D4: во время процесса состав не меняется. 409 откатывает транзакцию вместе с отметкой «принято»:
+      // приглашение не сгорает и принимается после завершения или отмены процесса.
+      await this.access.assertNoActiveEventTx(tx, invitation.vaultId);
 
       return tx.vaultUserRole.upsert({
         where: { vaultId_userId: { vaultId: invitation.vaultId, userId: account.id } },

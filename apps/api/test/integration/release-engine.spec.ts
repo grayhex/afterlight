@@ -374,6 +374,10 @@ describe('release engine (real PostgreSQL, managed clock)', () => {
 
       await cancel(s);
       expect((await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id)).status).toBe(201);
+
+      // повтор использованного токена при новом активном событии — 410, а не 409: событие не раскрывается
+      await start(s);
+      expect((await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id)).status).toBe(410);
     });
 
     it('the quorum, the grace length and the participants are fixed at the start, even if the data changes underneath', async () => {
