@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { MailTransport } from '../../src/notifications/mail-transport.js';
 import { createHash } from 'crypto';
 import { NotificationsService } from '../../src/notifications/notifications.service.js';
 import { bootstrapApp, closeApp, Ctx } from './helper.js';
@@ -304,7 +305,157 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       const [n] = await rows();
       expect(n).toMatchObject({ state: 'Queued', attempts: 1 });
       expect(n.lastError).toMatch(/ETIMEDOUT|ECONNECTION|timeout/i);
+      // запрос к SMTP после дедлайна тоже завершился (отказом) — аренда снята, повтор запланирован с backoff
+      expect(n.lockedUntil).toBeNull();
+      expect(n.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(t0.getTime() + 30_000);
       expect(ctx.mail.messages).toHaveLength(0);
+    });
+  });
+
+  describe('disclosure-state mail keeps its meaning across retries', () => {
+    it('a stale "process started" mail never overtakes "process cancelled": recipients get only the newest state', async () => {
+      const owner = await ctx.factory.createUser({ email: 'state-owner@test.local' });
+      const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2, graceHours: 24 });
+      const v1 = await ctx.factory.createVerifier(vault.id, { email: 'state-v1@test.local' });
+      await ctx.factory.createVerifier(vault.id, { email: 'state-v2@test.local' });
+      await ctx.mail.stop(); // «процесс начат» не доставляется и уходит в повтор
+
+      expect((await ctx.request('POST', '/orchestration/start', { vault_id: vault.id }, owner.id)).status).toBe(201);
+      ctx.clock.setNow(secs(10));
+      expect((await ctx.request('POST', '/orchestration/cancel', { vault_id: vault.id }, owner.id)).status).toBe(201);
+      const states = (await rows()).map((r) => r.state);
+      expect(states.filter((x) => x === 'Cancelled')).toHaveLength(3); // три «начат» заменены
+      expect(states.filter((x) => x === 'Queued')).toHaveLength(3); // три «отменён» ждут
+
+      await ctx.mail.start(); // почта вернулась
+      ctx.clock.setNow(secs(40));
+      await svc().dispatchDue();
+      for (const address of ['state-owner@test.local', 'state-v1@test.local', 'state-v2@test.local']) {
+        const got = ctx.mail.to(address);
+        expect(got).toHaveLength(1);
+        expect(got[0].subject).toBe('AfterLight: процесс раскрытия отменён');
+      }
+      expect(v1.user.email).toBe('state-v1@test.local');
+    });
+  });
+
+  describe('cancellation vs a claimed batch', () => {
+    async function twoEventMails() {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'first@test.local', { subject: 'First', text: 'x' });
+      await svc().enqueueEmail(vault.id, 'second@test.local', { subject: 'Second', text: 'x' });
+      await ctx.mail.start();
+      return vault;
+    }
+
+    afterEach(() => { jest.restoreAllMocks(); });
+
+    it('a message cancelled while waiting inside the claimed batch is not delivered', async () => {
+      await twoEventMails();
+      const transport = ctx.moduleRef.get(MailTransport);
+      const original = transport.send.bind(transport);
+      let first = true;
+      jest.spyOn(transport, 'send').mockImplementation(async (mail) => {
+        if (first) {
+          first = false;
+          // пока уходит первое письмо, второе (уже взятое в пачку) снимают
+          await ctx.db.notification.updateMany({ where: { toContact: 'second@test.local' }, data: { state: 'Cancelled', lastError: 'superseded' } });
+        }
+        return original(mail);
+      });
+      const res = await svc().dispatchDue();
+      expect(res).toMatchObject({ claimed: 2, sent: 1 });
+      expect(ctx.mail.to('first@test.local')).toHaveLength(1);
+      expect(ctx.mail.to('second@test.local')).toHaveLength(0);
+    });
+
+    it('a newer state mail waits while an older one with the same key is still in flight, then goes out after it', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      const key = `${vault.id}:someone`;
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'older@test.local', { subject: 'Started', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      await ctx.mail.start();
+      // старое письмо сейчас отправляется другим воркером, но его уже сняли новым состоянием: аренда сохранена
+      await ctx.db.notification.updateMany({ data: { state: 'Cancelled', lockedUntil: secs(60), attempts: 1 } });
+      await svc().enqueueEmail(vault.id, 'newer@test.local', { subject: 'Cancelled', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      // порядок не зависит от created_at: даже при одинаковых и «обратных» отметках времени новое письмо ждёт
+      await ctx.db.notification.updateMany({ where: { toContact: 'newer@test.local' }, data: { createdAt: secs(-5) } });
+
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 0 });
+      expect(ctx.mail.to('newer@test.local')).toHaveLength(0);
+
+      // старое письмо завершилось: аренда снята, очередь идёт дальше
+      await ctx.db.notification.updateMany({ where: { toContact: 'older@test.local' }, data: { lockedUntil: null } });
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 1, sent: 1 });
+      expect(ctx.mail.to('newer@test.local')).toHaveLength(1);
+      expect(ctx.mail.to('older@test.local')).toHaveLength(0);
+    });
+
+    it('a message cancelled during a send that then times out keeps the ordering lease long enough', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      const key = `${vault.id}:slow`;
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'slow@test.local', { subject: 'Started', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      const transport = ctx.moduleRef.get(MailTransport);
+      jest.spyOn(transport, 'send').mockImplementation(async () => {
+        // пока отправка висит, её снимает более новое состояние; сама отправка так и не завершается
+        await ctx.db.notification.updateMany({ where: { toContact: 'slow@test.local' }, data: { state: 'Cancelled', lastError: 'superseded' } });
+        return new Promise<void>(() => undefined);
+      });
+      // аренда пачки намеренно короткая: продление после таймаута должно быть единственным, что держит порядок
+      await ctx.db.$executeRawUnsafe(`UPDATE notification SET attempts = 0`);
+      const res = await svc().dispatchDue();
+      expect(res).toMatchObject({ claimed: 1, retried: 1 });
+      const row = await ctx.db.notification.findFirstOrThrow({ where: { toContact: 'slow@test.local' } });
+      expect(row.state).toBe('Cancelled');
+      expect(row.lockedUntil).not.toBeNull();
+      expect(row.lockedUntil!.getTime()).toBeGreaterThanOrEqual(ctx.clock.now().getTime() + 3000); // 3 x таймаут (1 c в тестах)
+    });
+
+    it('a send that finishes after the deadline is recorded as Sent, with no duplicate on the scheduled retry', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      await svc().enqueueEmail(vault.id, 'late@test.local', { subject: 'Late', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: `${vault.id}:late` });
+      await svc().idle();
+      await ctx.db.notification.deleteMany(); // чистый старт: письмо ставим вручную ниже
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'late@test.local', { subject: 'Late', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: `${vault.id}:late` });
+      await ctx.mail.start();
+      const transport = ctx.moduleRef.get(MailTransport);
+      const original = transport.send.bind(transport);
+      jest.spyOn(transport, 'send').mockImplementation(async (mail) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500)); // дольше таймаута 1 c
+        return original(mail);
+      });
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 1, sent: 0, retried: 1 });
+      await svc().idle(); // запрос к SMTP завершился успешно после дедлайна
+      expect(ctx.mail.to('late@test.local')).toHaveLength(1);
+      const row = await ctx.db.notification.findFirstOrThrow();
+      expect(row).toMatchObject({ state: 'Sent', lockedUntil: null });
+
+      ctx.clock.setNow(secs(100000));
+      expect((await svc().dispatchDue()).claimed).toBe(0); // повтор не уходит: письмо уже принято
+      expect(ctx.mail.to('late@test.local')).toHaveLength(1);
+    });
+
+    it('the ordering blocker also covers a leased Failed mail (final attempt timed out while the send is still running)', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      const key = `${vault.id}:someone-else`;
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'old2@test.local', { subject: 'Started', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      await ctx.mail.start();
+      await ctx.db.notification.updateMany({ data: { state: 'Failed', lockedUntil: secs(60), attempts: 4, lastError: 'ETIMEDOUT: no confirmation within the send timeout' } });
+      await svc().enqueueEmail(vault.id, 'new2@test.local', { subject: 'Cancelled', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 0 });
+      ctx.clock.setNow(secs(61)); // аренда истекла: отправка гарантированно завершилась или оборвалась
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 1, sent: 1 });
+      expect(ctx.mail.to('new2@test.local')).toHaveLength(1);
     });
   });
 

@@ -11,7 +11,10 @@ export interface OutgoingMail {
 
 /** Ошибка отправки с классификацией: permanent — повтор бессмысленен (адрес отвергнут), иначе — повторяем с backoff. */
 export class MailSendError extends Error {
-  constructor(message: string, readonly permanent: boolean, readonly code?: string) {
+  /**
+   * @param inFlight true, если отправка продолжается в фоне после нашего таймаута: итог неизвестен, письмо ещё может уйти
+   */
+  constructor(message: string, readonly permanent: boolean, readonly code?: string, readonly inFlight = false) {
     super(message);
   }
 }

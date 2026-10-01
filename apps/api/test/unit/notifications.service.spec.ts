@@ -17,7 +17,7 @@ describe('NotificationsService', () => {
 
   beforeEach(() => {
     prisma = {
-      notification: { create: jest.fn(async () => ({ id: 'n1' })), updateMany: jest.fn(async () => ({ count: 1 })), findMany: jest.fn() },
+      notification: { create: jest.fn(async () => ({ id: 'n1' })), updateMany: jest.fn(async () => ({ count: 1 })), findMany: jest.fn(), findFirst: jest.fn() },
       $queryRaw: jest.fn(),
     };
     prisma.$transaction = jest.fn(async (fn: any) => fn(prisma));
@@ -27,9 +27,13 @@ describe('NotificationsService', () => {
   });
   afterEach(() => { jest.restoreAllMocks(); });
 
+  /** Последнее изменение состояния задачи (без служебного снятия аренды release). */
+  const outcome = () => prisma.notification.updateMany.mock.calls.filter((c: any[]) => c[0].where.state !== undefined && c[0].where.state.not === undefined).at(-1)[0];
+
   function claimOne(r = row()) {
     prisma.$queryRaw.mockResolvedValue([{ id: r.id }]);
     prisma.notification.findMany.mockResolvedValue([r]);
+    prisma.notification.findFirst.mockResolvedValue({ payload: r.payload }); // перечитывание перед отправкой: ещё Queued
   }
 
   it('enqueues with a nullable vault and the due time = now', async () => {
@@ -52,7 +56,7 @@ describe('NotificationsService', () => {
     const res = await service.dispatchDue();
     expect(res).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0 });
     expect(transport.send).toHaveBeenCalledWith({ to: 'person@mail.test', subject: 'Reset', text: 'token=SECRET-TOKEN-123', html: undefined });
-    const data = prisma.notification.updateMany.mock.calls.at(-1)[0].data;
+    const data = outcome().data;
     expect(data).toMatchObject({ state: 'Sent', payload: { subject: 'Reset', redacted: true } });
   });
 
@@ -61,7 +65,7 @@ describe('NotificationsService', () => {
     transport.send.mockRejectedValue(new MailSendError('ETIMEDOUT: connection timed out', false, 'ETIMEDOUT'));
     const res = await service.dispatchDue();
     expect(res).toMatchObject({ sent: 0, retried: 1, failed: 0 });
-    const data = prisma.notification.updateMany.mock.calls.at(-1)[0].data;
+    const data = outcome().data;
     expect(data.state).toBeUndefined();
     expect(data.lastError).toBe('ETIMEDOUT: connection timed out');
     expect(data.nextAttemptAt).toEqual(new Date(now.getTime() + 120 * 1000)); // 30 * 2^(3-1)
@@ -71,7 +75,7 @@ describe('NotificationsService', () => {
     claimOne();
     transport.send.mockRejectedValue(new MailSendError('550: no such user', true, 'EENVELOPE'));
     expect(await service.dispatchDue()).toMatchObject({ failed: 1, retried: 0 });
-    expect(prisma.notification.updateMany.mock.calls.at(-1)[0].data).toMatchObject({ state: 'Failed', payload: { redacted: true } });
+    expect(outcome().data).toMatchObject({ state: 'Failed', payload: { redacted: true } });
 
     claimOne();
     transport.send.mockRejectedValue(new Error('boom'));
@@ -95,6 +99,14 @@ describe('NotificationsService', () => {
     expect(all).not.toContain('SECRET-TOKEN-123');
     expect(all).not.toContain('person@mail.test');
     expect(all).toContain('p***@mail.test');
+  });
+
+  it('re-reads the state right before sending: a task cancelled while waiting in the claimed batch is not sent', async () => {
+    claimOne();
+    prisma.notification.findFirst.mockResolvedValue(null); // тем временем снято (Cancelled)
+    const res = await service.dispatchDue();
+    expect(transport.send).not.toHaveBeenCalled();
+    expect(res).toMatchObject({ claimed: 1, sent: 0, retried: 0, failed: 0 });
   });
 
   it('dispatchSoon returns at once (never waits for SMTP) and swallows queue errors', async () => {
@@ -131,7 +143,125 @@ describe('NotificationsService', () => {
     const res = await service.dispatchDue();
     expect(Date.now() - started).toBeLessThan(3000);
     expect(res).toMatchObject({ sent: 0, retried: 1 });
-    expect(prisma.notification.updateMany.mock.calls.at(-1)[0].data.lastError).toContain('ETIMEDOUT');
+    const data = outcome().data;
+    expect(data.lastError).toContain('ETIMEDOUT');
+    // отправка не прервана: аренда удерживается (3 × таймаут), повтор не раньше её конца, служебного снятия аренды нет
+    expect(data.lockedUntil).toEqual(new Date(now.getTime() + 3 * 1000));
+    expect(data.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(now.getTime() + 3 * 1000);
+    expect(prisma.notification.updateMany.mock.calls.some((c: any[]) => c[0].where.state?.not !== undefined)).toBe(false);
+    // аренда продлевается и у задачи, снятой во время отправки (запрос без условия на состояние), и никогда не сокращается
+    const extend = prisma.notification.updateMany.mock.calls.find((c: any[]) => c[0].where.OR !== undefined)[0];
+    expect(extend.where.state).toBeUndefined();
+    expect(extend.where.OR).toEqual([{ lockedUntil: null }, { lockedUntil: { lt: new Date(now.getTime() + 3 * 1000) } }]);
+    expect(extend.data).toEqual({ lockedUntil: new Date(now.getTime() + 3 * 1000) });
+  });
+
+  it('after the deadline the lease is renewed until the SMTP operation settles; a late success is recorded as Sent and the lease is cleared', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 2300))); // принято сервером уже после дедлайна
+    const res = await service.dispatchDue();
+    expect(res).toMatchObject({ sent: 0, retried: 1 });
+
+    await service.idle(); // ждём завершения запроса к SMTP
+    const calls = prisma.notification.updateMany.mock.calls.map((c: any[]) => c[0]);
+    const renewals = calls.filter((c: any) => c.where.state === undefined && c.data.lockedUntil instanceof Date && c.where.OR === undefined);
+    expect(renewals.length).toBeGreaterThanOrEqual(1); // продление, пока запрос идёт
+    expect(calls.some((c: any) => c.data.state === 'Sent')).toBe(true); // поздний успех зафиксирован
+    expect(calls.at(-1).data).toEqual({ lockedUntil: null }); // и аренда снята
+  });
+
+  it('a renewal still running when the SMTP promise settles is awaited before the lease is cleared (it cannot bring the lease back)', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 2100))); // успех после двух продлений
+    const order: string[] = [];
+    let slowRenewal = true;
+    prisma.notification.updateMany.mockImplementation(async (args: any) => {
+      const isRenewal = args.where.state === undefined && args.where.OR === undefined && args.data.lockedUntil instanceof Date;
+      if (isRenewal && slowRenewal) {
+        slowRenewal = false;
+        await new Promise((resolve) => setTimeout(resolve, 600)); // запрос продления «застрял» в очереди к БД
+        order.push('renewal-finished');
+      } else if (args.data.lockedUntil === null && args.where.lockedUntil) {
+        order.push('lease-cleared');
+      }
+      return { count: 1 };
+    });
+    await service.dispatchDue();
+    await service.idle();
+    expect(order.indexOf('renewal-finished')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('lease-cleared')).toBeGreaterThan(order.indexOf('renewal-finished'));
+  });
+
+  it('on shutdown an in-flight renewal is drained before the final lease is written (the older deadline cannot overwrite it)', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise(() => undefined)); // зависшая отправка
+    const order: string[] = [];
+    let slow = true;
+    prisma.notification.updateMany.mockImplementation(async (args: any) => {
+      if (args.where.id?.in && args.data.attempts === undefined) order.push('final-lease'); // не claim (он увеличивает attempts)
+      else if (slow && args.where.state === undefined && args.where.OR === undefined && args.data.lockedUntil instanceof Date) {
+        slow = false;
+        await new Promise((resolve) => setTimeout(resolve, 1500)); // запрос продления застрял
+        order.push('renewal-finished');
+      }
+      return { count: 1 };
+    });
+    await service.dispatchDue();
+    await new Promise((resolve) => setTimeout(resolve, 1100)); // первое продление стартовало
+    await service.onModuleDestroy();
+    expect(order).toEqual(['renewal-finished', 'final-lease']);
+  });
+
+  it('a late success on the final attempt turns Failed into Sent: the server did accept the message', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    process.env.MAIL_MAX_ATTEMPTS = '1';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+      delete process.env.MAIL_MAX_ATTEMPTS;
+    }
+    claimOne(row({ attempts: 1, lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 1700)));
+    expect(await service.dispatchDue()).toMatchObject({ failed: 1, sent: 0 });
+    await service.idle();
+    const late = prisma.notification.updateMany.mock.calls.map((c: any[]) => c[0]).find((c: any) => c.data.state === 'Sent');
+    expect(late.where.state).toEqual({ in: ['Queued', 'Failed', 'Cancelled'] });
+  });
+
+  it('on shutdown a still-pending send gets a final lease before the renewal stops (it dies with the process)', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise(() => undefined)); // не завершится никогда
+    await service.dispatchDue();
+    prisma.notification.updateMany.mockClear();
+    await service.onModuleDestroy(); // ждёт предел (3 с), затем ставит последнюю аренду
+    const final = prisma.notification.updateMany.mock.calls.map((c: any[]) => c[0]).find((c: any) => c.where.id?.in);
+    expect(final.where.id.in).toEqual(['n1']);
+    expect(final.data.lockedUntil).toEqual(new Date(now.getTime() + 3000));
   });
 
   it('sizes the lease for the whole claimed batch (send timeout x batch size + margin)', async () => {
