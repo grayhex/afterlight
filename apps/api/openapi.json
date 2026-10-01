@@ -2477,7 +2477,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlockRecipientDto"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -2565,7 +2575,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockRecipientDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -5747,6 +5764,53 @@
           "vault_id",
           "type",
           "dek_wrapped"
+        ]
+      },
+      "BlockRecipientDto": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recipient_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "key_status": {
+            "type": "string",
+            "enum": [
+              "Invited",
+              "KeyClaimed",
+              "KeyConfirmed"
+            ],
+            "description": "Состояние ключа получателя"
+          },
+          "wrapped_for_fingerprint": {
+            "type": "string",
+            "nullable": true,
+            "description": "Отпечаток ключа, под который упакован DEK; null у унаследованных назначений"
+          },
+          "wrap_valid": {
+            "type": "boolean",
+            "description": "Упаковка действительна, только пока она сделана под нынешний подтверждённый ключ получателя"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "block_id",
+          "recipient_id",
+          "contact",
+          "key_status",
+          "wrapped_for_fingerprint",
+          "wrap_valid",
+          "created_at"
         ]
       },
       "AssignRecipientDto": {

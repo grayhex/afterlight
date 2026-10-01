@@ -5,6 +5,7 @@ import { AssignRecipientDto } from './dto/assign-recipient.dto.js';
 import { AuditService } from '../audit/audit.service.js';
 import { ActorType, Prisma } from '@prisma/client';
 import { normalizeFingerprint } from '../common/key-fingerprint.js';
+import { BlockRecipientDto } from './dto/block-recipient.dto.js';
 
 @Injectable()
 export class BlocksService {
@@ -72,7 +73,7 @@ export class BlocksService {
     await this.audit.log(ActorType.User, userId, 'block_soft_delete', 'Block', id);
   }
 
-  async listRecipients(userId: string, blockId: string) {
+  async listRecipients(userId: string, blockId: string): Promise<BlockRecipientDto[]> {
     const b = await this.prisma.block.findUnique({ include: { vault: true }, where: { id: blockId } });
     if (!b || b.deletedAt) throw new NotFoundException('Block not found');
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');
@@ -93,7 +94,7 @@ export class BlocksService {
     }));
   }
 
-  async assignRecipient(userId: string, blockId: string, dto: AssignRecipientDto) {
+  async assignRecipient(userId: string, blockId: string, dto: AssignRecipientDto): Promise<BlockRecipientDto> {
     const b = await this.prisma.block.findUnique({ include: { vault: true }, where: { id: blockId } });
     if (!b || b.deletedAt) throw new NotFoundException('Block not found');
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');

@@ -311,6 +311,24 @@ export interface components {
       /** @default false */
       is_public?: boolean;
     };
+    BlockRecipientDto: {
+      /** Format: uuid */
+      block_id: string;
+      /** Format: uuid */
+      recipient_id: string;
+      contact: string;
+      /**
+       * @description Состояние ключа получателя
+       * @enum {string}
+       */
+      key_status: "Invited" | "KeyClaimed" | "KeyConfirmed";
+      /** @description Отпечаток ключа, под который упакован DEK; null у унаследованных назначений */
+      wrapped_for_fingerprint: string | null;
+      /** @description Упаковка действительна, только пока она сделана под нынешний подтверждённый ключ получателя */
+      wrap_valid: boolean;
+      /** Format: date-time */
+      created_at: string;
+    };
     AssignRecipientDto: {
       /** Format: uuid */
       recipient_id: string;
@@ -1648,7 +1666,9 @@ export interface operations {
     };
     responses: {
       200: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["BlockRecipientDto"][];
+        };
       };
       400: {
         content: {
@@ -1691,7 +1711,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["BlockRecipientDto"];
+        };
       };
       400: {
         content: {
