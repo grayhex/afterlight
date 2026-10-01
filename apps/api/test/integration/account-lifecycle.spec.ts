@@ -113,6 +113,39 @@ describe('account lifecycle (real PostgreSQL, real SMTP sandbox)', () => {
     });
   });
 
+  describe('an administrator changing an address', () => {
+    it('drops the verification and every token issued for the old address; a case-only change keeps both', async () => {
+      const admin = await ctx.factory.createUser({ role: 'Admin' });
+      await register({ email: 'moving@test.local' });
+      const id = await tokenOf('moving@test.local');
+      const [oldLink] = verifyToken('moving@test.local');
+      await ctx.request('POST', '/auth/verify-email', { token: oldLink });
+      expect((await ctx.db.user.findUniqueOrThrow({ where: { id } })).emailVerifiedAt).not.toBeNull();
+
+      // регистр не считается сменой адреса
+      expect((await ctx.request('PATCH', `/users/${id}`, { email: 'Moving@Test.Local' }, admin.id)).status).toBe(200);
+      expect((await ctx.db.user.findUniqueOrThrow({ where: { id } })).emailVerifiedAt).not.toBeNull();
+
+      // письма на прежний адрес ещё в пути: ссылка подтверждения и сброс пароля
+      await ctx.db.user.update({ where: { id }, data: { emailVerifiedAt: null } });
+      await ctx.request('POST', '/auth/resend-verification', undefined, id);
+      ctx.clock.setNow(secs(61));
+      await ctx.request('POST', '/auth/forgot-password', { email: 'moving@test.local' });
+      const staleVerify = verifyToken('moving@test.local').at(-1) as string;
+      const staleReset = ctx.mail.to('moving@test.local').map((m) => m.text.match(/: ([0-9a-f]{64})/)?.[1]).filter(Boolean).at(-1) as string;
+      await ctx.request('POST', '/auth/verify-email', { token: staleVerify }); // подтверждён: проверим сброс при смене
+      expect((await ctx.db.user.findUniqueOrThrow({ where: { id } })).emailVerifiedAt).not.toBeNull();
+
+      const moved = await ctx.request('PATCH', `/users/${id}`, { email: 'moved@test.local' }, admin.id);
+      expect(moved.status).toBe(200);
+      expect(moved.body).toMatchObject({ email: 'moved@test.local', emailVerifiedAt: null });
+      expect(await ctx.db.emailVerificationToken.count({ where: { userId: id } })).toBe(0);
+      expect(await ctx.db.passwordResetToken.count({ where: { userId: id } })).toBe(0);
+      // токен из письма на прежний адрес больше не сбрасывает пароль нового
+      expect((await ctx.request('POST', '/auth/reset-password', { token: staleReset, password: 'attacker-chosen-1' })).status).toBe(401);
+    });
+  });
+
   describe('resending the confirmation mail', () => {
     it('sends a new link, which replaces the older one; a cooldown and an hourly cap apply; a verified user is a no-op', async () => {
       await register();

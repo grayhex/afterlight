@@ -32,7 +32,26 @@ export class UsersService {
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<UserDto> {
-    const user = await this.prisma.user.update({ where: { id }, data: { ...dto, ...(dto.email ? { email: normalizeEmail(dto.email) } : {}) } });
+    const normalized = dto.email ? normalizeEmail(dto.email) : undefined;
+    const user = await this.prisma.$transaction(async (tx) => {
+      const current = normalized ? await tx.user.findUnique({ where: { id }, select: { email: true } }) : null;
+      const changed = !!normalized && !!current && current.email !== normalized;
+      const updated = await tx.user.update({
+        where: { id },
+        data: { ...dto, ...(normalized ? { email: normalized } : {}), ...(changed ? { emailVerifiedAt: null } : {}) },
+      });
+      if (changed) {
+        // Новый адрес не наследует подтверждение прежнего, а токены и письма, выданные на прежний адрес, перестают работать:
+        // иначе получатель старого письма мог бы подтвердить новый адрес или сбросить пароль
+        await tx.emailVerificationToken.deleteMany({ where: { userId: id } });
+        await tx.passwordResetToken.deleteMany({ where: { userId: id } });
+        await tx.notification.updateMany({
+          where: { kind: { in: ['email_verification', 'password_reset'] }, supersedeKey: id, state: 'Queued' },
+          data: { state: 'Cancelled', lastError: 'address changed', lockedUntil: null, payload: { redacted: true } },
+        });
+      }
+      return updated;
+    });
     return this.toDto(user);
   }
 
