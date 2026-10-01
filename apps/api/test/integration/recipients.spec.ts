@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { createHash } from 'crypto';
 import { blockBody, bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
+import { rsaSpki } from '../support/rsa-spki.js';
 
+/** Ключ получателя определяется меткой: настоящая структура RSA-3072 (SPKI), но без дорогой генерации. */
+const key = (label: string) => rsaSpki(label);
 const fp = (key: string) => createHash('sha256').update(key.trim(), 'utf8').digest('hex');
 
 /** Получатели в контексте сейфа и путь ключа: заявлен получателем → подтверждён владельцем → под него упаковывается DEK. */
@@ -45,8 +48,8 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
       const s = await scene();
       const mine = (await designate(s)).body;
       const theirs = (await designate(s, s.other, s.otherVault)).body;
-      await claim(s.person.id, 'KEY-P');
-      const f = fp('KEY-P');
+      await claim(s.person.id, key('KEY-P'));
+      const f = fp(key('KEY-P'));
 
       const list = await ctx.request('GET', `/recipients?vault_id=${s.vault.id}`, undefined, s.owner.id);
       expect(list.body.map((r: any) => r.id)).toEqual([mine.id]);
@@ -67,11 +70,11 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
 
     it('an owner supplied key is ignored and a verifier cannot confirm', async () => {
       const s = await scene();
-      const res = await ctx.request('POST', '/recipients', { vault_id: s.vault.id, contact: 'person@test.local', pubkey: 'KEY-OWNER' }, s.owner.id);
+      const res = await ctx.request('POST', '/recipients', { vault_id: s.vault.id, contact: 'person@test.local', pubkey: key('KEY-OWNER') }, s.owner.id);
       expect(res.body).toMatchObject({ public_key: null, key_status: 'Invited' });
       const v = await ctx.factory.createVerifier(s.vault.id);
-      await claim(s.person.id, 'KEY-P');
-      expect((await confirm(s, res.body.id, fp('KEY-P'), { id: v.user.id } as any)).status).toBe(403);
+      await claim(s.person.id, key('KEY-P'));
+      expect((await confirm(s, res.body.id, fp(key('KEY-P')), { id: v.user.id } as any)).status).toBe(403);
     });
   });
 
@@ -85,22 +88,22 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
       await ctx.request('POST', '/recipients', { vault_id: s.vault.id, contact: 'person2@test.local' }, s.owner.id);
 
       // посторонний аккаунт ничего не заявляет: у него нет назначений
-      expect((await claim(stranger.id, 'KEY-EVIL')).body).toMatchObject({ recipients: 0 });
+      expect((await claim(stranger.id, key('KEY-EVIL'))).body).toMatchObject({ recipients: 0 });
       expect((await ctx.db.recipient.findUniqueOrThrow({ where: { id: mine.id } })).pubkey).toBeNull();
       // адрес не подтверждён — нельзя
-      expect((await claim(unverified.id, 'KEY-X')).status).toBe(403);
+      expect((await claim(unverified.id, key('KEY-X'))).status).toBe(403);
       // без входа — нельзя
       expect((await ctx.request('PUT', '/recipients/me/key', { pubkey: 'K' })).status).toBe(401);
 
-      const ok = await claim(s.person.id, '  KEY-P  ');
+      const ok = await claim(s.person.id, `  ${key('KEY-P')}  `);
       expect(ok.status).toBe(200);
-      expect(ok.body).toEqual({ key_fingerprint: fp('KEY-P'), recipients: 2 });
+      expect(ok.body).toEqual({ key_fingerprint: fp(key('KEY-P')), recipients: 2 });
       for (const id of [mine.id, theirs.id]) {
-        expect(await ctx.db.recipient.findUniqueOrThrow({ where: { id } })).toMatchObject({ pubkey: 'KEY-P', keyFingerprint: fp('KEY-P'), verificationStatus: 'KeyClaimed' });
+        expect(await ctx.db.recipient.findUniqueOrThrow({ where: { id } })).toMatchObject({ pubkey: key('KEY-P'), keyFingerprint: fp(key('KEY-P')), verificationStatus: 'KeyClaimed' });
       }
       // владелец видит отпечаток, чтобы сверить его вне сервера
       const list = await ctx.request('GET', `/recipients?vault_id=${s.vault.id}`, undefined, s.owner.id);
-      expect(list.body.find((r: any) => r.id === mine.id)).toMatchObject({ key_status: 'KeyClaimed', key_fingerprint: fp('KEY-P'), key_confirmed_at: null });
+      expect(list.body.find((r: any) => r.id === mine.id)).toMatchObject({ key_status: 'KeyClaimed', key_fingerprint: fp(key('KEY-P')), key_confirmed_at: null });
     });
   });
 
@@ -109,65 +112,89 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
       const s = await scene();
       const r = (await designate(s)).body;
       // ключа ещё нет
-      expect((await confirm(s, r.id, fp('KEY-P'))).status).toBe(409);
-      expect((await assign(s, r.id, fp('KEY-P'))).status).toBe(409); // не подтверждён
+      expect((await confirm(s, r.id, fp(key('KEY-P')))).status).toBe(409);
+      expect((await assign(s, r.id, fp(key('KEY-P')))).status).toBe(409); // не подтверждён
 
-      await claim(s.person.id, 'KEY-P');
+      await claim(s.person.id, key('KEY-P'));
       expect((await confirm(s, r.id, fp('OTHER'))).status).toBe(409); // не тот отпечаток
       expect((await confirm(s, r.id, 'zz')).status).toBe(400);
-      expect((await assign(s, r.id, fp('KEY-P'))).status).toBe(409); // заявлен, но не подтверждён
+      expect((await assign(s, r.id, fp(key('KEY-P')))).status).toBe(409); // заявлен, но не подтверждён
 
       // запись отпечатка с двоеточиями и в верхнем регистре равна канонической
-      const pretty = fp('KEY-P').toUpperCase().match(/.{2}/g)!.join(':');
+      const pretty = fp(key('KEY-P')).toUpperCase().match(/.{2}/g)!.join(':');
       const ok = await confirm(s, r.id, pretty);
       expect(ok.status).toBe(201);
-      expect(ok.body).toMatchObject({ key_status: 'KeyConfirmed', key_fingerprint: fp('KEY-P') });
+      expect(ok.body).toMatchObject({ key_status: 'KeyConfirmed', key_fingerprint: fp(key('KEY-P')) });
       expect(ok.body.key_confirmed_at).toEqual(expect.any(String));
 
       expect((await assign(s, r.id, fp('OTHER'))).status).toBe(409); // упаковка под другой ключ
-      const done = await assign(s, r.id, fp('KEY-P'));
+      const done = await assign(s, r.id, fp(key('KEY-P')));
       expect(done.status).toBe(201);
-      expect(done.body).toMatchObject({ contact: 'person@test.local', wrap_valid: true, wrapped_for_fingerprint: fp('KEY-P') });
+      expect(done.body).toMatchObject({ contact: 'person@test.local', wrap_valid: true, wrapped_for_fingerprint: fp(key('KEY-P')) });
       expect(JSON.stringify(done.body)).not.toContain(SAMPLE.rsaWrap);
       expect(JSON.stringify(done.body)).not.toMatch(/dek_wrapped/);
+    });
+
+    it('a claimed key must be RSA-OAEP 3072 (SPKI, base64, e=65537): anything else is refused and nothing is stored', async () => {
+      const s = await scene();
+      const r = (await designate(s)).body;
+      const bad: Array<[string, string]> = [
+        ['plain text', 'KEY-P'],
+        ['RSA-1024', rsaSpki('k', { bits: 1024 })],
+        ['RSA-2048', rsaSpki('k', { bits: 2048 })],
+        ['RSA-4096', rsaSpki('k', { bits: 4096 })],
+        ['exponent 3', rsaSpki('k', { exponent: 3 })],
+        ['PEM instead of base64 DER', `-----BEGIN PUBLIC KEY-----\n${key('k')}\n-----END PUBLIC KEY-----`],
+        ['truncated', key('k').slice(0, -8)],
+        ['url-safe alphabet', key('k').replace(/\+/g, '-').replace(/\//g, '_')],
+      ];
+      for (const [label, pubkey] of bad) expect([label, (await claim(s.person.id, pubkey)).status]).toEqual([label, 400]);
+      expect(await ctx.db.recipient.findUniqueOrThrow({ where: { id: r.id } })).toMatchObject({ pubkey: null, keyFingerprint: null, verificationStatus: 'Invited' });
+      expect(await ctx.db.auditLog.count({ where: { action: 'recipient_key_claim' } })).toBe(0);
+
+      // правильный ключ принимается, и подтверждённый ключ не заменить слабым
+      expect((await claim(s.person.id, key('KEY-P'))).status).toBe(200);
+      await confirm(s, r.id, fp(key('KEY-P')));
+      expect((await claim(s.person.id, rsaSpki('weak', { bits: 2048 }))).status).toBe(400);
+      expect(await ctx.db.recipient.findUniqueOrThrow({ where: { id: r.id } })).toMatchObject({ verificationStatus: 'KeyConfirmed', keyFingerprint: fp(key('KEY-P')) });
     });
 
     it('a key change drops the confirmation and invalidates earlier wrappings until the owner confirms again', async () => {
       const s = await scene();
       const r = (await designate(s)).body;
-      await claim(s.person.id, 'KEY-1');
-      await confirm(s, r.id, fp('KEY-1'));
-      expect((await assign(s, r.id, fp('KEY-1'))).status).toBe(201);
+      await claim(s.person.id, key('KEY-1'));
+      await confirm(s, r.id, fp(key('KEY-1')));
+      expect((await assign(s, r.id, fp(key('KEY-1')))).status).toBe(201);
       const listed = () => ctx.request('GET', `/blocks/${s.block.id}/recipients`, undefined, s.owner.id);
       expect((await listed()).body[0]).toMatchObject({ wrap_valid: true });
 
       // тот же ключ повторно: подтверждение остаётся
-      await claim(s.person.id, 'KEY-1');
+      await claim(s.person.id, key('KEY-1'));
       expect((await ctx.db.recipient.findUniqueOrThrow({ where: { id: r.id } })).verificationStatus).toBe('KeyConfirmed');
 
-      await claim(s.person.id, 'KEY-2');
+      await claim(s.person.id, key('KEY-2'));
       const after = await ctx.db.recipient.findUniqueOrThrow({ where: { id: r.id } });
-      expect(after).toMatchObject({ verificationStatus: 'KeyClaimed', keyFingerprint: fp('KEY-2'), keyConfirmedAt: null, keyConfirmedFingerprint: null });
+      expect(after).toMatchObject({ verificationStatus: 'KeyClaimed', keyFingerprint: fp(key('KEY-2')), keyConfirmedAt: null, keyConfirmedFingerprint: null });
       expect((await listed()).body[0]).toMatchObject({ key_status: 'KeyClaimed', wrap_valid: false });
 
       // старый отпечаток больше не подтверждается и не годится для упаковки
-      expect((await confirm(s, r.id, fp('KEY-1'))).status).toBe(409);
-      expect((await assign(s, r.id, fp('KEY-1'))).status).toBe(409);
-      expect((await assign(s, r.id, fp('KEY-2'))).status).toBe(409);
+      expect((await confirm(s, r.id, fp(key('KEY-1')))).status).toBe(409);
+      expect((await assign(s, r.id, fp(key('KEY-1')))).status).toBe(409);
+      expect((await assign(s, r.id, fp(key('KEY-2')))).status).toBe(409);
 
-      await confirm(s, r.id, fp('KEY-2'));
-      expect((await assign(s, r.id, fp('KEY-2'))).status).toBe(201);
-      expect((await listed()).body[0]).toMatchObject({ wrap_valid: true, wrapped_for_fingerprint: fp('KEY-2') });
+      await confirm(s, r.id, fp(key('KEY-2')));
+      expect((await assign(s, r.id, fp(key('KEY-2')))).status).toBe(201);
+      expect((await listed()).body[0]).toMatchObject({ wrap_valid: true, wrapped_for_fingerprint: fp(key('KEY-2')) });
     });
 
     it('a confirmation racing a key change never confirms the old key', async () => {
       const s = await scene();
       const r = (await designate(s)).body;
-      await claim(s.person.id, 'KEY-1');
-      const results = await Promise.all([confirm(s, r.id, fp('KEY-1')), claim(s.person.id, 'KEY-2')]);
+      await claim(s.person.id, key('KEY-1'));
+      const results = await Promise.all([confirm(s, r.id, fp(key('KEY-1'))), claim(s.person.id, key('KEY-2'))]);
       expect(results[1].status).toBe(200);
       const row = await ctx.db.recipient.findUniqueOrThrow({ where: { id: r.id } });
-      expect(row.keyFingerprint).toBe(fp('KEY-2'));
+      expect(row.keyFingerprint).toBe(fp(key('KEY-2')));
       // подтверждённый отпечаток либо отсутствует, либо равен текущему ключу — старый ключ подтверждённым остаться не может
       expect(row.keyConfirmedFingerprint === null || row.keyConfirmedFingerprint === row.keyFingerprint).toBe(true);
     });
