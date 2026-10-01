@@ -2645,7 +2645,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipientDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -2731,7 +2738,198 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecipientDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "recipients"
+        ]
+      }
+    },
+    "/recipients/me/key": {
+      "put": {
+        "operationId": "RecipientsController_claimKey",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimKeyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Получатель заявляет свой публичный ключ для всех сейфов, где его адрес назначен получателем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimKeyResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "recipients"
+        ]
+      }
+    },
+    "/recipients/{id}/confirm-key": {
+      "post": {
+        "operationId": "RecipientsController_confirmKey",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmKeyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Владелец подтверждает отпечаток ключа, сверенный с получателем вне сервера",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecipientDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -5514,10 +5712,9 @@
           "type": {
             "type": "string",
             "enum": [
-              "text",
-              "file",
-              "url"
-            ]
+              "text"
+            ],
+            "description": "Только текстовый блок; file и url не поддерживаются"
           },
           "dek_wrapped": {
             "type": "string",
@@ -5562,11 +5759,16 @@
           "dek_wrapped_for_recipient": {
             "type": "string",
             "description": "DEK wrapped for this recipient (base64 or JWE compact)"
+          },
+          "key_fingerprint": {
+            "type": "string",
+            "description": "Отпечаток SHA-256 (hex) ключа, под который упакован DEK. Принимается, только если равен подтверждённому владельцем отпечатку получателя"
           }
         },
         "required": [
           "recipient_id",
-          "dek_wrapped_for_recipient"
+          "dek_wrapped_for_recipient",
+          "key_fingerprint"
         ]
       },
       "CreateRecipientDto": {
@@ -5578,16 +5780,108 @@
           },
           "contact": {
             "type": "string",
-            "description": "Email получателя (уникальный идентификатор)"
-          },
-          "pubkey": {
-            "type": "string",
-            "description": "Публичный ключ получателя (если уже есть)"
+            "description": "Email получателя (уникален в пределах сейфа). Ключ получатель заявляет сам, владелец его не задаёт"
           }
         },
         "required": [
           "vault_id",
           "contact"
+        ]
+      },
+      "RecipientDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vault_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Получатель принадлежит одному сейфу"
+          },
+          "contact": {
+            "type": "string"
+          },
+          "key_status": {
+            "type": "string",
+            "enum": [
+              "Invited",
+              "KeyClaimed",
+              "KeyConfirmed"
+            ],
+            "description": "Invited — ключа нет; KeyClaimed — заявлен получателем, не подтверждён владельцем; KeyConfirmed — отпечаток подтверждён владельцем"
+          },
+          "public_key": {
+            "type": "string",
+            "nullable": true,
+            "description": "Заявленный получателем публичный ключ"
+          },
+          "key_fingerprint": {
+            "type": "string",
+            "nullable": true,
+            "description": "SHA-256 (hex) заявленного ключа; владелец сверяет его с получателем вне сервера"
+          },
+          "key_confirmed_at": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vault_id",
+          "contact",
+          "key_status",
+          "public_key",
+          "key_fingerprint",
+          "key_confirmed_at",
+          "created_at"
+        ]
+      },
+      "ClaimKeyDto": {
+        "type": "object",
+        "properties": {
+          "pubkey": {
+            "type": "string",
+            "description": "Публичный ключ получателя; пара создаётся в браузере получателя, приватная часть на сервер не передаётся"
+          }
+        },
+        "required": [
+          "pubkey"
+        ]
+      },
+      "ClaimKeyResultDto": {
+        "type": "object",
+        "properties": {
+          "key_fingerprint": {
+            "type": "string",
+            "description": "SHA-256 (hex) ключа: его получатель сообщает владельцу вне сервера"
+          },
+          "recipients": {
+            "type": "number",
+            "description": "Сколько назначений на этот адрес получили ключ (сейфов, где вас назначили получателем)"
+          }
+        },
+        "required": [
+          "key_fingerprint",
+          "recipients"
+        ]
+      },
+      "ConfirmKeyDto": {
+        "type": "object",
+        "properties": {
+          "key_fingerprint": {
+            "type": "string",
+            "description": "Отпечаток SHA-256 (hex, пробелы и двоеточия допускаются), который владелец сверил с получателем вне сервера"
+          }
+        },
+        "required": [
+          "key_fingerprint"
         ]
       },
       "UpdatePublicLinkDto": {

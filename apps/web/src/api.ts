@@ -101,6 +101,12 @@ export interface paths {
     get: operations["RecipientsController_search"];
     post: operations["RecipientsController_create"];
   };
+  "/recipients/me/key": {
+    put: operations["RecipientsController_claimKey"];
+  };
+  "/recipients/{id}/confirm-key": {
+    post: operations["RecipientsController_confirmKey"];
+  };
   "/blocks/{id}/public": {
     get: operations["PublicLinksController_get"];
     put: operations["PublicLinksController_upsert"];
@@ -288,8 +294,11 @@ export interface components {
     CreateBlockDto: {
       /** Format: uuid */
       vault_id: string;
-      /** @enum {string} */
-      type: "text" | "file" | "url";
+      /**
+       * @description Только текстовый блок; file и url не поддерживаются
+       * @enum {string}
+       */
+      type: "text";
       /** @description Wrapped DEK (base64 or JWE compact) */
       dek_wrapped: string;
       /** @description Arbitrary JSON metadata (stringified or object) */
@@ -307,14 +316,51 @@ export interface components {
       recipient_id: string;
       /** @description DEK wrapped for this recipient (base64 or JWE compact) */
       dek_wrapped_for_recipient: string;
+      /** @description Отпечаток SHA-256 (hex) ключа, под который упакован DEK. Принимается, только если равен подтверждённому владельцем отпечатку получателя */
+      key_fingerprint: string;
     };
     CreateRecipientDto: {
       /** @description Идентификатор сейфа */
       vault_id: string;
-      /** @description Email получателя (уникальный идентификатор) */
+      /** @description Email получателя (уникален в пределах сейфа). Ключ получатель заявляет сам, владелец его не задаёт */
       contact: string;
-      /** @description Публичный ключ получателя (если уже есть) */
-      pubkey?: string;
+    };
+    RecipientDto: {
+      /** Format: uuid */
+      id: string;
+      /**
+       * Format: uuid
+       * @description Получатель принадлежит одному сейфу
+       */
+      vault_id: string;
+      contact: string;
+      /**
+       * @description Invited — ключа нет; KeyClaimed — заявлен получателем, не подтверждён владельцем; KeyConfirmed — отпечаток подтверждён владельцем
+       * @enum {string}
+       */
+      key_status: "Invited" | "KeyClaimed" | "KeyConfirmed";
+      /** @description Заявленный получателем публичный ключ */
+      public_key: string | null;
+      /** @description SHA-256 (hex) заявленного ключа; владелец сверяет его с получателем вне сервера */
+      key_fingerprint: string | null;
+      /** Format: date-time */
+      key_confirmed_at: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    ClaimKeyDto: {
+      /** @description Публичный ключ получателя; пара создаётся в браузере получателя, приватная часть на сервер не передаётся */
+      pubkey: string;
+    };
+    ClaimKeyResultDto: {
+      /** @description SHA-256 (hex) ключа: его получатель сообщает владельцу вне сервера */
+      key_fingerprint: string;
+      /** @description Сколько назначений на этот адрес получили ключ (сейфов, где вас назначили получателем) */
+      recipients: number;
+    };
+    ConfirmKeyDto: {
+      /** @description Отпечаток SHA-256 (hex, пробелы и двоеточия допускаются), который владелец сверил с получателем вне сервера */
+      key_fingerprint: string;
     };
     UpdatePublicLinkDto: {
       enabled: boolean;
@@ -1685,7 +1731,9 @@ export interface operations {
     };
     responses: {
       200: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["RecipientDto"][];
+        };
       };
       400: {
         content: {
@@ -1722,7 +1770,94 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["RecipientDto"];
+        };
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  RecipientsController_claimKey: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ClaimKeyDto"];
+      };
+    };
+    responses: {
+      /** @description Получатель заявляет свой публичный ключ для всех сейфов, где его адрес назначен получателем */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ClaimKeyResultDto"];
+        };
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  RecipientsController_confirmKey: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmKeyDto"];
+      };
+    };
+    responses: {
+      /** @description Владелец подтверждает отпечаток ключа, сверенный с получателем вне сервера */
+      201: {
+        content: {
+          "application/json": components["schemas"]["RecipientDto"];
+        };
       };
       400: {
         content: {
