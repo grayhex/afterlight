@@ -308,6 +308,33 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
     });
   });
 
+  describe('disclosure-state mail keeps its meaning across retries', () => {
+    it('a stale "process started" mail never overtakes "process cancelled": recipients get only the newest state', async () => {
+      const owner = await ctx.factory.createUser({ email: 'state-owner@test.local' });
+      const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2, graceHours: 24 });
+      const v1 = await ctx.factory.createVerifier(vault.id, { email: 'state-v1@test.local' });
+      await ctx.factory.createVerifier(vault.id, { email: 'state-v2@test.local' });
+      await ctx.mail.stop(); // «процесс начат» не доставляется и уходит в повтор
+
+      expect((await ctx.request('POST', '/orchestration/start', { vault_id: vault.id }, owner.id)).status).toBe(201);
+      ctx.clock.setNow(secs(10));
+      expect((await ctx.request('POST', '/orchestration/cancel', { vault_id: vault.id }, owner.id)).status).toBe(201);
+      const states = (await rows()).map((r) => r.state);
+      expect(states.filter((x) => x === 'Cancelled')).toHaveLength(3); // три «начат» заменены
+      expect(states.filter((x) => x === 'Queued')).toHaveLength(3); // три «отменён» ждут
+
+      await ctx.mail.start(); // почта вернулась
+      ctx.clock.setNow(secs(40));
+      await svc().dispatchDue();
+      for (const address of ['state-owner@test.local', 'state-v1@test.local', 'state-v2@test.local']) {
+        const got = ctx.mail.to(address);
+        expect(got).toHaveLength(1);
+        expect(got[0].subject).toBe('AfterLight: процесс раскрытия отменён');
+      }
+      expect(v1.user.email).toBe('state-v1@test.local');
+    });
+  });
+
   describe('account recovery works without a vault', () => {
     it('a user without any vault gets the reset mail, the token is single-use, and an unknown address learns nothing', async () => {
       const user = await ctx.factory.createUser({ email: 'novault@test.local' });
