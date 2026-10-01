@@ -8,7 +8,8 @@ import {
   Req,
   GoneException,
 } from '@nestjs/common';
-import { ApiTags, ApiTooManyRequestsResponse } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiTags, ApiTooManyRequestsResponse } from '@nestjs/swagger';
+import { AuthUserDto, EmptyResponseDto } from './dto/auth-responses.dto.js';
 import { ErrorDto } from '../common/error.dto.js';
 import { AuthService } from './auth.service.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
@@ -43,6 +44,7 @@ export class AuthController {
 
   @Public()
   @RateLimit('register_ip')
+  @ApiCreatedResponse({ type: AuthUserDto })
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     const user = await this.auth.register(
@@ -57,6 +59,7 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @ApiCreatedResponse({ type: AuthUserDto })
   @ApiTooManyRequestsResponse({ type: ErrorDto, description: 'Слишком много неудачных попыток входа; Retry-After — через сколько секунд повторить' })
   async login(
     @Body() { email, password }: LoginDto,
@@ -72,19 +75,27 @@ export class AuthController {
       ['login_fail_account_ip', `${account}|${ip}`],
       ['login_fail_account', account],
     ];
+    // Допуск и резерв — одной атомарной операцией ДО проверки пароля: параллельная пачка попыток не может прочитать один и тот
+    // же «ещё не превышенный» счётчик. Успешный вход возвращает резерв, неудачный оставляет его израсходованным.
+    const reserved: Array<{ name: PolicyName; subject: string; windowStart: Date; allowed: boolean }> = [];
+    let retryAfterSec = 0;
     for (const [name, subject] of counters) {
-      const state = await this.limiter.exceeded(name, subject);
-      if (!state.allowed) {
-        res.setHeader('Retry-After', String(state.retryAfterSec));
-        throw new TooManyRequestsException(state.retryAfterSec);
-      }
+      const result = await this.limiter.hit(name, subject);
+      reserved.push({ name, subject, windowStart: result.windowStart, allowed: result.allowed });
+      if (!result.allowed) retryAfterSec = Math.max(retryAfterSec, result.retryAfterSec);
+    }
+    if (retryAfterSec > 0) {
+      // попытка не обрабатывается: резервы в счётчиках, где лимит ещё не превышен, ей не принадлежат
+      await Promise.all(reserved.filter((r) => r.allowed).map((r) => this.limiter.release(r.name, r.subject, r.windowStart)));
+      res.setHeader('Retry-After', String(retryAfterSec));
+      throw new TooManyRequestsException(retryAfterSec);
     }
     const user = await this.auth.validateUser(email, password);
     if (!user) {
-      await Promise.all(counters.map(([name, subject]) => this.limiter.hit(name, subject)));
       throw new UnauthorizedException();
     }
-    // правильный пароль снимает счётчик неудач пары «аккаунт + IP»: опечатки законного пользователя не копятся
+    // правильный пароль возвращает резерв и снимает счётчик пары «аккаунт + IP»: опечатки законного пользователя не копятся
+    await Promise.all(reserved.map((r) => this.limiter.release(r.name, r.subject, r.windowStart)));
     await this.limiter.reset('login_fail_account_ip', `${account}|${ip}`);
     await this.auth.recordLogin(user.id);
     const token = this.auth.sign(user.id, user.sessionVersion);
@@ -112,6 +123,7 @@ export class AuthController {
 
   @Public()
   @RateLimit('forgot_ip')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     await this.auth.forgotPassword(dto.email);
@@ -120,6 +132,7 @@ export class AuthController {
 
   @Public()
   @RateLimit('reset_ip')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
     const ok = await this.auth.resetPassword(dto.token, dto.password);
@@ -131,6 +144,7 @@ export class AuthController {
 
   @Public()
   @RateLimit('verify_ip')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('verify-email')
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     if (!(await this.auth.verifyEmail(dto.token))) {
@@ -140,6 +154,7 @@ export class AuthController {
   }
 
   @RateLimit('resend_user', 'user')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('resend-verification')
   async resendVerification(@Req() req: Request) {
     const userId = (req as any).user?.sub;

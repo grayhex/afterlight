@@ -34,6 +34,8 @@ export interface HitResult {
   allowed: boolean;
   count: number;
   retryAfterSec: number;
+  /** Окно, в котором учтено обращение: нужно, чтобы вернуть резерв именно в него (release). */
+  windowStart: Date;
 }
 
 export function policyOf(name: PolicyName, env: NodeJS.ProcessEnv = process.env): Policy {
@@ -85,17 +87,24 @@ export class RateLimitService {
     // в журнал — только первое превышение окна: поток запросов не должен превращаться в поток записей аудита
     if (count === policy.max + 1) await this.audit.log(ActorType.System, 'rate-limit', 'rate_limited', 'RateLimit', name).catch(() => undefined);
     void this.maybeCleanup();
-    return { allowed: count <= policy.max, count, retryAfterSec };
+    return { allowed: count <= policy.max, count, retryAfterSec, windowStart: start };
   }
 
-  /** Текущее значение без учёта нового обращения (проверка перед тем, как тратить ресурсы на пароль). */
+  /** Текущее значение без учёта нового обращения (только для справки и тестов: для допуска используйте `hit`, он атомарен). */
   async exceeded(name: PolicyName, subject: string): Promise<HitResult> {
     const policy = policyOf(name);
     const { start, retryAfterSec } = this.window(policy);
     const rows = await this.prisma.$queryRaw<Array<{ count: number }>>`
       SELECT "count" FROM rate_limit_bucket WHERE "key" = ${this.bucketKey(name, subject)} AND window_start = ${start}`;
     const count = rows.length ? Number(rows[0].count) : 0;
-    return { allowed: count < policy.max, count, retryAfterSec };
+    return { allowed: count < policy.max, count, retryAfterSec, windowStart: start };
+  }
+
+  /** Возвращает один резерв, сделанный `hit` (успешный вход не должен расходовать лимит неудач). Счётчик не уходит ниже нуля. */
+  async release(name: PolicyName, subject: string, windowStart: Date): Promise<void> {
+    await this.prisma.$executeRaw`
+      UPDATE rate_limit_bucket SET "count" = GREATEST("count" - 1, 0)
+      WHERE "key" = ${this.bucketKey(name, subject)} AND window_start = ${windowStart}`;
   }
 
   /** Сбрасывает счётчик субъекта (успешный вход снимает счётчик неудач для пары «аккаунт + IP»). */

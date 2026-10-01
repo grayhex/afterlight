@@ -16,6 +16,16 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUserDto"
+                }
+              }
+            }
+          },
           "400": {
             "description": "",
             "content": {
@@ -97,6 +107,16 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthUserDto"
+                }
+              }
+            }
+          },
           "400": {
             "description": "",
             "content": {
@@ -242,6 +262,16 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyResponseDto"
+                }
+              }
+            }
+          },
           "400": {
             "description": "",
             "content": {
@@ -323,6 +353,16 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyResponseDto"
+                }
+              }
+            }
+          },
           "400": {
             "description": "",
             "content": {
@@ -404,6 +444,16 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyResponseDto"
+                }
+              }
+            }
+          },
           "400": {
             "description": "",
             "content": {
@@ -475,6 +525,16 @@
         "operationId": "AuthController_resendVerification",
         "parameters": [],
         "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmptyResponseDto"
+                }
+              }
+            }
+          },
           "400": {
             "description": "",
             "content": {
@@ -5486,6 +5546,36 @@
           "password"
         ]
       },
+      "AuthUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Owner",
+              "Verifier",
+              "Admin"
+            ]
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "Адрес подтверждён: до этого создание сейфа, приглашения и голосование закрыты"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "email_verified"
+        ]
+      },
       "LoginDto": {
         "type": "object",
         "properties": {
@@ -5502,6 +5592,10 @@
         ]
       },
       "ForgotPasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "EmptyResponseDto": {
         "type": "object",
         "properties": {}
       },

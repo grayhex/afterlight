@@ -45,6 +45,28 @@ describe('rate limiting (real app, PostgreSQL counters)', () => {
       expect((await login('victim@test.local', 'correct horse')).status).toBe(201);
     });
 
+    it('a parallel burst cannot exceed the limit: admission and reservation are one atomic step', async () => {
+      await boot();
+      await makeUser('burst@test.local');
+      const results = await Promise.all(Array.from({ length: 25 }, () => login('burst@test.local', 'wrong')));
+      const statuses = results.map((r) => r.status);
+      // ровно пять попыток дошли до проверки пароля, остальные остановлены до неё
+      expect(statuses.filter((s) => s === 401)).toHaveLength(5);
+      expect(statuses.filter((s) => s === 429)).toHaveLength(20);
+      // отказы не расходуют чужие счётчики: IP-счётчик учёл только допущенные попытки
+      const ipBucket = (await ctx.db.rateLimitBucket.findMany()).filter((r) => r.key.startsWith('login_fail_ip:'));
+      expect(ipBucket).toHaveLength(1);
+      expect(ipBucket[0].count).toBe(5);
+    });
+
+    it('successful logins give their reservation back: any number of them never trips the limits', async () => {
+      await boot({ RATE_LIMIT_LOGIN_FAIL_IP_MAX: '3', RATE_LIMIT_LOGIN_FAIL_ACCOUNT_MAX: '3' });
+      await makeUser('regular@test.local');
+      for (let i = 0; i < 10; i++) expect((await login('regular@test.local', 'correct horse')).status).toBe(201);
+      const buckets = await ctx.db.rateLimitBucket.findMany();
+      for (const b of buckets) expect(b.count).toBe(0);
+    });
+
     it('an unknown address behaves exactly like a known one (no account enumeration)', async () => {
       await boot();
       await makeUser('known@test.local');
