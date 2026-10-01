@@ -148,8 +148,33 @@ export async function generateRecipientKeyPair(): Promise<CryptoKeyPair> {
 
 /** Открытый ключ как строка (SPKI base64): то, что получатель заявляет серверу. */
 export const exportPublicKey = async (key: CryptoKey): Promise<string> => toB64(new Uint8Array(await subtle().exportKey('spki', key)));
-export const importPublicKey = (spkiB64: string): Promise<CryptoKey> =>
-  subtle().importKey('spki', fromB64(spkiB64), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+
+const RSA_MODULUS_BITS = 3072;
+const RSA_PUBLIC_EXPONENT = [1, 0, 1];
+
+/** Формат фиксирован (ADR-0003): ключ другого размера или с другой экспонентой не принимаем. */
+function assertRecipientKeyFormat(key: CryptoKey): void {
+  const a = key.algorithm as Partial<RsaHashedKeyAlgorithm>;
+  const exponent = a.publicExponent ? [...a.publicExponent] : [];
+  const ok =
+    a.name === 'RSA-OAEP' &&
+    a.modulusLength === RSA_MODULUS_BITS &&
+    exponent.length === RSA_PUBLIC_EXPONENT.length &&
+    exponent.every((b, i) => b === RSA_PUBLIC_EXPONENT[i]);
+  if (!ok) throw new CryptoFormatError('Recipient key must be RSA-OAEP 3072 with exponent 65537');
+}
+
+export async function importPublicKey(spkiB64: string): Promise<CryptoKey> {
+  let key: CryptoKey;
+  try {
+    key = await subtle().importKey('spki', fromB64(spkiB64), { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+  } catch (e) {
+    if (e instanceof CryptoFormatError) throw e;
+    throw new CryptoFormatError('Invalid recipient public key');
+  }
+  assertRecipientKeyFormat(key);
+  return key;
+}
 
 /** Отпечаток: SHA-256 (hex) строки ключа без внешних пробелов — ровно то, что считает сервер (#167). */
 export async function keyFingerprint(pubkey: string): Promise<string> {
@@ -206,9 +231,12 @@ export async function importKeyBackup(file: string, passphrase: string): Promise
   // защита от файла с подложенным числом итераций: меньше разумного предела не принимаем
   if (!validIterations(parsed.iterations)) throw new CryptoFormatError('Invalid iteration count');
   const pkcs8 = await open(await passphraseKey(passphrase, fromB64Url(parsed.salt), parsed.iterations), parsed.data, enc.encode('afterlight/v1/key-backup'));
+  let key: CryptoKey;
   try {
-    return await subtle().importKey('pkcs8', pkcs8, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']);
+    key = await subtle().importKey('pkcs8', pkcs8, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']);
   } catch {
     throw new CryptoDecryptError('Decryption failed');
   }
+  assertRecipientKeyFormat(key);
+  return key;
 }

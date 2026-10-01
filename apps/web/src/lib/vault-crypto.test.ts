@@ -121,6 +121,25 @@ describe('recipient path: RSA-OAEP wrapping under the confirmed key', () => {
     await expect(unwrapDekForRecipient('!!!', pair.privateKey, VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
   });
 
+  it('refuses a recipient key that is not RSA-3072 with e=65537 (nothing is encrypted under it)', async () => {
+    const dek = await generateKey();
+    const weak = async (modulusLength: number, publicExponent: number[]) => {
+      const pair = (await crypto.subtle.generateKey(
+        { name: 'RSA-OAEP', modulusLength, publicExponent: new Uint8Array(publicExponent), hash: 'SHA-256' },
+        true,
+        ['encrypt', 'decrypt'],
+      )) as CryptoKeyPair;
+      return exportPublicKey(pair.publicKey);
+    };
+    await expect(wrapDekForRecipient(dek, await weak(1024, [1, 0, 1]), VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+    await expect(wrapDekForRecipient(dek, await weak(2048, [1, 0, 1]), VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+    await expect(wrapDekForRecipient(dek, await weak(2048, [3]), VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+    // не SPKI вообще и не RSA
+    await expect(wrapDekForRecipient(dek, 'bm90IGEga2V5', VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+    const ec = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'])) as CryptoKeyPair;
+    await expect(wrapDekForRecipient(dek, await exportPublicKey(ec.publicKey), VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+  });
+
   it('the fingerprint equals what the server computes (SHA-256 hex of the trimmed key string)', async () => {
     const pair = await pairPromise;
     const pub = await exportPublicKey(pair.publicKey);
