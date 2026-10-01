@@ -11,14 +11,14 @@ import { ActorType } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InviteVerifierDto } from './dto/invite-verifier.dto.js';
-import { InvitationCreatedDto, VerifierMemberDto } from './dto/verifier-member.dto.js';
+import { InvitationCreatedDto, VerifierMemberDto, InvitationPreviewDto } from './dto/verifier-member.dto.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { VaultAccessService } from '../vault-access/vault-access.service.js';
 import { AuthenticatedUser } from '../common/current-user.decorator.js';
+import { normalizeEmail } from '../common/email.js';
 
 export const hashInvitationToken = (token: string) => createHash('sha256').update(token).digest('hex');
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 @Injectable()
 export class VerifiersService {
@@ -120,6 +120,16 @@ export class VerifiersService {
    * Принять приглашение может только вошедший пользователь, чей email совпадает с адресатом,
    * по действующему одноразовому токену. Активируется только собственное участие.
    */
+  /** Публично, по токену: адрес приглашения и признак наличия аккаунта — чтобы страница предложила вход или регистрацию. */
+  async previewInvitation(token: string): Promise<InvitationPreviewDto> {
+    const invitation = await this.prisma.vaultUserInvitation.findFirst({
+      where: { token: hashInvitationToken(token), acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
+    });
+    if (!invitation) throw new GoneException('Invitation is no longer valid');
+    const account = await this.prisma.user.findUnique({ where: { email: normalizeEmail(invitation.email) }, select: { id: true } });
+    return { email: invitation.email, expires_at: invitation.expiresAt, has_account: !!account };
+  }
+
   async acceptInvitation(user: AuthenticatedUser, token: string): Promise<VerifierMemberDto> {
     const invitation = await this.prisma.vaultUserInvitation.findUnique({
       where: { token: hashInvitationToken(token) },

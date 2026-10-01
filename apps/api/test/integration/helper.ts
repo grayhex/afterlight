@@ -78,12 +78,12 @@ export async function bootstrapApp() {
   let seq = 0;
   const factory = {
     createUser: (attrs: Partial<Prisma.UserUncheckedCreateInput> = {}) =>
-      db.user.create({ data: { email: `user${++seq}@test.local`, ...attrs } }),
+      db.user.create({ data: { email: `user${++seq}@test.local`, emailVerifiedAt: new Date(), ...attrs } }),
     createVault: (userId: string, attrs: Partial<Prisma.VaultUncheckedCreateInput> = {}) =>
       db.vault.create({ data: { userId, name: 'Vault', mkWrapped: 'mk', ...attrs } }),
     createVerifier: async (vaultId: string, attrs: { status?: 'Invited' | 'Active' | 'Revoked'; email?: string } = {}) => {
       const user = await db.user.create({
-        data: { email: attrs.email ?? `verifier${++seq}@test.local`, role: 'Verifier' },
+        data: { email: attrs.email ?? `verifier${++seq}@test.local`, role: 'Verifier', emailVerifiedAt: new Date() },
       });
       const role = await db.vaultUserRole.create({
         data: { vaultId, userId: user.id, role: 'Verifier', status: attrs.status ?? 'Active', isPrimary: false },

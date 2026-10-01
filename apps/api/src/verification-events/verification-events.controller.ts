@@ -5,6 +5,7 @@ import { StartVerificationEventDto } from './dto/start-event.dto.js';
 import { VerificationDecisionDto } from './dto/decision.dto.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 import { AuthenticatedUser, CurrentUser } from '../common/current-user.decorator.js';
+import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
 
 @ApiTags('verification-events')
 @ApiBearerAuth()
@@ -24,6 +25,7 @@ export class VerificationEventsController {
     return this.service.list(user.sub, vaultId, asRole);
   }
 
+  @RequireVerifiedEmail()
   @Post()
   start(@CurrentUser() user: AuthenticatedUser, @Body() dto: StartVerificationEventDto) {
     return this.service.start(user.sub, dto.vault_id);
@@ -39,6 +41,7 @@ export class VerificationEventsController {
     return this.service.cancel(user.sub, id);
   }
 
+  @RequireVerifiedEmail()
   @Post(':id/confirm')
   confirm(
     @CurrentUser() user: AuthenticatedUser,
@@ -48,6 +51,7 @@ export class VerificationEventsController {
     return this.service.decide(user.sub, id, 'Confirm', dto.signature);
   }
 
+  @RequireVerifiedEmail()
   @Post(':id/deny')
   deny(
     @CurrentUser() user: AuthenticatedUser,

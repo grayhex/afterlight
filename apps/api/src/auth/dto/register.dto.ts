@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsOptional } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty()
@@ -14,9 +14,16 @@ export class RegisterDto {
   @IsString()
   phone!: string;
 
+  @ApiProperty({ minLength: 8 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(200)
+  password!: string;
+
+  /** Токен приглашения из письма: если он выписан на этот же адрес, владение почтой уже доказано, и адрес считается подтверждённым */
   @ApiProperty({ required: false })
   @IsOptional()
   @IsString()
-  password?: string;
-
+  @MaxLength(200)
+  invitation_token?: string;
 }

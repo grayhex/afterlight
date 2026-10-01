@@ -19,6 +19,14 @@ export const templates = {
       text: `Вас пригласили стать доверителем. Войдите под этим адресом и откройте ссылку: ${webBaseUrl()}/invite#token=${token}`,
     };
   },
+  emailVerification(token: string): EmailContent {
+    return {
+      subject: 'AfterLight: подтвердите адрес электронной почты',
+      text:
+        `Подтвердите адрес, чтобы пользоваться сервисом: ${webBaseUrl()}/verify-email#token=${token}\n` +
+        'Ссылка действует 24 часа. Если вы не регистрировались, проигнорируйте письмо.',
+    };
+  },
   passwordReset(token: string): EmailContent {
     return {
       subject: 'Afterlight: восстановление пароля',
