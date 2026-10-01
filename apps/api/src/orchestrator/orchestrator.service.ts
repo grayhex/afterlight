@@ -9,6 +9,7 @@ import {
 import { ActorType, Prisma, VerificationEvent } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { eventMessages, EventMessages } from '../notifications/templates.js';
 import { AuditService } from '../audit/audit.service.js';
 import { VaultAccessService } from '../vault-access/vault-access.service.js';
 import { ClockService } from '../clock/clock.service.js';
@@ -99,16 +100,7 @@ export class OrchestratorService {
         });
         await tx.vault.update({ where: { id: vaultId }, data: { status: 'Triggered' } });
         await this.audit.log(ActorType.User, userId, 'event_start', 'VerificationEvent', created.id, undefined, tx);
-        await this.notifyParticipants(tx, vaultId, {
-          owner: {
-            subject: 'AfterLight: начат процесс раскрытия',
-            text: 'По вашему сейфу начат процесс раскрытия. Если это ошибка, просто войдите в аккаунт или нажмите «Я жив»: процесс будет отменён.',
-          },
-          verifiers: {
-            subject: 'AfterLight: начат процесс верификации',
-            text: 'Начат процесс верификации по сейфу. Перейдите на сайт и примите решение.',
-          },
-        });
+        await this.notifyParticipants(tx, vaultId, eventMessages.started());
         return created;
       });
     } catch (e) {
@@ -261,10 +253,7 @@ export class OrchestratorService {
       if (res.count !== 1) throw new ConflictException('The event changed concurrently');
       await tx.vault.update({ where: { id: ev.vaultId }, data: { status: 'Active' } });
       await this.audit.log(ActorType.User, ownerId, auditAction, 'VerificationEvent', ev.id, undefined, tx);
-      await this.notifyParticipants(tx, ev.vaultId, {
-        owner: { subject: 'AfterLight: процесс раскрытия отменён', text: 'Процесс раскрытия отменён: вы подтвердили, что с вами всё в порядке.' },
-        verifiers: { subject: 'AfterLight: процесс раскрытия отменён', text: 'Владелец сейфа подтвердил активность: процесс отменён, решения не требуются.' },
-      });
+      await this.notifyParticipants(tx, ev.vaultId, eventMessages.cancelled());
       return { id: ev.id, state: 'Cancelled' as EventState };
     }) as Promise<{ id: string; state: EventState }>;
   }
@@ -380,36 +369,23 @@ export class OrchestratorService {
     switch (t.kind) {
       case 'dispute':
         await log('event_disputed');
-        await this.notifyParticipants(tx, ev.vaultId, {
-          owner: { subject: 'AfterLight: спор подтверждений', text: 'Верификаторы подали противоположные решения. Процесс заморожен на 24 часа.' },
-          verifiers: { subject: 'AfterLight: спор подтверждений', text: 'Подтверждения противоречат друг другу. Процесс заморожен на 24 часа.' },
-        });
+        await this.notifyParticipants(tx, ev.vaultId, eventMessages.disputed());
         break;
       case 'grace': {
         await tx.vault.update({ where: { id: ev.vaultId }, data: { status: 'PendingGrace' } });
         await log('event_grace_started');
-        const until = graceUntil!.toISOString();
-        await this.notifyParticipants(tx, ev.vaultId, {
-          owner: { subject: 'AfterLight: кворум достигнут', text: `Кворум подтверждений достигнут. Раскрытие не ранее ${until}. Чтобы отменить процесс, войдите в аккаунт или нажмите «Я жив».` },
-          verifiers: { subject: 'AfterLight: кворум достигнут', text: `Кворум подтверждений достигнут. Раскрытие не ранее ${until}.` },
-        });
+        await this.notifyParticipants(tx, ev.vaultId, eventMessages.grace(graceUntil!));
         break;
       }
       case 'finalize':
         await tx.vault.update({ where: { id: ev.vaultId }, data: { status: 'Released' } });
         await log('event_finalized');
-        await this.notifyParticipants(tx, ev.vaultId, {
-          owner: { subject: 'AfterLight: процесс завершён', text: 'Процесс раскрытия завершён.' },
-          verifiers: { subject: 'AfterLight: процесс завершён', text: 'Процесс раскрытия завершён.' },
-        });
+        await this.notifyParticipants(tx, ev.vaultId, eventMessages.finalized());
         break;
       case 'reject':
         await tx.vault.update({ where: { id: ev.vaultId }, data: { status: 'Active' } });
         await log('event_rejected');
-        await this.notifyParticipants(tx, ev.vaultId, {
-          owner: { subject: 'AfterLight: процесс закрыт', text: 'Блокировка спора истекла, процесс закрыт без раскрытия. Новый процесс потребует нового запуска.' },
-          verifiers: { subject: 'AfterLight: процесс закрыт', text: 'Блокировка спора истекла, процесс закрыт без раскрытия.' },
-        });
+        await this.notifyParticipants(tx, ev.vaultId, eventMessages.rejected());
         break;
     }
   }
@@ -418,7 +394,7 @@ export class OrchestratorService {
   private async notifyParticipants(
     tx: Tx,
     vaultId: string,
-    msg: { owner: { subject: string; text: string }; verifiers: { subject: string; text: string } },
+    msg: EventMessages,
   ) {
     const vault = await tx.vault.findUniqueOrThrow({ where: { id: vaultId }, include: { user: { select: { email: true } } } });
     if (vault.user.email) await this.notify.enqueueEventMail(vaultId, vault.userId, vault.user.email, msg.owner, tx);
