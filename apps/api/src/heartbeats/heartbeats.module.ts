@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
 import { HeartbeatsService } from './heartbeats.service.js';
 import { HeartbeatsController } from './heartbeats.controller.js';
-import { HeartbeatProcessor } from './heartbeats.processor.js';
-import { AuthModule } from '../auth/auth.module.js';
+import { OrchestratorModule } from '../orchestrator/orchestrator.module.js';
 
 @Module({
-  imports: [AuthModule],
+  imports: [OrchestratorModule],
   controllers: [HeartbeatsController],
-  providers: [HeartbeatsService, HeartbeatProcessor],
+  providers: [HeartbeatsService],
   exports: [HeartbeatsService],
 })
 export class HeartbeatsModule {}

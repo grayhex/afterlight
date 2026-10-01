@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -82,5 +82,37 @@ export class VaultAccessService {
       where: { userId, status: 'Active', role: UserRole.Verifier },
     });
     return links.map((l) => l.vaultId);
+  }
+
+  /**
+   * Кто вправе начать событие: владелец/управляющий либо активный верификатор (D1).
+   * asVerifier=true — для верификатора действует порог неактивности владельца (D5).
+   */
+  async assertCanStartEvent(userId: string, vaultId: string) {
+    const owned = await this.prisma.vault.findFirst({ where: { id: vaultId, userId } });
+    if (owned) return { vault: owned, asVerifier: false };
+    const link = await this.prisma.vaultUserRole.findFirst({
+      where: { vaultId, userId, status: 'Active', role: { in: [UserRole.Owner, UserRole.Admin] } },
+    });
+    if (link) {
+      const vault = await this.prisma.vault.findUnique({ where: { id: vaultId } });
+      if (!vault) throw new ForbiddenException(DENIED);
+      return { vault, asVerifier: false };
+    }
+    await this.assertActiveVerifier(userId, vaultId);
+    const vault = await this.prisma.vault.findUnique({ where: { id: vaultId } });
+    if (!vault) throw new ForbiddenException(DENIED);
+    return { vault, asVerifier: true };
+  }
+
+  /** D4: пока идёт процесс (Submitted/Confirming/Disputed/Grace), настройки сейфа и состав верификаторов менять нельзя. */
+  async assertNoActiveEvent(vaultId: string) {
+    const active = await this.prisma.verificationEvent.findFirst({
+      where: { vaultId, state: { in: ['Submitted', 'Confirming', 'Disputed', 'Grace'] } },
+      select: { id: true },
+    });
+    if (active) {
+      throw new ConflictException('A disclosure event is in progress: cancel it before changing settings or participants');
+    }
   }
 }

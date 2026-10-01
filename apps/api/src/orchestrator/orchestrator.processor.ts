@@ -1,6 +1,11 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { OrchestratorService } from './orchestrator.service.js';
 
+/**
+ * Простой фоновый worker в процессе API. Состояние таймеров лежит в БД (graceUntil/disputedUntil), поэтому перезапуск
+ * ничего не теряет; обработка идемпотентна и безопасна при нескольких экземплярах (блокировка строки, SKIP LOCKED).
+ * В тестовом окружении (NODE_ENV=test) периодический запуск выключен: тесты вызывают processTimers явно.
+ */
 @Injectable()
 export class OrchestratorProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OrchestratorProcessor.name);
@@ -10,7 +15,8 @@ export class OrchestratorProcessor implements OnModuleInit, OnModuleDestroy {
   constructor(private orchestrator: OrchestratorService) {}
 
   onModuleInit() {
-    this.timer = setInterval(() => this.tick().catch((e) => this.logger.error(e)), 5 * 60 * 1000);
+    if (process.env.NODE_ENV === 'test') return;
+    this.timer = setInterval(() => this.tick().catch((e) => this.logger.error(e)), 60 * 1000);
     this.initial = setTimeout(() => this.tick().catch((e) => this.logger.error(e)), 10 * 1000);
   }
   onModuleDestroy() {
@@ -19,9 +25,9 @@ export class OrchestratorProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async tick() {
-    const res = await this.orchestrator.processTimers(new Date());
-    if (res.finalized || res.unlocked) {
-      this.logger.log(`Sweep: finalized=${res.finalized} unlocked=${res.unlocked}`);
+    const res = await this.orchestrator.processTimers();
+    if (res.finalized || res.rejected) {
+      this.logger.log(`Sweep: finalized=${res.finalized} rejected=${res.rejected}`);
     }
   }
 }

@@ -70,6 +70,8 @@ export class VerifiersService {
 
   async invite(user: AuthenticatedUser, dto: InviteVerifierDto): Promise<InvitationCreatedDto> {
     const vault = await this.access.assertManager(user.sub, dto.vault_id);
+    // D4: состав верификаторов не меняется во время процесса
+    await this.access.assertNoActiveEvent(vault.id);
     const email = normalizeEmail(dto.email);
 
     const owner = await this.prisma.user.findUnique({ where: { id: vault.userId } });
@@ -178,6 +180,7 @@ export class VerifiersService {
 
   async revokeMember(user: AuthenticatedUser, vaultId: string, memberUserId: string) {
     const vault = await this.access.assertManager(user.sub, vaultId);
+    await this.access.assertNoActiveEvent(vaultId);
     if (vault.userId === memberUserId) throw new BadRequestException('Vault owner cannot be revoked');
     const link = await this.prisma.vaultUserRole.findUnique({
       where: { vaultId_userId: { vaultId, userId: memberUserId } },

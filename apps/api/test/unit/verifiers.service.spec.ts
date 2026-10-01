@@ -20,7 +20,7 @@ describe('VerifiersService', () => {
     };
     notify = { sendVerifierInvitation: jest.fn() };
     audit = { log: jest.fn() };
-    access = { assertManager: jest.fn(async () => ({ id: 'v1', userId: 'owner-1' })) };
+    access = { assertManager: jest.fn(async () => ({ id: 'v1', userId: 'owner-1' })), assertNoActiveEvent: jest.fn(async () => undefined) };
     service = new VerifiersService(prisma, notify, audit, access);
   });
 

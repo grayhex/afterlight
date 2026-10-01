@@ -75,7 +75,7 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
       expect(a.body).toEqual(expect.objectContaining({ id: eventId, confirmsCount: 1, quorumRequired: 2 }));
       const b = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v2.user.id);
       expect(b.status).toBe(201);
-      expect(b.body).toEqual(expect.objectContaining({ state: 'QuorumReached', confirmsCount: 2 }));
+      expect(b.body).toEqual(expect.objectContaining({ state: 'Grace', confirmsCount: 2 }));
     });
 
     it('voting via /verification-events returns the updated event (id, counters) that the cabinet renders', async () => {
@@ -142,7 +142,8 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
       const s = await scene();
       const eventId = await startEvent(s);
       await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v1.user.id);
-      await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v2.user.id); // QuorumReached
+      await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v2.user.id); // Grace (Deny в grace допустим — он останавливает раскрытие, D6)
+      await ctx.db.verificationEvent.update({ where: { id: eventId }, data: { state: 'Finalized' } });
       const late = await ctx.request('POST', `/verification-events/${eventId}/deny`, {}, s.v1.user.id);
       expect(late.status).toBe(409);
     });
@@ -152,13 +153,19 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
       const eventId = await startEvent(s);
       await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v1.user.id);
 
-      const revoke = await ctx.request('POST', `/verifiers/${s.vault.id}/${s.v1.user.id}/revoke`, undefined, s.owner.id);
-      expect(revoke.status).toBe(201);
+      // D4: пока идёт событие, состав через API менять нельзя
+      const blocked = await ctx.request('POST', `/verifiers/${s.vault.id}/${s.v1.user.id}/revoke`, undefined, s.owner.id);
+      expect(blocked.status).toBe(409);
+      // но если участник утратил роль иным путём, его голос не считается
+      await ctx.db.vaultUserRole.update({
+        where: { vaultId_userId: { vaultId: s.vault.id, userId: s.v1.user.id } },
+        data: { status: 'Revoked' },
+      });
 
       const b = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, s.v2.user.id);
       expect(b.status).toBe(201);
       expect(b.body).toEqual(expect.objectContaining({ confirmsCount: 1, quorumRequired: 2 }));
-      expect(b.body.state).not.toBe('QuorumReached');
+      expect(b.body.state).not.toBe('Grace');
 
       const svc = ctx.moduleRef.get(OrchestratorService);
       await svc.processTimers(new Date());
@@ -193,6 +200,7 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
         data: { status: 'Revoked' },
       });
       await ctx.db.vaultUserRole.create({ data: { vaultId: s.otherVault.id, userId: s.owner.id, role: 'Verifier', status: 'Active' } });
+      await ctx.factory.createVerifier(s.otherVault.id); // для кворума 2 нужно ≥ 2 активных верификаторов
       await ctx.request('POST', '/orchestration/start', { vault_id: s.otherVault.id }, s.otherOwner.id);
 
       const asVerifier = await ctx.request('GET', '/verification-events?as=verifier', undefined, s.owner.id);
@@ -295,7 +303,14 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
       expect(ok.status).toBe(201);
       expect(ok.body).toEqual(expect.objectContaining({ user_id: invitee.id, role: 'Verifier', status: 'Active' }));
 
-      const vote = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, invitee.id);
+      // состав события зафиксирован снимком при старте: присоединившийся позже в нём не участвует (D4)
+      const notInSnapshot = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, invitee.id);
+      expect(notInSnapshot.status).toBe(403);
+
+      const cancelled = await ctx.request('POST', `/verification-events/${eventId}/cancel`, {}, s.owner.id);
+      expect(cancelled.status).toBe(201);
+      const nextId = await startEvent(s);
+      const vote = await ctx.request('POST', `/verification-events/${nextId}/confirm`, {}, invitee.id);
       expect(vote.status).toBe(201);
 
       const replay = await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id);

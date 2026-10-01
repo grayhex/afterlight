@@ -19,12 +19,14 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { RecoverySharesModule } from './recovery-shares/recovery-shares.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { VaultAccessModule } from './vault-access/vault-access.module.js';
+import { ClockModule } from './clock/clock.module.js';
 import { AuthGuard } from './auth/guards/auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
 
 @Module({
 imports: [
   PrismaModule,
+  ClockModule,
   VaultAccessModule,
   AuthModule,
   VaultsModule,

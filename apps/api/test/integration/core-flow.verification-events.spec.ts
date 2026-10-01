@@ -8,7 +8,7 @@ describe('core flow: verification events', () => {
   beforeEach(async () => { ctx = await bootstrapApp(); });
   afterEach(async () => { await closeApp(ctx); });
 
-  it('goes Submitted -> QuorumReached -> Grace -> Finalized with two independent verifier confirmations', async () => {
+  it('goes Submitted -> Confirming -> Grace (at quorum) -> Finalized with two independent verifier confirmations', async () => {
     const owner = await ctx.factory.createUser({ email: 'owner+ve@test.local' });
     const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2, graceHours: 24 });
     const v1 = await ctx.factory.createVerifier(vault.id);
@@ -28,14 +28,14 @@ describe('core flow: verification events', () => {
       vault_id: vault.id, decision: 'Confirm', signature: 'sig-2',
     }, v2.user.id);
     expect(d2.status).toBe(201);
-    expect(d2.body).toEqual(expect.objectContaining({ state: 'QuorumReached', confirms: 2, denies: 0, quorum: 2 }));
+    expect(d2.body).toEqual(expect.objectContaining({ state: 'Grace', confirms: 2, denies: 0, quorum: 2 }));
 
     const decisions = await ctx.db.verificationDecision.findMany();
     expect(decisions.map((d) => d.userId).sort()).toEqual([v1.user.id, v2.user.id].sort());
 
     const svc = ctx.moduleRef.get(OrchestratorService);
-    const toGrace = await svc.processTimers(new Date());
-    expect(toGrace.finalized).toBe(0);
+    const early = await svc.processTimers(new Date());
+    expect(early.finalized).toBe(0);
     expect((await ctx.db.verificationEvent.findFirstOrThrow({ where: { vaultId: vault.id } })).state).toBe('Grace');
     expect((await ctx.db.vault.findUniqueOrThrow({ where: { id: vault.id } })).status).toBe('PendingGrace');
 

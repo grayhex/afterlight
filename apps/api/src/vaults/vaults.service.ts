@@ -4,11 +4,12 @@ import { CreateVaultDto } from './dto/create-vault.dto.js';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto.js';
 import { randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service.js';
+import { VaultAccessService } from '../vault-access/vault-access.service.js';
 import { ActorType } from '@prisma/client';
 
 @Injectable()
 export class VaultsService {
-  constructor(private prisma: PrismaService, private audit: AuditService) {}
+  constructor(private prisma: PrismaService, private audit: AuditService, private access: VaultAccessService) {}
 
   async listForUser(userId: string, cursor?: string, limit = 50) {
     const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
@@ -29,8 +30,8 @@ export class VaultsService {
   async createForUser(userId: string, dto: CreateVaultDto) {
     const defaults = {
       quorumThreshold: 2,
-      maxVerifiers: 5,
-      heartbeatTimeoutDays: 60,
+      maxVerifiers: 3,
+      heartbeatTimeoutDays: 30,
       graceHours: 24,
       isDemo: false,
     };
@@ -58,6 +59,8 @@ export class VaultsService {
 
   async updateSettings(userId: string, id: string, dto: UpdateVaultSettingsDto) {
     await this.getForUser(userId, id);
+    // D4: пока идёт процесс раскрытия, настройки сейфа не меняются (сначала отмена)
+    await this.access.assertNoActiveEvent(id);
     if (dto.primary_verifier_id) {
       const target = await this.prisma.vaultUserRole.findFirst({
         where: { vaultId: id, userId: dto.primary_verifier_id, role: 'Verifier', status: 'Active' },

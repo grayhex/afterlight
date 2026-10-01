@@ -30,15 +30,15 @@ enum VaultUserRoleStatus {
   Revoked
 }
 
+// Активные состояния: Submitted, Confirming, Disputed, Grace. Терминальные: Finalized, Rejected, Cancelled.
 enum VerificationState {
-  Draft
   Submitted
   Confirming
   Disputed
-  QuorumReached
-  HeartbeatTimeout
   Grace
   Finalized
+  Rejected
+  Cancelled
 }
 
 enum Decision {
@@ -97,6 +97,7 @@ model User {
   passwordHash String?  @map("password_hash")
   passkeyPub   String?  @map("passkey_pub")
   twoFaEnabled Boolean  @default(false) @map("two_fa_enabled")
+  lastLoginAt  DateTime? @map("last_login_at")
   role         UserRole @default(Owner)
   locale       String   @default("ru-RU")
   createdAt    DateTime @default(now()) @map("created_at")
@@ -131,9 +132,10 @@ model Vault {
   name                 String      @default("Без названия")
   description          String?
   status               VaultStatus @default(Active)
-  quorumThreshold      Int         @default(3) @map("quorum_threshold")
-  maxVerifiers         Int         @default(5) @map("max_verifiers")
-  heartbeatTimeoutDays Int         @default(60) @map("heartbeat_timeout_days")
+  quorumThreshold      Int         @default(2) @map("quorum_threshold")
+  maxVerifiers         Int         @default(3) @map("max_verifiers")
+  // порог допуска (дней неактивности владельца), после которого верификатор может начать процесс; 0 — без порога
+  heartbeatTimeoutDays Int         @default(30) @map("heartbeat_timeout_days")
   graceHours           Int         @default(24) @map("grace_hours")
   isDemo               Boolean     @default(false) @map("is_demo")
   mkWrapped            String      @map("mk_wrapped")
@@ -241,12 +243,21 @@ model VerificationEvent {
   id             String            @id @default(uuid()) @map("id") @db.Uuid
   vaultId        String            @map("vault_id") @db.Uuid
   initiator      String?
-  state          VerificationState @default(Draft)
+  state          VerificationState @default(Submitted)
+  // снимок политики на момент старта: кворум, длительность grace, состав верификаторов
   quorumRequired Int               @map("quorum_required")
+  graceHours     Int               @default(24) @map("grace_hours")
+  verifierIds    String[]          @default([]) @map("verifier_ids") @db.Uuid
   confirmsCount  Int               @default(0) @map("confirms_count")
   deniesCount    Int               @default(0) @map("denies_count")
   createdAt      DateTime          @default(now()) @map("created_at")
+  graceStartedAt DateTime?         @map("grace_started_at")
+  graceUntil     DateTime?         @map("grace_until")
+  disputedUntil  DateTime?         @map("disputed_until")
   finalizedAt    DateTime?         @map("finalized_at")
+  // закрытие без раскрытия (Rejected/Cancelled)
+  closedAt       DateTime?         @map("closed_at")
+  cancelledBy    String?           @map("cancelled_by") @db.Uuid
 
   vault     Vault                  @relation(fields: [vaultId], references: [id])
   decisions VerificationDecision[]
@@ -274,10 +285,9 @@ model VerificationDecision {
 }
 
 model Heartbeat {
-  vaultId     String          @id @map("vault_id") @db.Uuid
-  lastPingAt  DateTime        @default(now()) @map("last_ping_at")
-  timeoutDays Int             @default(60) @map("timeout_days")
-  method      HeartbeatMethod @default(manual)
+  vaultId    String          @id @map("vault_id") @db.Uuid
+  lastPingAt DateTime        @default(now()) @map("last_ping_at")
+  method     HeartbeatMethod @default(manual)
 
   vault Vault @relation(fields: [vaultId], references: [id])
 

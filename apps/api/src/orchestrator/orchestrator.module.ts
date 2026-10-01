@@ -4,10 +4,9 @@ import { OrchestratorController } from './orchestrator.controller.js';
 import { OrchestratorProcessor } from './orchestrator.processor.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
-import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
-  imports: [NotificationsModule, PrismaModule, AuthModule],
+  imports: [NotificationsModule, PrismaModule],
   controllers: [OrchestratorController],
   providers: [OrchestratorService, OrchestratorProcessor],
   exports: [OrchestratorService],

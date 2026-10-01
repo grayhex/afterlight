@@ -1,16 +1,25 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ClockService } from '../clock/clock.service.js';
+import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
+import { VaultAccessService } from '../vault-access/vault-access.service.js';
 import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto.js';
 
-function addDays(date: Date, days: number) {
-  const d = new Date(date);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d;
-}
+const DAY_MS = 24 * 3600 * 1000;
 
+/**
+ * Heartbeat — явное подтверждение активности владельца. Единственный источник порога — `vault.heartbeatTimeoutDays`
+ * (по контракту это порог допуска для верификатора, а не блокировка). Сам по себе heartbeat событий не создаёт
+ * и ничего не раскрывает; ping после старта процесса отменяет его (D5).
+ */
 @Injectable()
 export class HeartbeatsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private clock: ClockService,
+    private orchestrator: OrchestratorService,
+    private access: VaultAccessService,
+  ) {}
 
   private async ensureVaultOwner(userId: string, vaultId: string) {
     const v = await this.prisma.vault.findFirst({ where: { id: vaultId, userId } });
@@ -18,81 +27,57 @@ export class HeartbeatsService {
     return v;
   }
 
-  private buildStatus(hb: any, now = new Date()) {
-    const last = hb?.lastPingAt ?? hb?.createdAt ?? null;
-    const timeoutDays = hb?.timeoutDays ?? 60;
-    const dueAt = last ? addDays(new Date(last), Number(timeoutDays)) : addDays(now, Number(timeoutDays));
-    const overdue = now > dueAt;
+  private status(vault: { heartbeatTimeoutDays: number; createdAt: Date }, hb: { lastPingAt: Date; method: string } | null, lastLoginAt: Date | null) {
+    const now = this.clock.now();
+    const last = Math.max(vault.createdAt.getTime(), hb?.lastPingAt?.getTime() ?? 0, lastLoginAt?.getTime() ?? 0);
+    const nextDueAt = new Date(last + vault.heartbeatTimeoutDays * DAY_MS);
     return {
       last_ping_at: hb?.lastPingAt ?? null,
-      timeout_days: timeoutDays,
+      last_activity_at: new Date(last),
+      timeout_days: vault.heartbeatTimeoutDays,
       method: hb?.method ?? 'manual',
-      next_due_at: dueAt,
-      overdue,
+      next_due_at: nextDueAt,
+      overdue: vault.heartbeatTimeoutDays > 0 && now.getTime() > nextDueAt.getTime(),
     };
   }
 
   async getConfig(userId: string, vaultId: string) {
     const v = await this.ensureVaultOwner(userId, vaultId);
-    const hb = await this.prisma.heartbeat.findUnique({ where: { vaultId: v.id } });
-    if (hb) {
-      // подмешиваем createdAt сейфа как «опорную» дату
-      return this.buildStatus({ ...hb, createdAt: v.createdAt });
-    }
-    // нет записи — статус по дефолтам сейфа
-    return this.buildStatus({
-      lastPingAt: undefined,
-      timeoutDays: (v as any).heartbeatTimeoutDays ?? 60,
-      method: 'manual',
-      createdAt: v.createdAt,
-    });
+    const [hb, owner] = await Promise.all([
+      this.prisma.heartbeat.findUnique({ where: { vaultId: v.id } }),
+      this.prisma.user.findUnique({ where: { id: v.userId }, select: { lastLoginAt: true } }),
+    ]);
+    return this.status(v, hb, owner?.lastLoginAt ?? null);
   }
 
   async updateConfig(userId: string, vaultId: string, dto: UpdateHeartbeatDto) {
-    await this.ensureVaultOwner(userId, vaultId);
-    const saved = await this.prisma.heartbeat.upsert({
-      where: { vaultId },
-      create: {
-        vaultId,
-        method: (dto.method ?? 'manual') as any,
-        timeoutDays: dto.timeout_days ?? 60,
-        // lastPingAt: null,  // <-- не задаём null
-      },
-      update: {
-        method: (dto.method as any) ?? undefined,
-        timeoutDays: dto.timeout_days ?? undefined,
-      },
-    });
-    return this.buildStatus(saved);
+    const v = await this.ensureVaultOwner(userId, vaultId);
+    if (dto.timeout_days !== undefined) await this.access.assertNoActiveEvent(vaultId);
+    const vault = dto.timeout_days !== undefined
+      ? await this.prisma.vault.update({ where: { id: v.id }, data: { heartbeatTimeoutDays: dto.timeout_days } })
+      : v;
+    const hb = dto.method
+      ? await this.prisma.heartbeat.upsert({
+          where: { vaultId },
+          create: { vaultId, method: dto.method, lastPingAt: this.clock.now() },
+          update: { method: dto.method },
+        })
+      : await this.prisma.heartbeat.findUnique({ where: { vaultId } });
+    const owner = await this.prisma.user.findUnique({ where: { id: v.userId }, select: { lastLoginAt: true } });
+    return this.status(vault, hb, owner?.lastLoginAt ?? null);
   }
 
   async ping(userId: string, vaultId: string, method?: 'auto' | 'manual') {
-    await this.ensureVaultOwner(userId, vaultId);
-    const saved = await this.prisma.heartbeat.upsert({
+    const v = await this.ensureVaultOwner(userId, vaultId);
+    const now = this.clock.now();
+    const hb = await this.prisma.heartbeat.upsert({
       where: { vaultId },
-      create: {
-        vaultId,
-        method: (method ?? 'manual') as any,
-        timeoutDays: 60,
-        lastPingAt: new Date(),
-      },
-      update: {
-        lastPingAt: new Date(),
-        method: (method as any) ?? undefined,
-      },
+      create: { vaultId, method: method ?? 'manual', lastPingAt: now },
+      update: { lastPingAt: now, method: method ?? undefined },
     });
-    return this.buildStatus(saved);
-  }
-
-  /** Возвращает массив vaultId c просроченным heartbeat */
-  async findOverdue(now = new Date()) {
-    const all = await this.prisma.heartbeat.findMany({ include: { vault: true } }); // <-- тянем vault
-    return all
-      .filter((hb) => {
-        const base = hb.lastPingAt ?? hb.vault.createdAt; // <-- вместо hb.createdAt
-        const due = addDays(new Date(base), Number(hb.timeoutDays ?? 60));
-        return now > due;
-      })
-      .map((hb) => hb.vaultId);
+    // D5: подтверждение владельца после старта процесса отменяет его
+    await this.orchestrator.cancelOnOwnerActivity(userId, 'ping');
+    const owner = await this.prisma.user.findUnique({ where: { id: v.userId }, select: { lastLoginAt: true } });
+    return this.status(v, hb, owner?.lastLoginAt ?? null);
   }
 }
