@@ -22,8 +22,10 @@ describe('AuthService password reset flow', () => {
         findFirst: jest.fn(),
         delete: jest.fn(async () => ({})),
       },
+      $queryRaw: jest.fn(async () => []),
       $transaction: jest.fn(async (callback: (tx: any) => Promise<any>) => {
         await callback({
+          $queryRaw: prisma.$queryRaw,
           user: { update: prisma.user.update },
           passwordResetToken: {
             delete: prisma.passwordResetToken.delete,
@@ -56,6 +58,7 @@ describe('AuthService password reset flow', () => {
     await service.forgotPassword('user@example.com');
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1); // блокировка строки пользователя сериализует параллельные запросы
     expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
     expect(createdTokenData.userId).toBe('user-1');
     expect(createdTokenData.tokenHash).toMatch(/^[0-9a-f]{64}$/);

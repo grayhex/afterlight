@@ -187,6 +187,42 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       expect((await rows())[0].state).toBe('Cancelled');
     });
 
+    it('overlapping reset requests are serialized: one live token and one unsent mail remain', async () => {
+      await ctx.factory.createUser({ email: 'burst@test.local' });
+      await ctx.mail.stop();
+      const results = await Promise.all(Array.from({ length: 6 }, () => ctx.request('POST', '/auth/forgot-password', { email: 'burst@test.local' })));
+      expect(results.every((r) => r.status === 201)).toBe(true);
+      expect(await ctx.db.passwordResetToken.count()).toBe(1);
+      const states = (await rows()).map((r) => r.state).sort();
+      expect(states.filter((x) => x === 'Queued')).toHaveLength(1);
+      expect(states.filter((x) => x === 'Cancelled')).toHaveLength(5);
+
+      await ctx.mail.start();
+      ctx.clock.setNow(secs(31));
+      await svc().dispatchDue();
+      const mails = ctx.mail.to('burst@test.local');
+      expect(mails).toHaveLength(1);
+      const token = mails[0].text.match(/: ([0-9a-f]{64})/)?.[1] as string;
+      expect(createHash('sha256').update(token).digest('hex')).toBe((await ctx.db.passwordResetToken.findFirstOrThrow()).tokenHash);
+    });
+
+    it('revoking an invitation before the mail went out cancels the mail: the revoked token never reaches the addressee', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2 });
+      await ctx.mail.stop();
+      const created = await ctx.request('POST', '/verifiers/invitations', { vault_id: vault.id, email: 'revoked@test.local' }, owner.id);
+      expect(created.status).toBe(201);
+      expect((await rows())[0]).toMatchObject({ state: 'Queued', kind: 'verifier_invitation', supersedeKey: created.body.id });
+
+      expect((await ctx.request('DELETE', `/verifiers/invitations/${created.body.id}`, undefined, owner.id)).status).toBe(200);
+      expect((await rows())[0]).toMatchObject({ state: 'Cancelled', lastError: 'invitation revoked' });
+
+      await ctx.mail.start();
+      ctx.clock.setNow(secs(31));
+      await svc().dispatchDue();
+      expect(ctx.mail.to('revoked@test.local')).toHaveLength(0);
+    });
+
     it('a stalled SMTP server does not hold the HTTP request; the task stays queued with a timeout error', async () => {
       await ctx.factory.createUser({ email: 'stall@test.local' });
       ctx.mail.mode = 'stall';

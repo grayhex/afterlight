@@ -47,7 +47,8 @@ function mask(email: string): string {
 export class NotificationsService implements OnModuleDestroy {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly config: MailConfig = loadMailConfig();
-  private readonly inflight = new Set<Promise<unknown>>();
+  private draining: Promise<void> | null = null;
+  private again = false;
 
   constructor(
     private prisma: PrismaService,
@@ -74,34 +75,58 @@ export class NotificationsService implements OnModuleDestroy {
     this.logger.log(`[Email][enqueue] id=${row.id} to=${mask(to)}`);
   }
 
-  async sendVerifierInvitation(vaultId: string, to: string, token: string, expiresAt?: Date) {
-    await this.enqueueEmail(vaultId, to, templates.verifierInvitation(token), undefined, { kind: 'verifier_invitation', expiresAt });
-    this.dispatchSoon();
+  /** Письмо-приглашение в транзакции вместе с самим приглашением; ключ замены — id приглашения (отзыв снимает письмо). */
+  async enqueueVerifierInvitation(vaultId: string, to: string, token: string, expiresAt: Date, invitationId: string, tx: Prisma.TransactionClient) {
+    await this.enqueueEmail(vaultId, to, templates.verifierInvitation(token), tx, { kind: 'verifier_invitation', supersedeKey: invitationId, expiresAt });
+  }
+
+  /** Снять ещё не отправленные письма данного вида и ключа (токен в них стал недействительным). */
+  async cancelQueued(kind: string, supersedeKey: string, reason: string, tx?: Prisma.TransactionClient) {
+    await (tx ?? this.prisma).notification.updateMany({
+      where: { kind, supersedeKey, state: 'Queued' },
+      data: { state: 'Cancelled', lastError: reason, lockedUntil: null, payload: { redacted: true } },
+    });
   }
 
   /** Письмо сброса пароля в транзакции вызывающего: прежние неотправленные письма сброса этого пользователя снимаются. */
   async sendPasswordReset(to: string, token: string, userId: string, expiresAt: Date, tx: Prisma.TransactionClient) {
-    await tx.notification.updateMany({
-      where: { kind: 'password_reset', supersedeKey: userId, state: 'Queued' },
-      data: { state: 'Cancelled', lastError: 'superseded by a newer request', lockedUntil: null, payload: { redacted: true } },
-    });
+    await this.cancelQueued('password_reset', userId, 'superseded by a newer request', tx);
     await this.enqueueEmail(null, to, templates.passwordReset(token), tx, { kind: 'password_reset', supersedeKey: userId, expiresAt });
   }
 
   /**
    * Запускает проход очереди в фоне и сразу возвращается: медленный или зависший SMTP не удерживает запрос,
-   * а повтор операции клиентом из-за таймаута прокси не нужен. Ошибки пишутся в лог; недоставленное подберёт воркер.
+   * а повтор операции клиентом из-за таймаута прокси не нужен. Проходы схлопываются: одновременно идёт не больше одного,
+   * а вызовы во время прохода лишь просят о повторе, поэтому всплеск запросов не плодит соединений с БД и SMTP.
    */
   dispatchSoon(): void {
-    const p: Promise<unknown> = this.dispatchDue()
-      .catch((e) => this.logger.error(`[Email] dispatch failed: ${String(e)}`))
-      .finally(() => this.inflight.delete(p));
-    this.inflight.add(p);
+    if (this.draining) {
+      this.again = true;
+      return;
+    }
+    this.draining = this.drainLoop();
   }
 
-  /** Дожидается уже запущенных фоновых проходов (тесты и корректное завершение). */
+  private async drainLoop(): Promise<void> {
+    try {
+      do {
+        this.again = false;
+        try {
+          const res = await this.dispatchDue();
+          if (res.claimed) this.logger.log(`[Email] dispatch: sent=${res.sent} retried=${res.retried} failed=${res.failed}`);
+          if (res.claimed >= 20) this.again = true; // очередь длиннее пачки — продолжаем
+        } catch (e) {
+          this.logger.error(`[Email] dispatch failed: ${String(e)}`);
+        }
+      } while (this.again);
+    } finally {
+      this.draining = null; // синхронно с проверкой выше: просьба о повторе не теряется
+    }
+  }
+
+  /** Дожидается идущего фонового прохода (тесты и корректное завершение). */
   async idle(): Promise<void> {
-    while (this.inflight.size > 0) await Promise.allSettled([...this.inflight]);
+    while (this.draining) await this.draining;
   }
 
   async onModuleDestroy() {

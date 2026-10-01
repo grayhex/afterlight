@@ -104,6 +104,20 @@ describe('NotificationsService', () => {
     await expect(service.idle()).resolves.toBeUndefined();
   });
 
+  it('a burst of wake-ups is coalesced: one pass at a time plus one follow-up, not one pass per call', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const spy = jest.spyOn(service, 'dispatchDue').mockImplementation(async () => { await gate; return { claimed: 0, sent: 0, retried: 0, failed: 0 }; });
+    for (let i = 0; i < 25; i++) service.dispatchSoon();
+    expect(spy).toHaveBeenCalledTimes(1);
+    release();
+    await service.idle();
+    expect(spy).toHaveBeenCalledTimes(2); // повтор, о котором попросили во время прохода
+    service.dispatchSoon();
+    await service.idle();
+    expect(spy).toHaveBeenCalledTimes(3); // после простоя новый проход запускается как обычно
+  });
+
   it('a stalled SMTP server is cut off by a hard per-message deadline and counted as a transient failure', async () => {
     process.env.MAIL_SEND_TIMEOUT_MS = '1000';
     try {
@@ -164,11 +178,10 @@ describe('NotificationsService', () => {
 
   it('verifier invitation carries the token in the fragment and never an example.* domain', async () => {
     const enqueue = jest.spyOn(service, 'enqueueEmail').mockResolvedValue();
-    jest.spyOn(service, 'dispatchDue').mockResolvedValue({ claimed: 0, sent: 0, retried: 0, failed: 0 });
     process.env.WEB_BASE_URL = 'https://afterlight.mail.test/';
-    await service.sendVerifierInvitation('v1', 'to@mail.test', 'tok');
+    await service.enqueueVerifierInvitation('v1', 'to@mail.test', 'tok', new Date(now.getTime() + 1000), 'inv-1', {} as any);
     const payload: any = enqueue.mock.calls[0][2];
-    expect(enqueue.mock.calls[0][4]).toMatchObject({ kind: 'verifier_invitation' });
+    expect(enqueue.mock.calls[0][4]).toMatchObject({ kind: 'verifier_invitation', supersedeKey: 'inv-1' });
     expect(payload.text).toContain('https://afterlight.mail.test/invite#token=tok');
     expect(payload.text).not.toMatch(/example\.(com|org|net)/);
     delete process.env.WEB_BASE_URL;

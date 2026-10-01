@@ -18,7 +18,7 @@ describe('VerifiersService', () => {
       vaultUserInvitation: { create: jest.fn(), findUnique: jest.fn(), findFirst: jest.fn(), updateMany: jest.fn() },
       $transaction: jest.fn(async (fn: any) => fn(prisma)),
     };
-    notify = { sendVerifierInvitation: jest.fn() };
+    notify = { enqueueVerifierInvitation: jest.fn(), dispatchSoon: jest.fn(), cancelQueued: jest.fn() };
     audit = { log: jest.fn() };
     access = { assertManager: jest.fn(async () => ({ id: 'v1', userId: 'owner-1' })), assertNoActiveEvent: jest.fn(async () => undefined), lockVaultAssertNoActiveEvent: jest.fn(async () => undefined), lockVault: jest.fn(async () => undefined), assertNoActiveEventTx: jest.fn(async () => undefined) };
     service = new VerifiersService(prisma, notify, audit, access);
@@ -32,13 +32,22 @@ describe('VerifiersService', () => {
 
     const res = await service.invite(owner, { vault_id: 'v1', email: ' Ver@Example.com ', expires_in_hours: 10 } as any);
 
-    const mailed = notify.sendVerifierInvitation.mock.calls[0];
+    const mailed = notify.enqueueVerifierInvitation.mock.calls[0];
     expect(mailed.slice(0, 2)).toEqual(['v1', 'ver@example.com']);
+    expect(mailed[4]).toBe('i1'); // письмо привязано к приглашению: отзыв снимает его
+    expect(mailed[5]).toBe(prisma); // в той же транзакции, что и приглашение
+    expect(notify.dispatchSoon).toHaveBeenCalled();
     const stored = prisma.vaultUserInvitation.create.mock.calls[0][0].data;
     expect(stored.token).toBe(hashInvitationToken(mailed[2] as string));
     expect(stored.token).not.toBe(mailed[2]);
     expect(JSON.stringify(res)).not.toContain(mailed[2] as string);
     expect(access.assertManager).toHaveBeenCalledWith('owner-1', 'v1');
+  });
+
+  it('revoking an invitation cancels its unsent mail in the same transaction', async () => {
+    prisma.vaultUserInvitation.findUnique.mockResolvedValue({ id: 'i1', vaultId: 'v1' });
+    await service.revokeInvitation(owner, 'i1');
+    expect(notify.cancelQueued).toHaveBeenCalledWith('verifier_invitation', 'i1', 'invitation revoked', prisma);
   });
 
   it('throws NotFound for an unknown token', async () => {

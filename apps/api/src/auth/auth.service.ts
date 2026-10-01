@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { hashPassword, verifyPassword } from './password.js';
-import { User, UserRole } from '@prisma/client';
+import { Prisma, User, UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { ClockService } from '../clock/clock.service.js';
 import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
@@ -84,6 +84,9 @@ export class AuthService {
     const tokenHash = this.hashToken(token);
     // Токен и намерение отправить письмо фиксируются атомарно: нет токена без письма и письма без токена
     await (this.prisma as any).$transaction(async (tx: any) => {
+      // Параллельные запросы одного пользователя выстраиваются в очередь: каждый видит результат предыдущего,
+      // поэтому остаётся ровно один действующий токен и одно неотправленное письмо
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "user" WHERE id = ${user.id}::uuid FOR UPDATE`);
       await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
       await tx.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
       // Восстановление аккаунта не зависит от наличия сейфа: системное письмо не привязано к vault

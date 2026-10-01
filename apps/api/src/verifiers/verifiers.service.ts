@@ -95,18 +95,22 @@ export class VerifiersService {
     // Токен знает только получатель письма: в БД лежит хэш, в ответе API токена нет.
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + (dto.expires_in_hours ?? 168) * 3600 * 1000);
-    const invitation = await this.prisma.vaultUserInvitation.create({
-      data: {
-        vaultId: vault.id,
-        email,
-        role: 'Verifier',
-        token: hashInvitationToken(token),
-        expiresAt,
-        invitedBy: user.sub,
-      },
+    // Приглашение и письмо фиксируются атомарно: нет приглашения без письма и письма без приглашения
+    const invitation = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.vaultUserInvitation.create({
+        data: {
+          vaultId: vault.id,
+          email,
+          role: 'Verifier',
+          token: hashInvitationToken(token),
+          expiresAt,
+          invitedBy: user.sub,
+        },
+      });
+      await this.notify.enqueueVerifierInvitation(vault.id, email, token, expiresAt, created.id, tx);
+      return created;
     });
-
-    await this.notify.sendVerifierInvitation(vault.id, email, token, expiresAt);
+    this.notify.dispatchSoon();
     await this.audit.log(ActorType.User, user.sub, 'verifier_invite', 'Vault', vault.id);
 
     return { id: invitation.id, email, role: invitation.role, expires_at: expiresAt };
@@ -177,9 +181,13 @@ export class VerifiersService {
     const invitation = await this.prisma.vaultUserInvitation.findUnique({ where: { id: invitationId } });
     if (!invitation) throw new NotFoundException('Invitation not found');
     await this.access.assertManager(user.sub, invitation.vaultId);
-    await this.prisma.vaultUserInvitation.updateMany({
-      where: { id: invitation.id, acceptedAt: null, revokedAt: null },
-      data: { revokedAt: new Date() },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.vaultUserInvitation.updateMany({
+        where: { id: invitation.id, acceptedAt: null, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      // Отозванный токен не должен дойти до адресата: снимаем ещё не отправленное письмо
+      await this.notify.cancelQueued('verifier_invitation', invitation.id, 'invitation revoked', tx);
     });
     await this.audit.log(ActorType.User, user.sub, 'verifier_invitation_revoke', 'Vault', invitation.vaultId);
     return { status: 'ok' };
