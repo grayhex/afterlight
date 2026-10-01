@@ -1,0 +1,11 @@
+# Дополнение к docker-compose.server.yml только для scripts/smoke-compose.sh: почтовый sandbox вместо настоящего SMTP.
+# В production почтовый сервер задаётся MAIL_* в .env (см. README); этот файл на сервер не ставится.
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-18025}:8025"
+  api:
+    depends_on:
+      mailpit:
+        condition: service_started

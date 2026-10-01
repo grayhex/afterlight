@@ -47,8 +47,11 @@
 ### 2) База данных
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d db   # PostgreSQL 16: БД `afterlight` и отдельная `afterlight_test` для тестов
+docker compose -f docker-compose.dev.yml up -d db mailpit   # PostgreSQL 16: БД `afterlight` и отдельная `afterlight_test` для тестов; Mailpit — почтовый sandbox
 ```
+
+Письма (приглашения, восстановление пароля) локально уходят по SMTP на Mailpit (`127.0.0.1:1025`, веб-интерфейс http://127.0.0.1:8025) и наружу не отправляются.
+Без запущенного SMTP письма остаются в очереди (`notification`) и повторяются с backoff; статус `Sent` ставится только после приёма письма сервером.
 
 ### 3) API (http://localhost:3000)
 
@@ -131,6 +134,8 @@ cp .env.example .env
 docker compose -f docker-compose.server.yml up -d --build db api web
 docker compose -f docker-compose.server.yml run --rm migrate
 ```
+
+**Почта.** В production API не стартует без `MAIL_FROM` и `MAIL_SMTP_HOST` (домены `example.*`/localhost запрещены); параметры SMTP-сервера, TLS и очереди — в `.env.example` (раздел MAIL). Реальные рассылки не запускайте, пока не настроен и не проверен почтовый сервер: сначала используйте sandbox. Восстановление **аккаунта** (сброс пароля) работает по почте и не требует сейфа; ключи шифрования и содержимое сейфа по почте **не восстанавливаются**.
 
 ---
 

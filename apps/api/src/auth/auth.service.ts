@@ -82,27 +82,14 @@ export class AuthService {
     const token = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     const tokenHash = this.hashToken(token);
-    await this.resetTokenRepo.deleteMany({
-      where: { userId: user.id },
+    // Токен и намерение отправить письмо фиксируются атомарно: нет токена без письма и письма без токена
+    await (this.prisma as any).$transaction(async (tx: any) => {
+      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await tx.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+      // Восстановление аккаунта не зависит от наличия сейфа: системное письмо не привязано к vault
+      await this.notifications.sendPasswordReset(email, token, tx);
     });
-    await this.resetTokenRepo.create({
-      data: {
-        userId: user.id,
-        tokenHash,
-        expiresAt,
-      },
-    });
-    const vault = await this.prisma.vault.findFirst({
-      where: { userId: user.id },
-      select: { id: true },
-    });
-    if (vault) {
-      await this.notifications.enqueueEmail(vault.id, email, {
-        subject: 'Afterlight: восстановление пароля',
-        text: `Токен для сброса пароля: ${token}`,
-      });
-      await this.notifications.flushEmailQueue();
-    }
+    await this.notifications.dispatchSoon();
   }
 
   async resetPassword(token: string, password: string): Promise<boolean> {

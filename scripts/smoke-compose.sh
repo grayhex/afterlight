@@ -8,7 +8,8 @@ cd "$(dirname "$0")/.."
 export COMPOSE_PROJECT_NAME=afterlight-smoke
 export ENV_FILE="$(mktemp)"
 export WEB_PORT="${WEB_PORT:-18080}"
-COMPOSE=(docker compose -f docker-compose.server.yml)
+COMPOSE=(docker compose -f docker-compose.server.yml -f docker-compose.smoke.yml)
+MAILPIT="http://127.0.0.1:${MAILPIT_UI_PORT:-18025}"
 BASE="http://127.0.0.1:${WEB_PORT}"
 JAR="$(mktemp)"
 
@@ -28,6 +29,11 @@ POSTGRES_DB=afterlight
 POSTGRES_USER=afterlight
 POSTGRES_PASSWORD=smoke-db-password
 DATABASE_URL=postgresql://afterlight:smoke-db-password@db:5432/afterlight?schema=public
+MAIL_FROM=AfterLight <no-reply@afterlight.org>
+MAIL_SMTP_HOST=mailpit
+MAIL_SMTP_PORT=1025
+MAIL_SMTP_TLS=none
+MAILPIT_UI_PORT=${MAILPIT_UI_PORT:-18025}
 ENV
 
 cleanup() {
@@ -55,7 +61,7 @@ grep -qE '^WEB_BASE_URL=' .env.example || fail ".env.example не содержи
 ! grep -qE '^API_INTERNAL_URL=' .env.example || fail ".env.example задаёт API_INTERNAL_URL: значение из .env перебьёт умолчание compose"
 
 "${COMPOSE[@]}" build api web
-"${COMPOSE[@]}" up -d db
+"${COMPOSE[@]}" up -d db mailpit
 "${COMPOSE[@]}" run --rm migrate
 "${COMPOSE[@]}" up -d --wait api web
 
@@ -73,6 +79,24 @@ grep -q $'\ttoken\t' "$JAR" || fail "cookie сессии не выставлен
 expect 200 "/auth/me по cookie" -b "$JAR" "$BASE/api/auth/me"
 expect 200 "/cabinet по cookie (middleware передаёт cookie)" -b "$JAR" "$BASE/cabinet"
 expect 201 "создание сейфа" -b "$JAR" -X POST "$BASE/api/vaults" "${JSON[@]}" -d '{"name":"Smoke vault"}'
+
+# Письмо восстановления доходит по SMTP до sandbox; пользователь без сейфа тоже получает его (здесь сейф есть, но не нужен)
+expect 201 "forgot-password: известный адрес" -X POST "$BASE/api/auth/forgot-password" "${JSON[@]}" -d "{\"email\":\"$EMAIL\"}"
+expect 201 "forgot-password: неизвестный адрес (ответ тот же)" -X POST "$BASE/api/auth/forgot-password" "${JSON[@]}" -d '{"email":"nobody-smoke@test.local"}'
+RESET_TOKEN=""
+for _ in $(seq 1 30); do
+  MSG_ID=$(curl -fsS "$MAILPIT/api/v1/messages" | jq -r --arg e "$EMAIL" '[.messages[] | select(any(.To[]; .Address == $e))][0].ID // empty')
+  [ -n "$MSG_ID" ] && break
+  sleep 1
+done
+[ -n "${MSG_ID:-}" ] || fail "письмо восстановления не дошло до почтового sandbox"
+RESET_TOKEN=$(curl -fsS "$MAILPIT/api/v1/message/$MSG_ID" | jq -r '.Text' | grep -oE '[0-9a-f]{64}' | head -1)
+[ -n "$RESET_TOKEN" ] || fail "в письме нет токена сброса"
+[ "$(curl -fsS "$MAILPIT/api/v1/messages" | jq -r '[.messages[] | select(any(.To[]; .Address == "nobody-smoke@test.local"))] | length')" = "0" ] || fail "письмо ушло на неизвестный адрес"
+echo "ok  письмо восстановления доставлено в sandbox"
+expect 201 "reset-password по токену из письма" -X POST "$BASE/api/auth/reset-password" "${JSON[@]}" -d "{\"token\":\"$RESET_TOKEN\",\"password\":\"smoke-pass-456\"}"
+expect 401 "токен одноразовый" -X POST "$BASE/api/auth/reset-password" "${JSON[@]}" -d "{\"token\":\"$RESET_TOKEN\",\"password\":\"smoke-pass-789\"}"
+expect 201 "логин с новым паролем" -X POST "$BASE/api/auth/login" "${JSON[@]}" -d "{\"email\":\"$EMAIL\",\"password\":\"smoke-pass-456\"}"
 
 "${COMPOSE[@]}" run --rm migrate npx prisma db seed
 expect 201 "логин seed-админа" -c "$JAR" -X POST "$BASE/api/auth/login" "${JSON[@]}" -d '{"email":"admin@example.com","password":"smoke-admin-password"}'
