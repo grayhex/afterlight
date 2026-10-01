@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ActorType, Prisma, Recipient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateRecipientDto } from './dto/create-recipient.dto.js';
 import { ClaimKeyDto, ClaimKeyResultDto } from './dto/claim-key.dto.js';
+import { DeliveredBlockDto, DeliveryItemDto } from './dto/delivery.dto.js';
 import { KeyStatus, RecipientDto } from './dto/recipient.dto.js';
 import { AuthenticatedUser } from '../common/current-user.decorator.js';
 import { VaultAccessService } from '../vault-access/vault-access.service.js';
@@ -99,6 +100,70 @@ export class RecipientsService {
       return rows.length;
     });
     return { key_fingerprint: fingerprint, recipients: updated };
+  }
+
+  /**
+   * Выдача получателю (ADR-0003, поток 6): блоки, которые ему вправе отдать СЕЙЧАС. Условия проверяются заново при каждом
+   * запросе, по данным базы, а не по тому, что было раньше: событие раскрытия завершено (`Finalized`) и сейф раскрыт
+   * (`Released`), аккаунт — подтверждённый адрес назначенного получателя, ключ получателя подтверждён владельцем, упаковка
+   * сделана под этот самый ключ, блок не удалён и содержит шифротекст. Верификаторам, владельцу и посторонним ничего не отдаётся:
+   * доступ даёт только адрес получателя в этом сейфе.
+   */
+  private async deliverable(user: AuthenticatedUser, blockId?: string) {
+    const account = await this.prisma.user.findUnique({ where: { id: user.sub }, select: { email: true, emailVerifiedAt: true } });
+    if (!account || !account.emailVerifiedAt) throw new ForbiddenException('Email address is not verified');
+    const rows = await this.prisma.blockRecipient.findMany({
+      where: {
+        ...(blockId ? { blockId } : {}),
+        recipient: {
+          contact: normalizeEmail(account.email),
+          vaultId: { not: null },
+          verificationStatus: 'KeyConfirmed',
+          keyConfirmedFingerprint: { not: null },
+          vault: { status: 'Released', events: { some: { state: 'Finalized' } } },
+        },
+        block: { deletedAt: null, ciphertext: { not: null }, type: 'text' },
+      },
+      include: { block: true, recipient: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    // Упаковка действительна, только пока сделана под нынешний подтверждённый ключ; блок обязан принадлежать сейфу получателя
+    const valid = rows.filter(
+      (r) => !!r.wrappedForFingerprint && r.wrappedForFingerprint === r.recipient.keyConfirmedFingerprint && r.block.vaultId === r.recipient.vaultId,
+    );
+    const vaultIds = [...new Set(valid.map((r) => r.block.vaultId))];
+    const finalized = await this.prisma.verificationEvent.findMany({
+      where: { vaultId: { in: vaultIds }, state: 'Finalized' },
+      orderBy: { finalizedAt: 'desc' },
+      select: { vaultId: true, finalizedAt: true },
+    });
+    const finalizedAt = (vaultId: string) => finalized.find((e) => e.vaultId === vaultId)?.finalizedAt ?? null;
+    return valid.map((r) => ({ ...r, finalizedAt: finalizedAt(r.block.vaultId) }));
+  }
+
+  async listDeliveries(user: AuthenticatedUser): Promise<DeliveryItemDto[]> {
+    const rows = await this.deliverable(user);
+    return rows.map((r) => ({
+      block_id: r.blockId,
+      vault_id: r.block.vaultId,
+      finalized_at: r.finalizedAt,
+      size: Buffer.byteLength(r.block.ciphertext as string, 'utf8'),
+    }));
+  }
+
+  async getDelivery(user: AuthenticatedUser, blockId: string): Promise<DeliveredBlockDto> {
+    const [row] = await this.deliverable(user, blockId);
+    // «Нет назначения», «ещё не раскрыто», «ключ не подтверждён», «чужой блок» — неразличимы
+    if (!row) throw new NotFoundException('Nothing to deliver for this block');
+    await this.audit.log(ActorType.User, user.sub, 'block_delivered', 'Block', blockId);
+    return {
+      block_id: row.blockId,
+      vault_id: row.block.vaultId,
+      ciphertext: row.block.ciphertext as string,
+      dek_wrapped_for_recipient: row.dekWrappedForRecipient,
+      key_fingerprint: row.wrappedForFingerprint as string,
+      finalized_at: row.finalizedAt,
+    };
   }
 
   /**

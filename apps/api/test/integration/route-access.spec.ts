@@ -43,6 +43,8 @@ const SESSION_SCOPED: Record<string, string> = {
   'GET /auth/me': 'собственная учётная запись',
   'POST /auth/resend-verification': 'собственная учётная запись',
   'PUT /recipients/me/key': 'собственные записи получателя: по подтверждённому адресу аккаунта',
+  'GET /recipients/me/deliveries': 'выборка по подтверждённому адресу аккаунта: только назначения этого получателя в раскрытых сейфах',
+  'GET /recipients/me/deliveries/:blockId': 'то же: чужой, неназначенный и нераскрытый блок неотличимы (404)',
   'GET /vaults': 'только собственные сейфы (выборка по сессии)',
   'POST /vaults': 'создаёт сейф для себя; нужен подтверждённый адрес',
 };
@@ -247,7 +249,7 @@ describe('route access table (every registered route, real guards)', () => {
     const keys = new Set(routes.map((r) => r.key));
     for (const key of [...Object.keys(SESSION_SCOPED), ...Object.keys(REFERENCE_DATA), ...Object.keys(CAPABILITY)]) expect(keys.has(key)).toBe(true); // нет устаревших записей
     const person = await ctx.factory.createUser({ email: 'person@test.local' });
-    const open = [['GET', '/auth/me'], ['GET', '/vaults'], ['GET', '/plans'], ['POST', '/vaults', { name: 'Mine' }], ['PUT', '/recipients/me/key', { pubkey: rsaSpki('route-access') }]] as Array<[string, string, unknown?]>;
+    const open = [['GET', '/auth/me'], ['GET', '/vaults'], ['GET', '/plans'], ['POST', '/vaults', { name: 'Mine' }], ['PUT', '/recipients/me/key', { pubkey: rsaSpki('route-access') }], ['GET', '/recipients/me/deliveries']] as Array<[string, string, unknown?]>;
     for (const [method, path, body] of open) {
       const res = await ctx.request(method, path, body, person.id);
       expect([method, path, [200, 201].includes(res.status)]).toEqual([method, path, true]);

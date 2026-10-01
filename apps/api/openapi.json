@@ -3161,6 +3161,173 @@
         ]
       }
     },
+    "/recipients/me/deliveries": {
+      "get": {
+        "operationId": "RecipientsController_listDeliveries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Blocks that may be delivered to me now (only after the release event is finalized)",
+        "tags": [
+          "recipients"
+        ]
+      }
+    },
+    "/recipients/me/deliveries/{blockId}": {
+      "get": {
+        "operationId": "RecipientsController_getDelivery",
+        "parameters": [
+          {
+            "name": "blockId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveredBlockDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ciphertext of a block and the data key wrapped for my confirmed key",
+        "tags": [
+          "recipients"
+        ]
+      }
+    },
     "/recipients/{id}/confirm-key": {
       "post": {
         "operationId": "RecipientsController_confirmKey",
@@ -6401,6 +6568,73 @@
         "required": [
           "key_fingerprint",
           "recipients"
+        ]
+      },
+      "DeliveryItemDto": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vault_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "finalized_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Когда процесс раскрытия завершился"
+          },
+          "size": {
+            "type": "number",
+            "description": "Размер шифротекста в байтах"
+          }
+        },
+        "required": [
+          "block_id",
+          "vault_id",
+          "finalized_at",
+          "size"
+        ]
+      },
+      "DeliveredBlockDto": {
+        "type": "object",
+        "properties": {
+          "block_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vault_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ciphertext": {
+            "type": "string",
+            "description": "Шифротекст блока (конверт v1); расшифровывается в браузере получателя"
+          },
+          "dek_wrapped_for_recipient": {
+            "type": "string",
+            "description": "Ключ блока (DEK), упакованный под подтверждённый ключ этого получателя: RSA-OAEP 3072, base64"
+          },
+          "key_fingerprint": {
+            "type": "string",
+            "description": "Отпечаток ключа получателя, под который сделана упаковка"
+          },
+          "finalized_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "block_id",
+          "vault_id",
+          "ciphertext",
+          "dek_wrapped_for_recipient",
+          "key_fingerprint",
+          "finalized_at"
         ]
       },
       "ConfirmKeyDto": {
