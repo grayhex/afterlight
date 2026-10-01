@@ -75,6 +75,16 @@ export class NotificationsService implements OnModuleDestroy {
     this.logger.log(`[Email][enqueue] id=${row.id} to=${mask(to)}`);
   }
 
+  /**
+   * Письмо о смене состояния процесса раскрытия. Новое письмо для той же пары «сейф — получатель» снимает ещё не
+   * отправленные прежние: после ретрая устаревшее «процесс начат» не должно прийти позже «процесс отменён».
+   */
+  async enqueueEventMail(vaultId: string, recipientUserId: string, to: string, payload: EmailPayload, tx: Prisma.TransactionClient) {
+    const key = `${vaultId}:${recipientUserId}`;
+    await this.cancelQueued('event_state', key, 'superseded by a newer process state', tx);
+    await this.enqueueEmail(vaultId, to, payload, tx, { kind: 'event_state', supersedeKey: key });
+  }
+
   /** Письмо-приглашение в транзакции вместе с самим приглашением; ключ замены — id приглашения (отзыв снимает письмо). */
   async enqueueVerifierInvitation(vaultId: string, to: string, token: string, expiresAt: Date, invitationId: string, tx: Prisma.TransactionClient) {
     await this.enqueueEmail(vaultId, to, templates.verifierInvitation(token), tx, { kind: 'verifier_invitation', supersedeKey: invitationId, expiresAt });

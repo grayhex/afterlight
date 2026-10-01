@@ -421,12 +421,12 @@ export class OrchestratorService {
     msg: { owner: { subject: string; text: string }; verifiers: { subject: string; text: string } },
   ) {
     const vault = await tx.vault.findUniqueOrThrow({ where: { id: vaultId }, include: { user: { select: { email: true } } } });
-    if (vault.user.email) await this.notify.enqueueEmail(vaultId, vault.user.email, msg.owner, tx);
+    if (vault.user.email) await this.notify.enqueueEventMail(vaultId, vault.userId, vault.user.email, msg.owner, tx);
     const roles = await tx.vaultUserRole.findMany({
       where: { vaultId, role: 'Verifier', status: 'Active' },
       include: { user: { select: { email: true } } },
     });
-    for (const r of roles) if (r.user.email) await this.notify.enqueueEmail(vaultId, r.user.email, msg.verifiers, tx);
+    for (const r of roles) if (r.user.email) await this.notify.enqueueEventMail(vaultId, r.userId, r.user.email, msg.verifiers, tx);
   }
 
   /** Отправка очереди — после коммита и best-effort: сбой транспорта не откатывает и не повторяет доменную операцию. */
