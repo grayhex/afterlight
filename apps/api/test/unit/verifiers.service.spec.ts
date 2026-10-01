@@ -50,6 +50,16 @@ describe('VerifiersService', () => {
     expect(notify.cancelQueued).toHaveBeenCalledWith('verifier_invitation', 'i1', 'invitation revoked', prisma);
   });
 
+  it('accepting an invitation cancels its queued mail (the token is consumed) in the same transaction', async () => {
+    prisma.vaultUserInvitation.findUnique.mockResolvedValue({ id: 'i1', vaultId: 'v1', email: 'ver@example.com', role: 'Verifier' });
+    prisma.user.findUnique.mockResolvedValue({ id: 'u2', email: 'ver@example.com' });
+    prisma.vault.findUnique.mockResolvedValue({ id: 'v1', userId: 'owner-1' });
+    prisma.vaultUserInvitation.updateMany.mockResolvedValue({ count: 1 });
+    prisma.vaultUserRole.upsert.mockResolvedValue({ userId: 'u2', role: 'Verifier', status: 'Active', isPrimary: false, addedAt: new Date() });
+    await service.acceptInvitation({ sub: 'u2' }, 'x'.repeat(32));
+    expect(notify.cancelQueued).toHaveBeenCalledWith('verifier_invitation', 'i1', 'invitation accepted', prisma);
+  });
+
   it('throws NotFound for an unknown token', async () => {
     prisma.vaultUserInvitation.findUnique.mockResolvedValue(null);
     await expect(service.acceptInvitation({ sub: 'u1' }, 'x'.repeat(32))).rejects.toBeInstanceOf(NotFoundException);

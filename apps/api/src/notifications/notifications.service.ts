@@ -151,7 +151,7 @@ export class NotificationsService implements OnModuleDestroy {
       try {
         await this.withDeadline(this.transport.send({ to: n.toContact, subject: payload.subject ?? '', text: payload.text, html: payload.html }));
       } catch (e) {
-        const err = e instanceof MailSendError ? e : new MailSendError(String((e as Error)?.message ?? e).slice(0, 300), false);
+        const err = e instanceof MailSendError ? e : new MailSendError(String((e as Error)?.name ?? 'ERROR').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'ERROR', false);
         const outcome = await this.markFailure(n.id, n.attempts, err);
         result[outcome]++;
         continue;
@@ -166,7 +166,7 @@ export class NotificationsService implements OnModuleDestroy {
   private withDeadline(send: Promise<void>): Promise<void> {
     let timer: NodeJS.Timeout;
     const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new MailSendError(`ETIMEDOUT: no confirmation within ${this.config.sendTimeoutMs} ms`, false, 'ETIMEDOUT')), this.config.sendTimeoutMs);
+      timer = setTimeout(() => reject(new MailSendError(`ETIMEDOUT: no confirmation within the send timeout`, false, 'ETIMEDOUT')), this.config.sendTimeoutMs);
     });
     send.catch(() => undefined); // поздний отказ после дедлайна не должен стать необработанным
     return Promise.race([send, deadline]).finally(() => clearTimeout(timer));

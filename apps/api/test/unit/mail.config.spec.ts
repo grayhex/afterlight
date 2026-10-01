@@ -49,10 +49,15 @@ describe('classifyMailError', () => {
     expect(classifyMailError({ code: 'EAUTH', responseCode: 535, response: '535 bad credentials' }).permanent).toBe(false);
   });
 
-  it('the diagnostic is one short line: code + server reply, no body', () => {
-    const e = classifyMailError({ responseCode: 550, response: `550 5.1.1 rejected\nsecond line with details`.padEnd(400, 'x') });
-    expect(e.message.startsWith('550: 550 5.1.1 rejected')).toBe(true);
-    expect(e.message).not.toContain('\n');
-    expect(e.message.length).toBeLessThanOrEqual(300);
+  it('the diagnostic is a normalized code only: free text from the server (may echo a token, address or body) is never kept', () => {
+    const leak = 'SECRET-TOKEN-123 person@mail.test body excerpt';
+    const smtp = classifyMailError({ responseCode: 550, code: 'EENVELOPE', response: `550 5.1.1 ${leak}\nsecond line`, message: leak });
+    expect(smtp.message).toBe('SMTP 550 (EENVELOPE)');
+    expect(classifyMailError({ code: 'ETIMEDOUT', message: leak }).message).toBe('ETIMEDOUT');
+    expect(classifyMailError({ name: 'Error', message: leak }).message).toBe('Error');
+    for (const m of [smtp.message, classifyMailError({ message: leak }).message]) {
+      expect(m).not.toContain('SECRET');
+      expect(m).not.toContain('person@');
+    }
   });
 });

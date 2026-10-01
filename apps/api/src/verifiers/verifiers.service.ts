@@ -149,6 +149,8 @@ export class VerifiersService {
         data: { acceptedAt: now },
       });
       if (claimed.count !== 1) throw new GoneException('Invitation is no longer valid');
+      // Токен израсходован: ожидающее повтора письмо с ним больше не нужно
+      await this.notify.cancelQueued('verifier_invitation', invitation.id, 'invitation accepted', tx);
 
       // D4: во время процесса состав не меняется. 409 откатывает транзакцию вместе с отметкой «принято»:
       // приглашение не сгорает и принимается после завершения или отмены процесса.

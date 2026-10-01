@@ -8,6 +8,10 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { ClockService } from '../clock/clock.service.js';
 import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
 
+/** Защита от почтового спама через публичный /auth/forgot-password: пауза между письмами и потолок в час на адрес. */
+const RESET_COOLDOWN_MS = 60 * 1000;
+const RESET_HOURLY_CAP = 5;
+
 @Injectable()
 export class AuthService {
   private readonly secret = this.getJwtSecret();
@@ -79,20 +83,32 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return;
+    const now = this.clock.now();
     const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
     const tokenHash = this.hashToken(token);
     // Токен и намерение отправить письмо фиксируются атомарно: нет токена без письма и письма без токена
-    await (this.prisma as any).$transaction(async (tx: any) => {
+    const queued: boolean = await (this.prisma as any).$transaction(async (tx: any) => {
       // Параллельные запросы одного пользователя выстраиваются в очередь: каждый видит результат предыдущего,
       // поэтому остаётся ровно один действующий токен и одно неотправленное письмо
       await tx.$queryRaw(Prisma.sql`SELECT id FROM "user" WHERE id = ${user.id}::uuid FOR UPDATE`);
+      // Анти-спам: слишком частые запросы молча не создают новое письмо (ответ API одинаков, существование адреса не раскрывается)
+      const recent = await tx.passwordResetToken.findFirst({
+        where: { userId: user.id, createdAt: { gt: new Date(now.getTime() - RESET_COOLDOWN_MS) } },
+        select: { id: true },
+      });
+      if (recent) return false;
+      const lastHour = await tx.notification.count({
+        where: { kind: 'password_reset', supersedeKey: user.id, createdAt: { gt: new Date(now.getTime() - 60 * 60 * 1000) } },
+      });
+      if (lastHour >= RESET_HOURLY_CAP) return false;
       await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
-      await tx.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
+      await tx.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt, createdAt: now } });
       // Восстановление аккаунта не зависит от наличия сейфа: системное письмо не привязано к vault
       await this.notifications.sendPasswordReset(email, token, user.id, expiresAt, tx);
+      return true;
     });
-    this.notifications.dispatchSoon();
+    if (queued) this.notifications.dispatchSoon();
   }
 
   async resetPassword(token: string, password: string): Promise<boolean> {
@@ -113,6 +129,8 @@ export class AuthService {
         data: { passwordHash },
       });
       await tx.passwordResetToken.delete({ where: { id: entry.id } });
+      // Токен израсходован: неотправленное (или ожидающее повтора) письмо с ним больше не нужно
+      await this.notifications.cancelQueued('password_reset', entry.userId, 'token consumed', tx);
     });
     return true;
   }

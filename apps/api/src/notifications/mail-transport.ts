@@ -21,11 +21,18 @@ export abstract class MailTransport {
   abstract send(mail: OutgoingMail): Promise<void>;
 }
 
-/** Диагностика без тела письма и без секретов: код + первая строка ответа сервера, не длиннее 300 символов. */
+/**
+ * Диагностика только из нормализованных кодов: «SMTP 550 (EENVELOPE)» или «ETIMEDOUT». Свободный текст ответа сервера
+ * (response/message) не сохраняется и не логируется: он контролируется сервером или фильтром и может содержать адрес
+ * получателя, фрагмент письма или токен.
+ */
 function describe(err: any): string {
-  const code = err?.responseCode ?? err?.code ?? err?.name ?? 'ERROR';
-  const msg = String(err?.response ?? err?.message ?? '').split('\n')[0].trim();
-  return `${code}: ${msg}`.slice(0, 300);
+  const responseCode = Number(err?.responseCode);
+  const code = typeof err?.code === 'string' ? err.code.replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) : '';
+  if (Number.isInteger(responseCode) && responseCode > 0) return `SMTP ${responseCode}${code ? ` (${code})` : ''}`;
+  if (code) return code;
+  const name = typeof err?.name === 'string' ? err.name.replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) : '';
+  return name || 'ERROR';
 }
 
 export function classifyMailError(err: any): MailSendError {
@@ -63,7 +70,7 @@ export class SmtpMailTransport extends MailTransport {
     try {
       const info = await this.transporter.sendMail({ from: this.config.from, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html });
       if (!info.accepted?.length || info.rejected?.length) {
-        throw new MailSendError(`recipient rejected: ${info.response ?? ''}`.slice(0, 300), true, 'EREJECTED');
+        throw new MailSendError('SMTP recipient rejected (EREJECTED)', true, 'EREJECTED');
       }
     } catch (e) {
       throw e instanceof MailSendError ? e : classifyMailError(e);

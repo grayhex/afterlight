@@ -19,6 +19,8 @@ export type SandboxMode = 'accept' | 'reject-permanent' | 'reject-temporary' | '
 export class SmtpSandbox {
   messages: SandboxMessage[] = [];
   mode: SandboxMode = 'accept';
+  /** Текст в ответе сервера при отказе: имитирует сервер/фильтр, который повторяет в ответе данные письма */
+  rejectText = 'mailbox unavailable';
   port = 0;
   private server: SMTPServer | null = null;
 
@@ -32,8 +34,8 @@ export class SmtpSandbox {
         cb();
       },
       onRcptTo: (address, _session, cb) => {
-        if (this.mode === 'reject-permanent') return cb(Object.assign(new Error('550 mailbox unavailable'), { responseCode: 550 }));
-        if (this.mode === 'reject-temporary') return cb(Object.assign(new Error('451 try again later'), { responseCode: 451 }));
+        if (this.mode === 'reject-permanent') return cb(Object.assign(new Error(`550 ${this.rejectText}`), { responseCode: 550 }));
+        if (this.mode === 'reject-temporary') return cb(Object.assign(new Error(`451 ${this.rejectText}`), { responseCode: 451 }));
         cb();
       },
       onData: (stream, session, cb) => {

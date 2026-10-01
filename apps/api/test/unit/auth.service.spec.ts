@@ -23,14 +23,17 @@ describe('AuthService password reset flow', () => {
         delete: jest.fn(async () => ({})),
       },
       $queryRaw: jest.fn(async () => []),
+      notification: { count: jest.fn(async () => 0) },
       $transaction: jest.fn(async (callback: (tx: any) => Promise<any>) => {
-        await callback({
+        return callback({
           $queryRaw: prisma.$queryRaw,
+          notification: { count: prisma.notification.count },
           user: { update: prisma.user.update },
           passwordResetToken: {
             delete: prisma.passwordResetToken.delete,
             deleteMany: prisma.passwordResetToken.deleteMany,
             create: prisma.passwordResetToken.create,
+            findFirst: prisma.passwordResetToken.findFirst,
           },
         });
       }),
@@ -39,6 +42,7 @@ describe('AuthService password reset flow', () => {
     notifications = {
       sendPasswordReset: jest.fn(async () => undefined),
       dispatchSoon: jest.fn(),
+      cancelQueued: jest.fn(async () => undefined),
     };
 
     service = new AuthService(prisma, notifications, { now: () => new Date() } as any, { cancelOnOwnerActivity: jest.fn() } as any);
@@ -75,6 +79,19 @@ describe('AuthService password reset flow', () => {
     expect(notifications.dispatchSoon).toHaveBeenCalled();
   });
 
+  it('a request inside the cooldown or above the hourly cap creates neither a token nor a mail', async () => {
+    prisma.passwordResetToken.findFirst.mockResolvedValueOnce({ id: 'recent' }); // токен создан только что
+    await service.forgotPassword('user@example.com');
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(notifications.sendPasswordReset).not.toHaveBeenCalled();
+    expect(notifications.dispatchSoon).not.toHaveBeenCalled();
+
+    prisma.notification.count.mockResolvedValueOnce(5); // потолок в час исчерпан
+    await service.forgotPassword('user@example.com');
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(notifications.sendPasswordReset).not.toHaveBeenCalled();
+  });
+
   it('does nothing for an unknown address (no token, no mail)', async () => {
     prisma.user.findUnique.mockResolvedValue(null);
     await service.forgotPassword('nobody@example.com');
@@ -101,6 +118,8 @@ describe('AuthService password reset flow', () => {
       data: expect.objectContaining({ passwordHash: expect.stringContaining(':') }),
     });
     expect(prisma.passwordResetToken.delete).toHaveBeenCalledWith({ where: { id: 'token-1' } });
+    // израсходованный токен: ожидающее повтора письмо с ним снимается в той же транзакции
+    expect(notifications.cancelQueued).toHaveBeenCalledWith('password_reset', 'user-1', 'token consumed', expect.anything());
   });
 
   it('returns false when token is missing or expired', async () => {

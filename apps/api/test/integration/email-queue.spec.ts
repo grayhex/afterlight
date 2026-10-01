@@ -50,7 +50,7 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
 
     const [pending] = await rows();
     expect(pending).toMatchObject({ state: 'Queued', attempts: 1, sentAt: null });
-    expect(pending.lastError).toMatch(/ECONNECTION|ECONNREFUSED|ETIMEDOUT|Error/);
+    expect(pending.lastError).toMatch(/^(ESOCKET|ECONNECTION|ECONNREFUSED|ETIMEDOUT)/);
     expect(pending.nextAttemptAt.getTime()).toBe(secs(30).getTime()); // первый повтор через base=30 c
     expect(ctx.mail.messages).toHaveLength(0);
 
@@ -148,13 +148,14 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       await ctx.factory.createUser({ email: 'twice@test.local' });
       await ctx.mail.stop();
       await ctx.request('POST', '/auth/forgot-password', { email: 'twice@test.local' });
+      ctx.clock.setNow(secs(61)); // пауза между запросами (анти-спам) прошла
       await ctx.request('POST', '/auth/forgot-password', { email: 'twice@test.local' });
       const queued = await rows();
       expect(queued.map((r) => r.state)).toEqual(['Cancelled', 'Queued']);
       expect(queued[0].lastError).toContain('superseded');
 
       await ctx.mail.start();
-      ctx.clock.setNow(secs(31));
+      ctx.clock.setNow(secs(100));
       await svc().dispatchDue();
       const mails = ctx.mail.to('twice@test.local');
       expect(mails).toHaveLength(1);
@@ -187,15 +188,13 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       expect((await rows())[0].state).toBe('Cancelled');
     });
 
-    it('overlapping reset requests are serialized: one live token and one unsent mail remain', async () => {
+    it('overlapping reset requests are serialized: exactly one token and one mail result', async () => {
       await ctx.factory.createUser({ email: 'burst@test.local' });
       await ctx.mail.stop();
       const results = await Promise.all(Array.from({ length: 6 }, () => ctx.request('POST', '/auth/forgot-password', { email: 'burst@test.local' })));
       expect(results.every((r) => r.status === 201)).toBe(true);
       expect(await ctx.db.passwordResetToken.count()).toBe(1);
-      const states = (await rows()).map((r) => r.state).sort();
-      expect(states.filter((x) => x === 'Queued')).toHaveLength(1);
-      expect(states.filter((x) => x === 'Cancelled')).toHaveLength(5);
+      expect(await ctx.db.notification.count()).toBe(1);
 
       await ctx.mail.start();
       ctx.clock.setNow(secs(31));
@@ -204,6 +203,73 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       expect(mails).toHaveLength(1);
       const token = mails[0].text.match(/: ([0-9a-f]{64})/)?.[1] as string;
       expect(createHash('sha256').update(token).digest('hex')).toBe((await ctx.db.passwordResetToken.findFirstOrThrow()).tokenHash);
+    });
+
+    it('anti-spam: a cooldown between reset mails and an hourly cap per address; the API answer never changes', async () => {
+      await ctx.factory.createUser({ email: 'spam@test.local' });
+      const ask = () => ctx.request('POST', '/auth/forgot-password', { email: 'spam@test.local' });
+      const first = await ask();
+      const tooSoon = await ask();
+      expect(tooSoon.status).toBe(first.status);
+      expect(tooSoon.body).toEqual(first.body);
+      expect(ctx.mail.to('spam@test.local')).toHaveLength(1); // вторая просьба в паузе писем не породила
+
+      for (let i = 1; i <= 4; i++) {
+        ctx.clock.setNow(secs(61 * i));
+        await ask();
+      }
+      expect(ctx.mail.to('spam@test.local')).toHaveLength(5);
+      ctx.clock.setNow(secs(61 * 5));
+      await ask(); // потолок 5 писем в час исчерпан
+      expect(ctx.mail.to('spam@test.local')).toHaveLength(5);
+
+      ctx.clock.setNow(secs(3600 + 400));
+      await ask(); // час прошёл
+      expect(ctx.mail.to('spam@test.local')).toHaveLength(6);
+    });
+
+    it('a reset token consumed before a retry cancels the pending mail: a known-invalid token is never sent', async () => {
+      await ctx.factory.createUser({ email: 'consumed@test.local' });
+      await ctx.mail.stop();
+      await ctx.request('POST', '/auth/forgot-password', { email: 'consumed@test.local' });
+      const [queued] = await rows();
+      const token = (queued.payload as any).text.match(/: ([0-9a-f]{64})/)[1] as string; // письмо «ушло, но подтверждение потерялось»
+      expect((await ctx.request('POST', '/auth/reset-password', { token, password: 'new-password-1' })).status).toBe(201);
+      expect((await rows())[0]).toMatchObject({ state: 'Cancelled', lastError: 'token consumed' });
+
+      await ctx.mail.start();
+      ctx.clock.setNow(secs(31));
+      await svc().dispatchDue();
+      expect(ctx.mail.to('consumed@test.local')).toHaveLength(0);
+    });
+
+    it('an accepted invitation cancels its pending mail the same way', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2 });
+      const invitee = await ctx.factory.createUser({ email: 'accepted@test.local' });
+      await ctx.mail.stop();
+      await ctx.request('POST', '/verifiers/invitations', { vault_id: vault.id, email: 'accepted@test.local' }, owner.id);
+      const [queued] = await rows();
+      const token = (queued.payload as any).text.match(/#token=([A-Za-z0-9_-]+)/)[1] as string;
+      expect((await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id)).status).toBe(201);
+      expect((await rows())[0]).toMatchObject({ state: 'Cancelled', lastError: 'invitation accepted' });
+
+      await ctx.mail.start();
+      ctx.clock.setNow(secs(31));
+      await svc().dispatchDue();
+      expect(ctx.mail.to('accepted@test.local')).toHaveLength(0);
+    });
+
+    it('stored diagnostics are normalized codes: server text that echoes a token or address never reaches last_error', async () => {
+      ctx.mail.mode = 'reject-permanent';
+      ctx.mail.rejectText = 'SECRET-ECHO-TOKEN person@mail.test body excerpt';
+      await ctx.factory.createUser({ email: 'echo@test.local' });
+      await ctx.request('POST', '/auth/forgot-password', { email: 'echo@test.local' });
+      const [n] = await rows();
+      expect(n.state).toBe('Failed');
+      expect(n.lastError).toMatch(/^SMTP 550/);
+      expect(n.lastError).not.toContain('SECRET-ECHO-TOKEN');
+      expect(n.lastError).not.toContain('person@mail.test');
     });
 
     it('revoking an invitation before the mail went out cancels the mail: the revoked token never reaches the addressee', async () => {
