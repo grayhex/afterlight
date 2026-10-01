@@ -148,7 +148,7 @@ function renderTable(routes: RouteInfo[]): string {
     '- **данные выбираются по сессии**, **справочник** и **секретная ссылка** — вход нужен, но доступ не зависит от объекта (решает токен, а не сейф: публичная ссылка, приглашение); каждый такой маршрут перечислен в тесте с причиной (`SESSION_SCOPED`, `REFERENCE_DATA`, `CAPABILITY`);',
     '- **объектный** — всё остальное: сервис проверяет доступ к конкретному сейфу, блоку или событию по сессии (`VaultAccessService` или проверка владения); глобальная роль `Admin` чужого сейфа не открывает. Это вид **по умолчанию**: новый маршрут попадает сюда, пока его не отнесли к другому виду явно, поэтому отрицательные сценарии по каждому модулю (`object-authorization.spec.ts`, `security.authorization.spec.ts`) обязательны для каждого нового объектного маршрута.',
     '',
-    'Вне контроллеров на HTTP-адаптере регистрируются только `/docs` и `/docs-json` (Swagger): они доступны без входа, поэтому **в production выключены по умолчанию** (`SWAGGER_ENABLED=true` включает); это проверяет тест.',
+    'Вне контроллеров на HTTP-адаптере регистрируются только пути Swagger под `/docs` (интерфейс и его ресурсы, `/docs-json`, `/docs-yaml`): они доступны без входа, поэтому **в production выключены по умолчанию** (`SWAGGER_ENABLED=true` включает); это проверяет тест.',
     '',
     '| Маршрут | Доступ | Аноним | Обычный пользователь | Администратор платформы | Особенности |',
     '|---|---|---|---|---|---|',
@@ -175,27 +175,46 @@ describe('route access table (every registered route, real guards)', () => {
     expect(publicRoutes).toEqual([...PUBLIC_ALLOWLIST].sort());
   });
 
-  it('routes registered on the HTTP adapter outside controllers (Swagger) are not served in production and are the only extra public paths otherwise', async () => {
-    // Swagger подключается к адаптеру мимо guard'ов, поэтому обход контроллеров его не видит: проверяем боевой вызов setupDocs
-    // на приложениях, собранных так же, как в main.ts (setupDocs до listen)
-    const statusOf = async (env: Record<string, string>) => {
+  it('paths registered on the HTTP adapter outside controllers (Swagger) are absent in production and are all under /docs otherwise', async () => {
+    // Swagger подключается к адаптеру мимо guard'ов, поэтому обход контроллеров его не видит. Перечисляем маршруты самого адаптера
+    // (Express) у приложения, собранного так же, как в main.ts (configureApp + setupDocs до listen), и вычитаем маршруты контроллеров:
+    // так в инвентарь попадает и /docs-yaml, и всё, что Swagger добавит в будущем
+    const controllerPaths = new Set(discoverRoutes(ctx).map((r) => r.path));
+    const build = async (env: Record<string, string | undefined>) => {
       const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
       const app = moduleRef.createNestApplication();
       configureApp(app);
       const registered = setupDocs(app, env as NodeJS.ProcessEnv);
       await app.listen(0);
-      try {
-        const base = `http://127.0.0.1:${(app.getHttpServer().address() as { port: number }).port}`;
-        return { registered, statuses: [(await fetch(`${base}/docs`)).status, (await fetch(`${base}/docs-json`)).status] };
-      } finally {
-        await app.close();
-      }
+      const instance = app.getHttpAdapter().getInstance() as { router?: { stack: any[] }; _router?: { stack: any[] } };
+      const stack = (instance.router ?? instance._router)!.stack;
+      const normalize = (path: string) => path.replace(/:[A-Za-z]+/g, ':p');
+      const known = new Set([...controllerPaths].map(normalize));
+      const extra = [...new Set<string>(stack.filter((l) => l.route && typeof l.route.path === 'string').map((l) => l.route.path as string))]
+        .filter((path) => !known.has(normalize(path)))
+        .sort();
+      const base = `http://127.0.0.1:${(app.getHttpServer().address() as { port: number }).port}`;
+      const statuses: Record<string, number> = {};
+      for (const path of extra) statuses[path] = (await fetch(`${base}${path}`)).status;
+      const docs = await Promise.all(['/docs', '/docs-json', '/docs-yaml'].map(async (path) => (await fetch(`${base}${path}`)).status));
+      await app.close();
+      return { registered, extra, statuses, docs };
     };
-    expect(await statusOf({ NODE_ENV: 'production' })).toEqual({ registered: false, statuses: [404, 404] });
-    expect(await statusOf({ NODE_ENV: 'production', SWAGGER_ENABLED: 'false' })).toEqual({ registered: false, statuses: [404, 404] });
-    // вне production и при явном включении документация открыта без входа: единственные пути вне контроллеров
-    expect(await statusOf({ NODE_ENV: 'development' })).toEqual({ registered: true, statuses: [200, 200] });
-    expect(await statusOf({ NODE_ENV: 'production', SWAGGER_ENABLED: 'true' })).toEqual({ registered: true, statuses: [200, 200] });
+
+    for (const env of [{ NODE_ENV: 'production' }, { NODE_ENV: 'production', SWAGGER_ENABLED: 'false' }]) {
+      const res = await build(env);
+      expect(res).toMatchObject({ registered: false, extra: [], docs: [404, 404, 404] });
+    }
+    for (const env of [{ NODE_ENV: 'development' }, { NODE_ENV: 'production', SWAGGER_ENABLED: 'true' }]) {
+      const res = await build(env);
+      expect(res.registered).toBe(true);
+      // единственные пути вне контроллеров — Swagger под /docs (UI, его ресурсы, /docs-json, /docs-yaml); все открыты без входа
+      expect(res.extra).toEqual(expect.arrayContaining(['/docs', '/docs-json', '/docs-yaml']));
+      expect(res.extra.every((path) => path === '/docs' || path.startsWith('/docs/') || path.startsWith('/docs-'))).toBe(true);
+      expect(res.docs).toEqual([200, 200, 200]);
+      // ни один из них не требует входа (часть ресурсов Swagger сама отвечает 404, если файла нет, но не 401/403)
+      for (const [path, status] of Object.entries(res.statuses)) expect([path, [200, 301, 302, 404].includes(status)]).toEqual([path, true]);
+    }
   });
 
   it('every non-public route answers 401 to an anonymous caller, for any method and well-formed parameters', async () => {

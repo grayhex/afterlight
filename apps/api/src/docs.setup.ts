@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 /**
- * Swagger UI и JSON-описание (`/docs`, `/docs-json`) регистрируются на уровне HTTP-адаптера, мимо guard'ов приложения, то есть
+ * Swagger UI и JSON-описание (`/docs`, `/docs-json`, `/docs-yaml`) регистрируются на уровне HTTP-адаптера, мимо guard'ов приложения, то есть
  * доступны без входа. Поэтому в production они выключены по умолчанию; включить явно — SWAGGER_ENABLED=true (например, на закрытом
  * стенде), выключить вне production — SWAGGER_ENABLED=false.
  */

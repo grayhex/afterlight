@@ -171,4 +171,4 @@ Health endpoints API:
 - `/healthz`
 - `/readyz`
 
-Документация API (`/docs`, `/docs-json`) подключается на уровне HTTP-адаптера, мимо проверки входа, поэтому в production она **выключена по умолчанию** (ответ 404). Включить явно — `SWAGGER_ENABLED=true` (только на закрытом стенде); вне production она включена, отключить — `SWAGGER_ENABLED=false`. Актуальное описание API лежит в репозитории: `apps/api/openapi.json`.
+Документация API (`/docs`, `/docs-json`, `/docs-yaml`) подключается на уровне HTTP-адаптера, мимо проверки входа, поэтому в production она **выключена по умолчанию** (ответ 404). Включить явно — `SWAGGER_ENABLED=true` (только на закрытом стенде); вне production она включена, отключить — `SWAGGER_ENABLED=false`. Актуальное описание API лежит в репозитории: `apps/api/openapi.json`.

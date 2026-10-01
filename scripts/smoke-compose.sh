@@ -71,6 +71,7 @@ expect 200 "главная страница" "$BASE/"
 expect 401 "защищённый маршрут API без входа" "$BASE/api/vaults"
 expect 404 "документация API выключена в production (/docs открыт без входа)" "$BASE/api/docs"
 expect 404 "описание OpenAPI выключено в production" "$BASE/api/docs-json"
+expect 404 "YAML-описание OpenAPI выключено в production" "$BASE/api/docs-yaml"
 expect 307 "/cabinet без входа → редирект" "$BASE/cabinet"
 
 EMAIL="smoke$RANDOM@test.local"
