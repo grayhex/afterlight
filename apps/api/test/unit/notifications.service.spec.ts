@@ -17,7 +17,7 @@ describe('NotificationsService', () => {
 
   beforeEach(() => {
     prisma = {
-      notification: { create: jest.fn(async () => ({ id: 'n1' })), updateMany: jest.fn(async () => ({ count: 1 })), findMany: jest.fn() },
+      notification: { create: jest.fn(async () => ({ id: 'n1' })), updateMany: jest.fn(async () => ({ count: 1 })), findMany: jest.fn(), findFirst: jest.fn() },
       $queryRaw: jest.fn(),
     };
     prisma.$transaction = jest.fn(async (fn: any) => fn(prisma));
@@ -27,9 +27,13 @@ describe('NotificationsService', () => {
   });
   afterEach(() => { jest.restoreAllMocks(); });
 
+  /** Последнее изменение состояния задачи (без служебного снятия аренды release). */
+  const outcome = () => prisma.notification.updateMany.mock.calls.filter((c: any[]) => c[0].where.state !== undefined && c[0].where.state.not === undefined).at(-1)[0];
+
   function claimOne(r = row()) {
     prisma.$queryRaw.mockResolvedValue([{ id: r.id }]);
     prisma.notification.findMany.mockResolvedValue([r]);
+    prisma.notification.findFirst.mockResolvedValue({ payload: r.payload }); // перечитывание перед отправкой: ещё Queued
   }
 
   it('enqueues with a nullable vault and the due time = now', async () => {
@@ -52,7 +56,7 @@ describe('NotificationsService', () => {
     const res = await service.dispatchDue();
     expect(res).toEqual({ claimed: 1, sent: 1, retried: 0, failed: 0 });
     expect(transport.send).toHaveBeenCalledWith({ to: 'person@mail.test', subject: 'Reset', text: 'token=SECRET-TOKEN-123', html: undefined });
-    const data = prisma.notification.updateMany.mock.calls.at(-1)[0].data;
+    const data = outcome().data;
     expect(data).toMatchObject({ state: 'Sent', payload: { subject: 'Reset', redacted: true } });
   });
 
@@ -61,7 +65,7 @@ describe('NotificationsService', () => {
     transport.send.mockRejectedValue(new MailSendError('ETIMEDOUT: connection timed out', false, 'ETIMEDOUT'));
     const res = await service.dispatchDue();
     expect(res).toMatchObject({ sent: 0, retried: 1, failed: 0 });
-    const data = prisma.notification.updateMany.mock.calls.at(-1)[0].data;
+    const data = outcome().data;
     expect(data.state).toBeUndefined();
     expect(data.lastError).toBe('ETIMEDOUT: connection timed out');
     expect(data.nextAttemptAt).toEqual(new Date(now.getTime() + 120 * 1000)); // 30 * 2^(3-1)
@@ -71,7 +75,7 @@ describe('NotificationsService', () => {
     claimOne();
     transport.send.mockRejectedValue(new MailSendError('550: no such user', true, 'EENVELOPE'));
     expect(await service.dispatchDue()).toMatchObject({ failed: 1, retried: 0 });
-    expect(prisma.notification.updateMany.mock.calls.at(-1)[0].data).toMatchObject({ state: 'Failed', payload: { redacted: true } });
+    expect(outcome().data).toMatchObject({ state: 'Failed', payload: { redacted: true } });
 
     claimOne();
     transport.send.mockRejectedValue(new Error('boom'));
@@ -95,6 +99,14 @@ describe('NotificationsService', () => {
     expect(all).not.toContain('SECRET-TOKEN-123');
     expect(all).not.toContain('person@mail.test');
     expect(all).toContain('p***@mail.test');
+  });
+
+  it('re-reads the state right before sending: a task cancelled while waiting in the claimed batch is not sent', async () => {
+    claimOne();
+    prisma.notification.findFirst.mockResolvedValue(null); // тем временем снято (Cancelled)
+    const res = await service.dispatchDue();
+    expect(transport.send).not.toHaveBeenCalled();
+    expect(res).toMatchObject({ claimed: 1, sent: 0, retried: 0, failed: 0 });
   });
 
   it('dispatchSoon returns at once (never waits for SMTP) and swallows queue errors', async () => {
@@ -131,7 +143,7 @@ describe('NotificationsService', () => {
     const res = await service.dispatchDue();
     expect(Date.now() - started).toBeLessThan(3000);
     expect(res).toMatchObject({ sent: 0, retried: 1 });
-    expect(prisma.notification.updateMany.mock.calls.at(-1)[0].data.lastError).toContain('ETIMEDOUT');
+    expect(outcome().data.lastError).toContain('ETIMEDOUT');
   });
 
   it('sizes the lease for the whole claimed batch (send timeout x batch size + margin)', async () => {

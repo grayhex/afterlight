@@ -90,11 +90,15 @@ export class NotificationsService implements OnModuleDestroy {
     await this.enqueueEmail(vaultId, to, templates.verifierInvitation(token), tx, { kind: 'verifier_invitation', supersedeKey: invitationId, expiresAt });
   }
 
-  /** Снять ещё не отправленные письма данного вида и ключа (токен в них стал недействительным). */
+  /**
+   * Снять ещё не отправленные письма данного вида и ключа (токен в них стал недействительным или состояние устарело).
+   * Аренда (locked_until) у письма, которое прямо сейчас отправляется, сохраняется: воркер после отправки её снимет,
+   * а пока она действует, более новое письмо с тем же ключом не берётся в работу (см. claim) — порядок не нарушается.
+   */
   async cancelQueued(kind: string, supersedeKey: string, reason: string, tx?: Prisma.TransactionClient) {
     await (tx ?? this.prisma).notification.updateMany({
       where: { kind, supersedeKey, state: 'Queued' },
-      data: { state: 'Cancelled', lastError: reason, lockedUntil: null, payload: { redacted: true } },
+      data: { state: 'Cancelled', lastError: reason, payload: { redacted: true } },
     });
   }
 
@@ -157,19 +161,32 @@ export class NotificationsService implements OnModuleDestroy {
         await this.cancel(n.id, 'expired before delivery');
         continue;
       }
-      const payload = (n.payload ?? {}) as EmailPayload;
+      // Задачу могли снять, пока она ждала своей очереди в пачке: перед отправкой перечитываем состояние
+      const fresh = await this.prisma.notification.findFirst({ where: { id: n.id, state: 'Queued' }, select: { payload: true } });
+      if (!fresh) {
+        await this.release(n.id);
+        continue;
+      }
+      const payload = (fresh.payload ?? {}) as EmailPayload;
       try {
         await this.withDeadline(this.transport.send({ to: n.toContact, subject: payload.subject ?? '', text: payload.text, html: payload.html }));
       } catch (e) {
         const err = e instanceof MailSendError ? e : new MailSendError(String((e as Error)?.name ?? 'ERROR').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'ERROR', false);
         const outcome = await this.markFailure(n.id, n.attempts, err);
+        await this.release(n.id);
         result[outcome]++;
         continue;
       }
       await this.markSent(n.id, payload.subject ?? '');
+      await this.release(n.id);
       result.sent++;
     }
     return result;
+  }
+
+  /** Снять аренду у задачи, которую отменили во время отправки (у живых задач аренду снимает markSent/markFailure). */
+  private async release(id: string) {
+    await this.prisma.notification.updateMany({ where: { id, state: { not: 'Queued' }, lockedUntil: { not: null } }, data: { lockedUntil: null } });
   }
 
   /** Жёсткий предел на одно сообщение: итог неоднозначен (сервер мог принять письмо), поэтому это временная ошибка. */
@@ -206,6 +223,12 @@ export class NotificationsService implements OnModuleDestroy {
         WHERE channel = 'email'::"NotificationChannel" AND state = 'Queued'::"NotificationState"
           AND next_attempt_at <= ${iso}::timestamp
           AND (locked_until IS NULL OR locked_until <= ${iso}::timestamp)
+          -- порядок: пока старое письмо того же вида и ключа в полёте (в т.ч. снятое во время отправки), новое ждёт
+          AND NOT EXISTS (
+            SELECT 1 FROM notification o
+            WHERE o.kind = notification.kind AND o.supersede_key = notification.supersede_key
+              AND o.id <> notification.id AND o.created_at < notification.created_at
+              AND o.locked_until > ${iso}::timestamp AND o.state IN ('Queued'::"NotificationState", 'Cancelled'::"NotificationState"))
         ORDER BY next_attempt_at, created_at
         LIMIT ${limit}
         FOR UPDATE SKIP LOCKED`);

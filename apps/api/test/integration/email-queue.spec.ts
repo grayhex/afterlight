@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { MailTransport } from '../../src/notifications/mail-transport.js';
 import { createHash } from 'crypto';
 import { NotificationsService } from '../../src/notifications/notifications.service.js';
 import { bootstrapApp, closeApp, Ctx } from './helper.js';
@@ -332,6 +333,61 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
         expect(got[0].subject).toBe('AfterLight: процесс раскрытия отменён');
       }
       expect(v1.user.email).toBe('state-v1@test.local');
+    });
+  });
+
+  describe('cancellation vs a claimed batch', () => {
+    async function twoEventMails() {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'first@test.local', { subject: 'First', text: 'x' });
+      await svc().enqueueEmail(vault.id, 'second@test.local', { subject: 'Second', text: 'x' });
+      await ctx.mail.start();
+      return vault;
+    }
+
+    afterEach(() => { jest.restoreAllMocks(); });
+
+    it('a message cancelled while waiting inside the claimed batch is not delivered', async () => {
+      await twoEventMails();
+      const transport = ctx.moduleRef.get(MailTransport);
+      const original = transport.send.bind(transport);
+      let first = true;
+      jest.spyOn(transport, 'send').mockImplementation(async (mail) => {
+        if (first) {
+          first = false;
+          // пока уходит первое письмо, второе (уже взятое в пачку) снимают
+          await ctx.db.notification.updateMany({ where: { toContact: 'second@test.local' }, data: { state: 'Cancelled', lastError: 'superseded' } });
+        }
+        return original(mail);
+      });
+      const res = await svc().dispatchDue();
+      expect(res).toMatchObject({ claimed: 2, sent: 1 });
+      expect(ctx.mail.to('first@test.local')).toHaveLength(1);
+      expect(ctx.mail.to('second@test.local')).toHaveLength(0);
+    });
+
+    it('a newer state mail waits while an older one with the same key is still in flight, then goes out after it', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      const key = `${vault.id}:someone`;
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'older@test.local', { subject: 'Started', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      await ctx.mail.start();
+      // старое письмо сейчас отправляется другим воркером, но его уже сняли новым состоянием: аренда сохранена
+      await ctx.db.notification.updateMany({ data: { state: 'Cancelled', lockedUntil: secs(60), attempts: 1 } });
+      await svc().enqueueEmail(vault.id, 'newer@test.local', { subject: 'Cancelled', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      await ctx.db.notification.updateMany({ where: { toContact: 'newer@test.local' }, data: { createdAt: secs(1) } }); // строго позже старого
+
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 0 });
+      expect(ctx.mail.to('newer@test.local')).toHaveLength(0);
+
+      // старое письмо завершилось: аренда снята, очередь идёт дальше
+      await ctx.db.notification.updateMany({ where: { toContact: 'older@test.local' }, data: { lockedUntil: null } });
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 1, sent: 1 });
+      expect(ctx.mail.to('newer@test.local')).toHaveLength(1);
+      expect(ctx.mail.to('older@test.local')).toHaveLength(0);
     });
   });
 
