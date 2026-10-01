@@ -143,7 +143,12 @@ describe('NotificationsService', () => {
     const res = await service.dispatchDue();
     expect(Date.now() - started).toBeLessThan(3000);
     expect(res).toMatchObject({ sent: 0, retried: 1 });
-    expect(outcome().data.lastError).toContain('ETIMEDOUT');
+    const data = outcome().data;
+    expect(data.lastError).toContain('ETIMEDOUT');
+    // отправка не прервана: аренда удерживается (3 × таймаут), повтор не раньше её конца, служебного снятия аренды нет
+    expect(data.lockedUntil).toEqual(new Date(now.getTime() + 3 * 1000));
+    expect(data.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(now.getTime() + 3 * 1000);
+    expect(prisma.notification.updateMany.mock.calls.some((c: any[]) => c[0].where.state?.not !== undefined)).toBe(false);
   });
 
   it('sizes the lease for the whole claimed batch (send timeout x batch size + margin)', async () => {

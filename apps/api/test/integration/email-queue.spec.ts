@@ -305,6 +305,7 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       const [n] = await rows();
       expect(n).toMatchObject({ state: 'Queued', attempts: 1 });
       expect(n.lastError).toMatch(/ETIMEDOUT|ECONNECTION|timeout/i);
+      expect(n.lockedUntil).not.toBeNull(); // отправка после таймаута не прервана: порядок держится арендой
       expect(ctx.mail.messages).toHaveLength(0);
     });
   });
@@ -378,7 +379,8 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       // старое письмо сейчас отправляется другим воркером, но его уже сняли новым состоянием: аренда сохранена
       await ctx.db.notification.updateMany({ data: { state: 'Cancelled', lockedUntil: secs(60), attempts: 1 } });
       await svc().enqueueEmail(vault.id, 'newer@test.local', { subject: 'Cancelled', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
-      await ctx.db.notification.updateMany({ where: { toContact: 'newer@test.local' }, data: { createdAt: secs(1) } }); // строго позже старого
+      // порядок не зависит от created_at: даже при одинаковых и «обратных» отметках времени новое письмо ждёт
+      await ctx.db.notification.updateMany({ where: { toContact: 'newer@test.local' }, data: { createdAt: secs(-5) } });
 
       expect(await svc().dispatchDue()).toMatchObject({ claimed: 0 });
       expect(ctx.mail.to('newer@test.local')).toHaveLength(0);

@@ -173,7 +173,8 @@ export class NotificationsService implements OnModuleDestroy {
       } catch (e) {
         const err = e instanceof MailSendError ? e : new MailSendError(String((e as Error)?.name ?? 'ERROR').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'ERROR', false);
         const outcome = await this.markFailure(n.id, n.attempts, err);
-        await this.release(n.id);
+        // После таймаута отправка ещё идёт в фоне: аренду не снимаем (её держит markFailure), иначе новое письмо обгонит старое
+        if (!err.inFlight) await this.release(n.id);
         result[outcome]++;
         continue;
       }
@@ -193,7 +194,7 @@ export class NotificationsService implements OnModuleDestroy {
   private withDeadline(send: Promise<void>): Promise<void> {
     let timer: NodeJS.Timeout;
     const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new MailSendError(`ETIMEDOUT: no confirmation within the send timeout`, false, 'ETIMEDOUT')), this.config.sendTimeoutMs);
+      timer = setTimeout(() => reject(new MailSendError('ETIMEDOUT: no confirmation within the send timeout', false, 'ETIMEDOUT', true)), this.config.sendTimeoutMs);
     });
     send.catch(() => undefined); // поздний отказ после дедлайна не должен стать необработанным
     return Promise.race([send, deadline]).finally(() => clearTimeout(timer));
@@ -223,11 +224,13 @@ export class NotificationsService implements OnModuleDestroy {
         WHERE channel = 'email'::"NotificationChannel" AND state = 'Queued'::"NotificationState"
           AND next_attempt_at <= ${iso}::timestamp
           AND (locked_until IS NULL OR locked_until <= ${iso}::timestamp)
-          -- порядок: пока старое письмо того же вида и ключа в полёте (в т.ч. снятое во время отправки), новое ждёт
+          -- порядок: пока другое письмо того же вида и ключа в полёте (в т.ч. снятое во время отправки или
+          -- отправка которого ещё не завершилась после таймаута), это письмо ждёт. Время создания для порядка не используется:
+          -- более старое Queued-письмо при появлении нового снимается, поэтому «в полёте» может быть только предшественник
           AND NOT EXISTS (
             SELECT 1 FROM notification o
             WHERE o.kind = notification.kind AND o.supersede_key = notification.supersede_key
-              AND o.id <> notification.id AND o.created_at < notification.created_at
+              AND o.id <> notification.id
               AND o.locked_until > ${iso}::timestamp AND o.state IN ('Queued'::"NotificationState", 'Cancelled'::"NotificationState"))
         ORDER BY next_attempt_at, created_at
         LIMIT ${limit}
@@ -254,18 +257,23 @@ export class NotificationsService implements OnModuleDestroy {
   private async markFailure(id: string, attempts: number, err: MailSendError): Promise<'retried' | 'failed'> {
     const now = this.clock.now();
     const final = err.permanent || attempts >= this.config.maxAttempts;
+    // Отправка после нашего таймаута не прервана и может завершиться позже: удерживаем аренду на время, за которое
+    // транспорт (nodemailer) гарантированно сдаётся по собственным таймаутам. Пока она действует, это письмо не берётся
+    // повторно, а более новое письмо с тем же ключом ждёт (см. claim)
+    const lease = err.inFlight ? new Date(now.getTime() + this.config.sendTimeoutMs * 3) : null;
     if (final) {
       await this.prisma.notification.updateMany({
         where: { id, state: 'Queued' },
-        data: { state: 'Failed', lockedUntil: null, lastError: err.message, payload: { redacted: true } },
+        data: { state: 'Failed', lockedUntil: lease, lastError: err.message, payload: { redacted: true } },
       });
       this.logger.error(`[Email][failed] id=${id} attempts=${attempts} permanent=${err.permanent} error=${err.message}`);
       return 'failed';
     }
     const delaySec = Math.min(this.config.retryBaseSeconds * 2 ** (attempts - 1), this.config.retryMaxSeconds);
+    const retryAt = new Date(now.getTime() + delaySec * 1000);
     await this.prisma.notification.updateMany({
       where: { id, state: 'Queued' },
-      data: { lockedUntil: null, lastError: err.message, nextAttemptAt: new Date(now.getTime() + delaySec * 1000) },
+      data: { lockedUntil: lease, lastError: err.message, nextAttemptAt: lease && lease > retryAt ? lease : retryAt },
     });
     this.logger.warn(`[Email][retry] id=${id} attempt=${attempts} in=${delaySec}s error=${err.message}`);
     return 'retried';
