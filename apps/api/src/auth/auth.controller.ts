@@ -8,7 +8,9 @@ import {
   Req,
   GoneException,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiTags, ApiTooManyRequestsResponse } from '@nestjs/swagger';
+import { AuthUserDto, EmptyResponseDto } from './dto/auth-responses.dto.js';
+import { ErrorDto } from '../common/error.dto.js';
 import { AuthService } from './auth.service.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -19,12 +21,15 @@ import { VerifyEmailDto } from './dto/verify-email.dto.js';
 import { Response, Request } from 'express';
 import { Public } from './decorators/public.decorator.js';
 import { extractToken } from './guards/auth.guard.js';
+import { RateLimit } from '../rate-limit/rate-limit.decorator.js';
+import { RateLimitService, TooManyRequestsException, clientIp, type PolicyName } from '../rate-limit/rate-limit.service.js';
+import { normalizeEmail } from '../common/email.js';
 
 @ApiTags('auth')
 @ApiErrorResponses()
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(private readonly auth: AuthService, private readonly limiter: RateLimitService) {}
 
   private readonly tokenCookieOptions = {
     httpOnly: true,
@@ -38,6 +43,8 @@ export class AuthController {
   };
 
   @Public()
+  @RateLimit('register_ip')
+  @ApiCreatedResponse({ type: AuthUserDto })
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     const user = await this.auth.register(
@@ -52,14 +59,37 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @ApiCreatedResponse({ type: AuthUserDto })
+  @ApiTooManyRequestsResponse({ type: ErrorDto, description: 'Слишком много неудачных попыток входа; Retry-After — через сколько секунд повторить' })
   async login(
     @Body() { email, password }: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Лимиты неудач: по IP, по паре «аккаунт + IP» и по аккаунту (высокий порог против распределённого подбора).
+    // Счётчик ведётся по введённому адресу, существует он или нет: ответ 429 не раскрывает наличие аккаунта.
+    const ip = clientIp(req);
+    const account = normalizeEmail(email);
+    const counters: Array<[PolicyName, string]> = [
+      ['login_fail_ip', ip],
+      ['login_fail_account_ip', `${account}|${ip}`],
+      ['login_fail_account', account],
+    ];
+    // Допуск и резерв — одной атомарной операцией ДО проверки пароля: параллельная пачка попыток не может прочитать один и тот
+    // же «ещё не превышенный» счётчик. При отказе любого лимита откатываются все резервы попытки, при успешном входе — тоже;
+    // неудачный вход оставляет резерв израсходованным.
+    const admission = await this.limiter.reserve(counters);
+    if (!admission.allowed) {
+      res.setHeader('Retry-After', String(admission.retryAfterSec));
+      throw new TooManyRequestsException(admission.retryAfterSec);
+    }
     const user = await this.auth.validateUser(email, password);
     if (!user) {
       throw new UnauthorizedException();
     }
+    // правильный пароль возвращает резерв и снимает счётчик пары «аккаунт + IP»: опечатки законного пользователя не копятся
+    await this.limiter.releaseAll(admission.reservations);
+    await this.limiter.reset('login_fail_account_ip', `${account}|${ip}`);
     await this.auth.recordLogin(user.id);
     const token = this.auth.sign(user.id, user.sessionVersion);
     res.cookie('token', token, this.tokenCookieOptions);
@@ -85,6 +115,8 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit('forgot_ip')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     await this.auth.forgotPassword(dto.email);
@@ -92,6 +124,8 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit('reset_ip')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
     const ok = await this.auth.resetPassword(dto.token, dto.password);
@@ -102,6 +136,8 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit('verify_ip')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('verify-email')
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     if (!(await this.auth.verifyEmail(dto.token))) {
@@ -110,6 +146,8 @@ export class AuthController {
     return {};
   }
 
+  @RateLimit('resend_user', 'user')
+  @ApiCreatedResponse({ type: EmptyResponseDto })
   @Post('resend-verification')
   async resendVerification(@Req() req: Request) {
     const userId = (req as any).user?.sub;

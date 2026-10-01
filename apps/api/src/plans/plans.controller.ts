@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PlansService } from './plans.service.js';
 import { CreatePlanDto } from './dto/create-plan.dto.js';
@@ -20,7 +20,7 @@ export class PlansController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
+  get(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(id);
   }
 
@@ -32,13 +32,13 @@ export class PlansController {
 
   @Roles(UserRole.Admin)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePlanDto) {
     return this.service.update(id, dto);
   }
 
   @Roles(UserRole.Admin)
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.remove(id);
   }
 }

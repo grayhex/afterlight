@@ -24,7 +24,7 @@ export class UsersController {
 
   @Get(':id')
   @ApiOkResponse({ type: UserDto })
-  get(@Param('id') id: string) {
+  get(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(id);
   }
 
@@ -42,7 +42,7 @@ export class UsersController {
 
   @Delete(':id')
   @ApiOkResponse({ type: UserDto })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.remove(id);
   }
 }

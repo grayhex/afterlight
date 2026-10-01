@@ -172,6 +172,7 @@ model Vault {
   heartbeat      Heartbeat?
   notifications  Notification[]
   recoveryShares RecoveryShare[]
+  recipients     Recipient[]
 
   @@index([userId], map: "ix_vault_user_id")
   @@map("vault")
@@ -200,15 +201,27 @@ model Block {
 }
 
 model Recipient {
-  id                 String   @id @default(uuid()) @map("id") @db.Uuid
-  contact            String   @unique
-  pubkey             String?
-  verificationStatus String   @default("Invited") @map("verification_status")
-  createdAt          DateTime @default(now()) @map("created_at")
+  id                      String    @id @default(uuid()) @map("id") @db.Uuid
+  // Получатель принадлежит сейфу. NULL бывает только у унаследованных записей без назначений: такие недоступны и не назначаются (#174)
+  vaultId                 String?   @map("vault_id") @db.Uuid
+  contact                 String
+  // Заявленный получателем публичный ключ (пара создаётся в его браузере) и его отпечаток SHA-256 (hex)
+  pubkey                  String?
+  keyFingerprint          String?   @map("key_fingerprint")
+  keyClaimedAt            DateTime? @map("key_claimed_at")
+  // Отпечаток, который владелец сверил вне сервера; DEK упаковывается только под подтверждённый отпечаток
+  keyConfirmedFingerprint String?   @map("key_confirmed_fingerprint")
+  keyConfirmedAt          DateTime? @map("key_confirmed_at")
+  // Invited → KeyClaimed → KeyConfirmed; смена ключа возвращает в KeyClaimed
+  verificationStatus      String    @default("Invited") @map("verification_status")
+  createdAt               DateTime  @default(now()) @map("created_at")
 
+  vault  Vault?           @relation(fields: [vaultId], references: [id], onDelete: Restrict)
   blocks BlockRecipient[]
 
+  @@unique([vaultId, contact], map: "uq_recipient_vault_contact")
   @@index([contact], map: "ix_recipient_contact")
+  @@index([vaultId], map: "ix_recipient_vault_id")
   @@map("recipient")
 }
 
@@ -216,6 +229,8 @@ model BlockRecipient {
   blockId                String   @map("block_id") @db.Uuid
   recipientId            String   @map("recipient_id") @db.Uuid
   dekWrappedForRecipient String   @map("dek_wrapped_for_recipient")
+  // Отпечаток ключа, под который упакован DEK; упаковка действительна, только пока он равен подтверждённому отпечатку получателя
+  wrappedForFingerprint  String?  @map("wrapped_for_fingerprint")
   createdAt              DateTime @default(now()) @map("created_at")
 
   block     Block     @relation(fields: [blockId], references: [id])
@@ -343,6 +358,17 @@ model Notification {
   @@index([state, nextAttemptAt], map: "ix_notification_due")
   @@index([kind, supersedeKey], map: "ix_notification_supersede")
   @@map("notification")
+}
+
+// Счётчики ограничения частоты запросов (#179): фиксированные окна, ключ — хэш субъекта (адреса и IP открытым текстом не храним)
+model RateLimitBucket {
+  key         String
+  windowStart DateTime @map("window_start")
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart], map: "ix_rate_limit_window")
+  @@map("rate_limit_bucket")
 }
 
 model AuditLog {

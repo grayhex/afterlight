@@ -6,9 +6,10 @@ export class CreateBlockDto {
   @IsUUID()
   vault_id!: string;
 
-  @ApiProperty({ enum: ['text', 'file', 'url'] })
-  @IsIn(['text', 'file', 'url'])
-  type!: 'text' | 'file' | 'url';
+  // Файлы и ссылки — отдельный срез (хранилища файлов нет): путь выключен явно, а не работает через заглушку
+  @ApiProperty({ enum: ['text'], description: 'Только текстовый блок; file и url не поддерживаются' })
+  @IsIn(['text'])
+  type!: 'text';
 
   @ApiProperty({ description: 'Wrapped DEK (base64 or JWE compact)' })
   @IsString()

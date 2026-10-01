@@ -426,18 +426,16 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
       expect(list.status).toBe(403);
     });
 
-    it('a verifier cannot designate recipients and nobody can overwrite an existing public key', async () => {
+    it('a verifier cannot designate recipients, and the owner cannot set a recipient key', async () => {
       const s = await scene();
       const asVerifier = await ctx.request('POST', '/recipients', { vault_id: s.vault.id, contact: 'r@mail.test' }, s.v1.user.id);
       expect(asVerifier.status).toBe(403);
 
-      const first = await ctx.request('POST', '/recipients', { vault_id: s.vault.id, contact: 'r@mail.test', pubkey: 'KEY-A' }, s.owner.id);
-      expect(first.status).toBe(201);
-      const swap = await ctx.request('POST', '/recipients', { vault_id: s.otherVault.id, contact: 'r@mail.test', pubkey: 'KEY-EVIL' }, s.otherOwner.id);
-      expect(swap.status).toBe(409);
-      expect((await ctx.db.recipient.findFirstOrThrow()).pubkey).toBe('KEY-A');
-      const same = await ctx.request('POST', '/recipients', { vault_id: s.otherVault.id, contact: 'r@mail.test', pubkey: 'KEY-A' }, s.otherOwner.id);
-      expect(same.status).toBe(201);
+      // ключ, присланный владельцем, игнорируется: его заявляет только сам получатель (recipients.spec.ts)
+      const created = await ctx.request('POST', '/recipients', { vault_id: s.vault.id, contact: 'r@mail.test', pubkey: 'KEY-OWNER' }, s.owner.id);
+      expect(created.status).toBe(201);
+      expect(created.body).toMatchObject({ key_status: 'Invited', public_key: null, key_fingerprint: null });
+      expect((await ctx.db.recipient.findFirstOrThrow()).pubkey).toBeNull();
     });
   });
 });

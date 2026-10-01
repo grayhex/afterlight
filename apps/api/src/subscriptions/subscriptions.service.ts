@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto.js';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto.js';
@@ -11,8 +11,10 @@ export class SubscriptionsService {
     return this.prisma.subscription.findMany();
   }
 
-  get(id: string) {
-    return this.prisma.subscription.findUnique({ where: { id } });
+  async get(id: string) {
+    const subscription = await this.prisma.subscription.findUnique({ where: { id } });
+    if (!subscription) throw new NotFoundException('Subscription not found');
+    return subscription;
   }
 
   create(dto: CreateSubscriptionDto) {
