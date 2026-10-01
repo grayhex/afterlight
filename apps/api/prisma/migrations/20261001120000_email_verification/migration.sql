@@ -3,11 +3,14 @@
 -- владелец подтверждает адрес письмом после входа.
 ALTER TABLE "user" ADD COLUMN "email_verified_at" TIMESTAMP(3);
 
--- Адреса приводятся к нижнему регистру (приглашения и вход сравнивают их так же). Строки, для которых это создало бы
--- дубль, не трогаем: такие аккаунты придётся разбирать вручную.
+-- Адреса приводятся к нижнему регистру (приглашения и вход сравнивают их так же). Если несколько адресов дают одно
+-- нормализованное значение (Foo@x и FOO@x, в том числе когда ни один не канонический), не трогаем ни один из них:
+-- такие аккаунты придётся разбирать вручную, а обновление не должно нарушить уникальность.
 UPDATE "user" u SET "email" = lower(btrim(u."email"))
 WHERE u."email" <> lower(btrim(u."email"))
-  AND NOT EXISTS (SELECT 1 FROM "user" o WHERE o."id" <> u."id" AND o."email" = lower(btrim(u."email")));
+  AND NOT EXISTS (
+    SELECT 1 FROM "user" o WHERE o."id" <> u."id" AND lower(btrim(o."email")) = lower(btrim(u."email"))
+  );
 
 CREATE TABLE "email_verification_token" (
     "id" UUID NOT NULL,
