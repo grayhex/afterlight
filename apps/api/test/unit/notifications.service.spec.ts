@@ -176,6 +176,31 @@ describe('NotificationsService', () => {
     expect(calls.at(-1).data).toEqual({ lockedUntil: null }); // и аренда снята
   });
 
+  it('an SMTP request that fails right after the deadline cannot leave the lease behind: markFailure writes it after holdLease has cleared it', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    // запрос отказывает через 30 мс после дедлайна, а запись аренды в markFailure задерживается на 150 мс: снятие обгоняет запись
+    transport.send.mockImplementation(() => new Promise<void>((_, reject) => setTimeout(() => reject(new MailSendError('ECONNRESET', false)), 1030)));
+    const writes: string[] = [];
+    prisma.notification.updateMany.mockImplementation(async (args: any) => {
+      const lease = args.data.lockedUntil;
+      if (lease instanceof Date && args.where.OR !== undefined) await new Promise((r) => setTimeout(r, 150)); // запись аренды markFailure
+      if (lease === null) writes.push('clear');
+      else if (lease instanceof Date && args.where.OR !== undefined) writes.push('set');
+      return { count: 1 };
+    });
+    await service.dispatchDue();
+    await service.idle();
+    // последнее слово — снятие: отправка завершена, аренда никому не нужна
+    expect(writes.at(-1)).toBe('clear');
+    expect(writes).toContain('set');
+  });
+
   it('a renewal still running when the SMTP promise settles is awaited before the lease is cleared (it cannot bring the lease back)', async () => {
     process.env.MAIL_SEND_TIMEOUT_MS = '1000';
     try {
