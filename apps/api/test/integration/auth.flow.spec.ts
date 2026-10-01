@@ -53,4 +53,25 @@ describe('auth flow (real guard, cookie session, seeded admin)', () => {
     const users = await call('/users', { headers: { cookie } });
     expect(users.status).toBe(200);
   });
+
+  describe('origin check for state-changing requests (CSRF on top of SameSite=Lax)', () => {
+    const post = (origin?: string) =>
+      call('/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) },
+        body: JSON.stringify({ email: 'nobody@test.local', password: 'x' }),
+      });
+
+    it('rejects a foreign or null Origin, allows a trusted one and requests without Origin', async () => {
+      expect((await post('https://evil.example')).status).toBe(403);
+      expect((await post('null')).status).toBe(403);
+      expect((await post('http://localhost')).status).toBe(401); // доверенный origin доходит до проверки пароля
+      expect((await post('http://localhost/')).status).toBe(401);
+      expect((await post()).status).toBe(401); // не браузерный клиент
+    });
+
+    it('does not touch safe methods', async () => {
+      expect((await call('/healthz', { headers: { origin: 'https://evil.example' } })).status).toBe(200);
+    });
+  });
 });
