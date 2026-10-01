@@ -60,7 +60,9 @@ describe('rate limiting (real app, PostgreSQL counters)', () => {
     });
 
     it('a large burst leaves every counter at the number of admitted attempts, so it cannot lock out other IPs or other users', async () => {
-      await boot({ TRUST_PROXY: 'loopback' });
+      // общие пороги подняты: при 100 одновременных попытках резервы отклонённых на миг раздувают и их, и тогда число допущенных
+      // зависело бы от гонки. Здесь проверяется именно пара «аккаунт + IP»: первые пять приращений её счётчика всегда допускаются
+      await boot({ TRUST_PROXY: 'loopback', RATE_LIMIT_LOGIN_FAIL_IP_MAX: '1000', RATE_LIMIT_LOGIN_FAIL_ACCOUNT_MAX: '1000' });
       await makeUser('victim2@test.local');
       await makeUser('bystander@test.local');
       const burst = await Promise.all(Array.from({ length: 100 }, () => login('victim2@test.local', 'wrong', '203.0.113.50')));
@@ -74,7 +76,7 @@ describe('rate limiting (real app, PostgreSQL counters)', () => {
       expect((await login('bystander@test.local', 'correct horse', '203.0.113.50')).status).toBe(201);
       // а целевая пара по-прежнему заблокирована
       expect((await login('victim2@test.local', 'correct horse', '203.0.113.50')).status).toBe(429);
-      // в аудите — один отказ окна по политике, а не по записи на каждую из 95 отклонённых попыток
+      // в аудите — один отказ окна по политике, а не запись на каждую из 95 отклонённых попыток
       const audited = await ctx.db.auditLog.findMany({ where: { action: 'rate_limited' } });
       expect(audited.map((a) => a.targetId)).toEqual(['login_fail_account_ip']);
     });

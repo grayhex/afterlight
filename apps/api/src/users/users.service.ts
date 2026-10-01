@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
@@ -30,9 +30,10 @@ export class UsersService {
     return users.map((u) => this.toDto(u));
   }
 
-  async get(id: string): Promise<UserDto | null> {
+  async get(id: string): Promise<UserDto> {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    return user ? this.toDto(user) : null;
+    if (!user) throw new NotFoundException('User not found');
+    return this.toDto(user);
   }
 
   async create(dto: CreateUserDto): Promise<UserDto> {

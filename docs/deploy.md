@@ -170,4 +170,5 @@ docker compose -f docker-compose.server.yml logs --tail=100 db
 Health endpoints API:
 - `/healthz`
 - `/readyz`
-- `/docs`
+
+Документация API (`/docs`, `/docs-json`, `/docs-yaml`) подключается на уровне HTTP-адаптера, мимо проверки входа, поэтому в production она **выключена по умолчанию** (ответ 404). Включить явно — `SWAGGER_ENABLED=true` (только на закрытом стенде); вне production она включена, отключить — `SWAGGER_ENABLED=false`. Актуальное описание API лежит в репозитории: `apps/api/openapi.json`.
