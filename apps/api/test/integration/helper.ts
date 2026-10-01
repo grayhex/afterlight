@@ -6,10 +6,13 @@ import { configureApp } from '../../src/app.setup.js';
 import { AuthService } from '../../src/auth/auth.service.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { ClockService } from '../../src/clock/clock.service.js';
+import { NotificationsService } from '../../src/notifications/notifications.service.js';
+import { SmtpSandbox } from './smtp-sandbox.js';
 
 /**
  * Integration-контур: настоящее приложение (AppModule, те же guard'ы и pipes, что в runtime),
- * настоящий PostgreSQL, настоящие JWT. Подменять нечего: почта пока пишется в таблицу notification.
+ * настоящий PostgreSQL, настоящие JWT. Почта уходит по SMTP на локальный sandbox-сервер (smtp-sandbox.ts) тем же
+ * транспортом, что и в runtime; подменять в приложении нечего.
  */
 function assertSafeDatabase() {
   const url = process.env.DATABASE_URL;
@@ -26,6 +29,17 @@ export async function bootstrapApp() {
   assertSafeDatabase();
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'integration-test-secret';
   process.env.CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || 'http://localhost';
+
+  const mail = new SmtpSandbox();
+  await mail.start();
+  process.env.MAIL_SMTP_HOST = '127.0.0.1';
+  process.env.MAIL_SMTP_PORT = String(mail.port);
+  process.env.MAIL_SMTP_TLS = 'none';
+  process.env.MAIL_FROM = 'AfterLight <no-reply@afterlight.localhost>';
+  // быстрые повторы и без фонового воркера (NODE_ENV=test): тесты вызывают dispatchDue явно
+  process.env.MAIL_RETRY_BASE_SECONDS = '30';
+  process.env.MAIL_MAX_ATTEMPTS = '4';
+  process.env.MAIL_SEND_TIMEOUT_MS = '1000';
 
   const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app: INestApplication = moduleRef.createNestApplication();
@@ -56,6 +70,8 @@ export async function bootstrapApp() {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
+    // Приложение отправляет почту в фоне, не задерживая ответ; тест дожидается завершения фоновой отправки
+    await moduleRef.get(NotificationsService).idle();
     return { status: res.status, body: text ? JSON.parse(text) : null };
   };
 
@@ -76,21 +92,20 @@ export async function bootstrapApp() {
     },
   };
 
-  /** Одноразовый токен приглашения так, как его получает адресат: из ссылки в письме (notification.payload). */
-  const invitationTokens = async (email: string): Promise<string[]> => {
-    const rows = await db.notification.findMany({ where: { toContact: email }, orderBy: { createdAt: 'asc' } });
-    return rows
-      .map((r) => String((r.payload as any)?.text ?? '').match(/#token=([A-Za-z0-9_-]+)/)?.[1])
+  /** Одноразовый токен приглашения так, как его получает адресат: из ссылки в письме, дошедшем до sandbox. */
+  const invitationTokens = async (email: string): Promise<string[]> =>
+    mail.to(email)
+      .map((m) => m.text.match(/#token=([A-Za-z0-9_-]+)/)?.[1])
       .filter((t): t is string => !!t);
-  };
 
-  return { app, moduleRef, db, request, factory, invitationTokens, clock };
+  return { app, moduleRef, db, request, baseUrl, factory, invitationTokens, clock, mail };
 }
 
 export async function closeApp(ctx?: Ctx) {
   if (!ctx) return;
   ctx.clock.reset();
   await ctx.app.close();
+  await ctx.mail.stop();
 }
 
 export const HOUR = 3600 * 1000;

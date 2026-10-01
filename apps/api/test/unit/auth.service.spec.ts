@@ -22,19 +22,27 @@ describe('AuthService password reset flow', () => {
         findFirst: jest.fn(),
         delete: jest.fn(async () => ({})),
       },
+      $queryRaw: jest.fn(async () => []),
+      notification: { count: jest.fn(async () => 0) },
       $transaction: jest.fn(async (callback: (tx: any) => Promise<any>) => {
-        await callback({
+        return callback({
+          $queryRaw: prisma.$queryRaw,
+          notification: { count: prisma.notification.count },
           user: { update: prisma.user.update },
           passwordResetToken: {
             delete: prisma.passwordResetToken.delete,
+            deleteMany: prisma.passwordResetToken.deleteMany,
+            create: prisma.passwordResetToken.create,
+            findFirst: prisma.passwordResetToken.findFirst,
           },
         });
       }),
     };
 
     notifications = {
-      enqueueEmail: jest.fn(async () => ({})),
-      flushEmailQueue: jest.fn(async () => ({})),
+      sendPasswordReset: jest.fn(async () => undefined),
+      dispatchSoon: jest.fn(),
+      cancelQueued: jest.fn(async () => undefined),
     };
 
     service = new AuthService(prisma, notifications, { now: () => new Date() } as any, { cancelOnOwnerActivity: jest.fn() } as any);
@@ -44,15 +52,7 @@ describe('AuthService password reset flow', () => {
     jest.resetAllMocks();
   });
 
-  it('persists hashed reset token and queues email with raw token', async () => {
-    const emailPayloads: any[] = [];
-    notifications.enqueueEmail.mockImplementation(
-      async (_vaultId: string, _to: string, payload: any) => {
-        emailPayloads.push(payload);
-        return {};
-      },
-    );
-
+  it('persists the hashed reset token and queues the email with the raw token in one transaction, without needing a vault', async () => {
     let createdTokenData: any = null;
     prisma.passwordResetToken.create.mockImplementation(async ({ data }: { data: any }) => {
       createdTokenData = data;
@@ -61,23 +61,42 @@ describe('AuthService password reset flow', () => {
 
     await service.forgotPassword('user@example.com');
 
-    expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({
-      where: { userId: 'user-1' },
-    });
-    expect(createdTokenData).not.toBeNull();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1); // блокировка строки пользователя сериализует параллельные запросы
+    expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
     expect(createdTokenData.userId).toBe('user-1');
     expect(createdTokenData.tokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(createdTokenData.expiresAt).toBeInstanceOf(Date);
 
-    expect(notifications.enqueueEmail).toHaveBeenCalledTimes(1);
-    const payload = emailPayloads[0];
-    expect(payload.subject).toContain('восстановление пароля');
-    const tokenMatch = payload.text?.match(/[0-9a-f]{64}/i);
-    expect(tokenMatch).not.toBeNull();
-    const tokenFromEmail = tokenMatch![0];
-    const hashed = createHash('sha256').update(tokenFromEmail).digest('hex');
-    expect(hashed).toBe(createdTokenData.tokenHash);
-    expect(notifications.flushEmailQueue).toHaveBeenCalled();
+    expect(notifications.sendPasswordReset).toHaveBeenCalledTimes(1);
+    const [to, rawToken, userId, expiresAt, tx] = notifications.sendPasswordReset.mock.calls[0];
+    expect(to).toBe('user@example.com');
+    expect(userId).toBe('user-1');
+    expect(expiresAt).toBe(createdTokenData.expiresAt); // письмо живёт не дольше токена
+    expect(tx).toBeDefined(); // письмо ставится в очередь в той же транзакции, что и токен
+    expect(createHash('sha256').update(rawToken).digest('hex')).toBe(createdTokenData.tokenHash);
+    expect(prisma.vault.findFirst).not.toHaveBeenCalled();
+    expect(notifications.dispatchSoon).toHaveBeenCalled();
+  });
+
+  it('a request inside the cooldown or above the hourly cap creates neither a token nor a mail', async () => {
+    prisma.passwordResetToken.findFirst.mockResolvedValueOnce({ id: 'recent' }); // токен создан только что
+    await service.forgotPassword('user@example.com');
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(notifications.sendPasswordReset).not.toHaveBeenCalled();
+    expect(notifications.dispatchSoon).not.toHaveBeenCalled();
+
+    prisma.notification.count.mockResolvedValueOnce(5); // потолок в час исчерпан
+    await service.forgotPassword('user@example.com');
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(notifications.sendPasswordReset).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for an unknown address (no token, no mail)', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    await service.forgotPassword('nobody@example.com');
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(notifications.sendPasswordReset).not.toHaveBeenCalled();
   });
 
   it('resets password and removes token when hash matches an active record', async () => {
@@ -99,6 +118,8 @@ describe('AuthService password reset flow', () => {
       data: expect.objectContaining({ passwordHash: expect.stringContaining(':') }),
     });
     expect(prisma.passwordResetToken.delete).toHaveBeenCalledWith({ where: { id: 'token-1' } });
+    // израсходованный токен: ожидающее повтора письмо с ним снимается в той же транзакции
+    expect(notifications.cancelQueued).toHaveBeenCalledWith('password_reset', 'user-1', 'token consumed', expect.anything());
   });
 
   it('returns false when token is missing or expired', async () => {

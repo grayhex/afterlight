@@ -1,4 +1,4 @@
-# Локальная разработка: только PostgreSQL. API и web запускаются из исходников (см. README).
+# Локальная разработка: PostgreSQL и почтовый sandbox (Mailpit). API и web запускаются из исходников (см. README).
 # Две БД: рабочая и отдельная для integration-тестов (таблицы в ней очищаются тестами).
 name: afterlight-dev
 
@@ -19,6 +19,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Почтовый sandbox: SMTP на 127.0.0.1:1025 (умолчание API вне production), веб-интерфейс http://127.0.0.1:8025.
+  # Письма наружу не уходят — только собираются здесь.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
 
 volumes:
   dev_pg_data:
