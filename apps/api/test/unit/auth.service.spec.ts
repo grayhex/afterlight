@@ -37,7 +37,7 @@ describe('AuthService password reset flow', () => {
       flushEmailQueue: jest.fn(async () => ({})),
     };
 
-    service = new AuthService(prisma, notifications);
+    service = new AuthService(prisma, notifications, { now: () => new Date() } as any, { cancelOnOwnerActivity: jest.fn() } as any);
   });
 
   afterEach(() => {

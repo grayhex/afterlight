@@ -5,6 +5,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { hashPassword, verifyPassword } from './password.js';
 import { User, UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import { ClockService } from '../clock/clock.service.js';
+import { OrchestratorService } from '../orchestrator/orchestrator.service.js';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +15,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly clock: ClockService,
+    private readonly orchestrator: OrchestratorService,
   ) {}
 
   private getJwtSecret(): string {
@@ -58,6 +62,14 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || !user.passwordHash) return null;
     return (await verifyPassword(password, user.passwordHash)) ? user : null;
+  }
+
+  /**
+   * Успешный вход: фиксируем время и считаем это активностью владельца (D5): активные процессы по его сейфам отменяются.
+   */
+  async recordLogin(userId: string): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: this.clock.now() } });
+    await this.orchestrator.cancelOnOwnerActivity(userId, 'login');
   }
 
   async getUser(id: string): Promise<User | null> {

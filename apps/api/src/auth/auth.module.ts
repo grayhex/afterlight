@@ -4,9 +4,10 @@ import { AuthController } from './auth.controller.js';
 import { AuthGuard } from './guards/auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { OrchestratorModule } from '../orchestrator/orchestrator.module.js';
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, OrchestratorModule],
   controllers: [AuthController],
   providers: [AuthService, AuthGuard, RolesGuard],
   exports: [AuthService, AuthGuard, RolesGuard],

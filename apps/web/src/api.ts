@@ -23,6 +23,15 @@ export interface paths {
   "/auth/me": {
     get: operations["AuthController_me"];
   };
+  "/orchestration/start": {
+    post: operations["OrchestratorController_start"];
+  };
+  "/orchestration/cancel": {
+    post: operations["OrchestratorController_cancel"];
+  };
+  "/orchestration/decision": {
+    post: operations["OrchestratorController_decide"];
+  };
   "/vaults": {
     get: operations["VaultsController_list"];
     post: operations["VaultsController_create"];
@@ -55,17 +64,14 @@ export interface paths {
   "/verification-events/{id}": {
     get: operations["VerificationEventsController_get"];
   };
+  "/verification-events/{id}/cancel": {
+    post: operations["VerificationEventsController_cancel"];
+  };
   "/verification-events/{id}/confirm": {
     post: operations["VerificationEventsController_confirm"];
   };
   "/verification-events/{id}/deny": {
     post: operations["VerificationEventsController_deny"];
-  };
-  "/orchestration/start": {
-    post: operations["OrchestratorController_start"];
-  };
-  "/orchestration/decision": {
-    post: operations["OrchestratorController_decide"];
   };
   "/blocks": {
     get: operations["BlocksController_list"];
@@ -171,6 +177,17 @@ export interface components {
     };
     ForgotPasswordDto: Record<string, never>;
     ResetPasswordDto: Record<string, never>;
+    StartEventDto: {
+      /** Format: uuid */
+      vault_id: string;
+    };
+    OrchestratorDecisionDto: {
+      /** Format: uuid */
+      vault_id: string;
+      /** @enum {string} */
+      decision: "Confirm" | "Deny";
+      signature?: string;
+    };
     CreateVaultDto: {
       /** @description Vault display name */
       name?: string;
@@ -247,17 +264,6 @@ export interface components {
     VerificationDecisionDto: {
       signature?: string;
     };
-    StartEventDto: {
-      /** Format: uuid */
-      vault_id: string;
-    };
-    OrchestratorDecisionDto: {
-      /** Format: uuid */
-      vault_id: string;
-      /** @enum {string} */
-      decision: "Confirm" | "Deny";
-      signature?: string;
-    };
     CreateBlockDto: {
       /** Format: uuid */
       vault_id: string;
@@ -298,7 +304,7 @@ export interface components {
     UpdateHeartbeatDto: {
       /** @enum {string} */
       method?: "auto" | "manual";
-      /** @description Таймаут неактивности в днях */
+      /** @description Порог неактивности владельца в днях, после которого верификатор может начать процесс (0 — без порога); общая настройка сейфа */
       timeout_days?: number;
     };
     HeartbeatPingDto: {
@@ -581,6 +587,117 @@ export interface operations {
   AuthController_me: {
     responses: {
       200: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  OrchestratorController_start: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartEventDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  OrchestratorController_cancel: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartEventDto"];
+      };
+    };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  OrchestratorController_decide: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OrchestratorDecisionDto"];
+      };
+    };
+    responses: {
+      201: {
         content: never;
       };
       400: {
@@ -1070,6 +1187,43 @@ export interface operations {
       };
     };
   };
+  VerificationEventsController_cancel: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      201: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
   VerificationEventsController_confirm: {
     parameters: {
       path: {
@@ -1121,80 +1275,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["VerificationDecisionDto"];
-      };
-    };
-    responses: {
-      201: {
-        content: never;
-      };
-      400: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      401: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      403: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      404: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      500: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-    };
-  };
-  OrchestratorController_start: {
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["StartEventDto"];
-      };
-    };
-    responses: {
-      201: {
-        content: never;
-      };
-      400: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      401: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      403: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      404: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-      500: {
-        content: {
-          "application/json": components["schemas"]["ErrorDto"];
-        };
-      };
-    };
-  };
-  OrchestratorController_decide: {
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["OrchestratorDecisionDto"];
       };
     };
     responses: {

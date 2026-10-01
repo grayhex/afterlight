@@ -5,6 +5,7 @@ import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
 import { AuthService } from '../../src/auth/auth.service.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
+import { ClockService } from '../../src/clock/clock.service.js';
 
 /**
  * Integration-контур: настоящее приложение (AppModule, те же guard'ы и pipes, что в runtime),
@@ -34,6 +35,8 @@ export async function bootstrapApp() {
 
   const db = moduleRef.get(PrismaService);
   const auth = moduleRef.get(AuthService);
+  const clock = moduleRef.get(ClockService);
+  clock.reset();
 
   // чистая БД для каждого теста (миграции остаются)
   const tables = await db.$queryRaw<Array<{ tablename: string }>>(
@@ -81,11 +84,13 @@ export async function bootstrapApp() {
       .filter((t): t is string => !!t);
   };
 
-  return { app, moduleRef, db, request, factory, invitationTokens };
+  return { app, moduleRef, db, request, factory, invitationTokens, clock };
 }
 
 export async function closeApp(ctx?: Ctx) {
-  if (ctx) await ctx.app.close();
+  if (!ctx) return;
+  ctx.clock.reset();
+  await ctx.app.close();
 }
 
 export const HOUR = 3600 * 1000;

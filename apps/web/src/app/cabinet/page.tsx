@@ -472,8 +472,13 @@ function VerifierCabinet({ embedded = false }: { embedded?: boolean }) {
   };
 
   const statusMap: Record<string, { label: string; color: string }> = {
-    pending: { label: "ожидает", color: "bg-bodaghee-accent" },
-    confirmed: { label: "подтверждено", color: "bg-white" },
+    Submitted: { label: "ожидает голосов", color: "bg-bodaghee-accent" },
+    Confirming: { label: "идёт подтверждение", color: "bg-bodaghee-accent" },
+    Grace: { label: "отсрочка перед раскрытием", color: "bg-white" },
+    Disputed: { label: "спор: раскрытие остановлено", color: "bg-gray-400" },
+    Finalized: { label: "раскрыто", color: "bg-white" },
+    Rejected: { label: "отклонено", color: "bg-gray-400" },
+    Cancelled: { label: "отменено", color: "bg-gray-400" },
   };
 
   return (

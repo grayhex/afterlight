@@ -18,6 +18,12 @@ export class OrchestratorController {
     return this.svc.start(user.sub, dto.vault_id);
   }
 
+  /** D3: владелец отменяет процесс («Я жив») в любом активном состоянии до Finalized. */
+  @Post('cancel')
+  cancel(@CurrentUser() user: AuthenticatedUser, @Body() dto: StartEventDto) {
+    return this.svc.cancel(user.sub, dto.vault_id);
+  }
+
   @Post('decision')
   decide(@CurrentUser() user: AuthenticatedUser, @Body() dto: OrchestratorDecisionDto) {
     return this.svc.decide(user.sub, dto.vault_id, dto.decision, dto.signature);

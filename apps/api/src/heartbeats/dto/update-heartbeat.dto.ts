@@ -7,9 +7,9 @@ export class UpdateHeartbeatDto {
   @IsIn(['auto', 'manual'])
   method?: 'auto' | 'manual';
 
-  @ApiProperty({ required: false, description: 'Таймаут неактивности в днях' })
+  @ApiProperty({ required: false, description: 'Порог неактивности владельца в днях, после которого верификатор может начать процесс (0 — без порога); общая настройка сейфа' })
   @IsOptional()
   @IsInt()
-  @Min(1)
+  @Min(0)
   timeout_days?: number;
 }

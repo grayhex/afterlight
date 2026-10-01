@@ -41,6 +41,13 @@ export class VerificationEventsService {
     return this.orchestrator.start(userId, vaultId);
   }
 
+  /** Отмена владельцем по id события (тот же путь, что /orchestration/cancel). */
+  async cancel(userId: string, id: string) {
+    const event = await this.prisma.verificationEvent.findUnique({ where: { id }, select: { vaultId: true } });
+    if (!event) throw new NotFoundException('Event not found');
+    return this.orchestrator.cancel(userId, event.vaultId);
+  }
+
   async get(userId: string, id: string) {
     const event = await this.prisma.verificationEvent.findUnique({ where: { id } });
     if (!event) throw new NotFoundException('Event not found');

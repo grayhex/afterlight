@@ -34,6 +34,11 @@ export class VerificationEventsController {
     return this.service.get(user.sub, id);
   }
 
+  @Post(':id/cancel')
+  cancel(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.cancel(user.sub, id);
+  }
+
   @Post(':id/confirm')
   confirm(
     @CurrentUser() user: AuthenticatedUser,

@@ -15,7 +15,7 @@ describe('VaultsService', () => {
       },
     } as any;
     audit = { log: jest.fn() };
-    service = new VaultsService(prisma, audit);
+    service = new VaultsService(prisma, audit, { assertNoActiveEvent: jest.fn() } as any);
   });
 
   it('creates vault with generated mk_wrapped', async () => {

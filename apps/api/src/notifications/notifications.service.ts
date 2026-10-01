@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 type EmailPayload = {
@@ -14,10 +15,11 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   constructor(private prisma: PrismaService) {}
 
-  // vaultId теперь обязателен
-  async enqueueEmail(vaultId: string, to: string, payload: EmailPayload) {
+  // vaultId обязателен. tx — запись намерения уведомить в одной транзакции с доменным изменением:
+  // при откате изменения письмо не ставится в очередь, при коммите — не теряется.
+  async enqueueEmail(vaultId: string, to: string, payload: EmailPayload, tx?: Prisma.TransactionClient) {
     this.logger.log(`[Email][enqueue] to=${to} subj=${payload.subject}`);
-    await this.prisma.notification.create({
+    await (tx ?? this.prisma).notification.create({
       data: {
         // обязательная связь с сейфом
         vault: { connect: { id: vaultId } },

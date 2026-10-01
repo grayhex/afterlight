@@ -57,6 +57,7 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException();
     }
+    await this.auth.recordLogin(user.id);
     const token = this.auth.sign(user.id);
     res.cookie('token', token, this.tokenCookieOptions);
     const { id, email: userEmail, role } = user;
