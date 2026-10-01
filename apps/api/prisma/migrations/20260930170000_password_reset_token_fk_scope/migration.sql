@@ -9,6 +9,9 @@ BEGIN
       AND confrelid = '"user"'::regclass
       AND contype = 'f'
   ) THEN
+    -- Блокировка, которую ADD FOREIGN KEY всё равно берёт, берётся заранее: пока идёт очистка, в обеих таблицах нельзя
+    -- записывать, и параллельное удаление пользователя не создаст нового «сироты» между DELETE и ALTER.
+    LOCK TABLE "user", "password_reset_token" IN SHARE ROW EXCLUSIVE MODE;
     -- Без ключа токены удалённых пользователей могли остаться «сиротами» и сделали бы добавление ключа невозможным;
     -- такие токены всё равно непригодны (пользователя уже нет), поэтому удаляем их.
     DELETE FROM "password_reset_token" t WHERE NOT EXISTS (SELECT 1 FROM "user" u WHERE u.id = t.user_id);
