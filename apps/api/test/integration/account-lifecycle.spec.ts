@@ -98,6 +98,21 @@ describe('account lifecycle (real PostgreSQL, real SMTP sandbox)', () => {
     });
   });
 
+  describe('canonical addresses on every write path', () => {
+    it('admin POST/PATCH /users store the normalized address, so login and reset find the account', async () => {
+      const admin = await ctx.factory.createUser({ email: 'admin.canon@test.local', role: 'Admin' });
+      const created = await ctx.request('POST', '/users', { email: 'Mixed.Case@Test.Local', role: 'Owner' }, admin.id);
+      expect(created.status).toBe(201);
+      expect(created.body.email).toBe('mixed.case@test.local');
+      expect(created.body.emailVerifiedAt).toBeNull();
+
+      const patched = await ctx.request('PATCH', `/users/${created.body.id}`, { email: 'Other.Mixed@Test.LOCAL' }, admin.id);
+      expect(patched.status).toBe(200);
+      expect(patched.body.email).toBe('other.mixed@test.local');
+      expect((await ctx.db.user.findUniqueOrThrow({ where: { id: created.body.id } })).email).toBe('other.mixed@test.local');
+    });
+  });
+
   describe('resending the confirmation mail', () => {
     it('sends a new link, which replaces the older one; a cooldown and an hourly cap apply; a verified user is a no-op', async () => {
       await register();

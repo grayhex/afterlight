@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Delete, Body, Query, Param, ParseUUIDPipe } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { VerifiersService } from './verifiers.service.js';
 import { InviteVerifierDto } from './dto/invite-verifier.dto.js';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto.js';
@@ -30,6 +30,8 @@ export class VerifiersController {
 
   @Public()
   @Post('invitations/preview')
+  // публичный маршрут: класс помечен bearer-авторизацией, для этой операции требование снимаем
+  @ApiOperation({ summary: 'Адрес и признак аккаунта по токену приглашения (без входа)', security: [] })
   @ApiCreatedResponse({ type: InvitationPreviewDto })
   preview(@Body() dto: AcceptInvitationDto) {
     return this.service.previewInvitation(dto.token);

@@ -55,6 +55,7 @@ export interface paths {
     post: operations["VerifiersController_invite"];
   };
   "/verifiers/invitations/preview": {
+    /** Адрес и признак аккаунта по токену приглашения (без входа) */
     post: operations["VerifiersController_preview"];
   };
   "/verifiers/invitations/accept": {
@@ -338,6 +339,11 @@ export interface components {
       email: string;
       phone?: string;
       twoFaEnabled: boolean;
+      /**
+       * Format: date-time
+       * @description Когда подтверждён адрес; null — не подтверждён
+       */
+      emailVerifiedAt: string | null;
       /** @enum {string} */
       role: "Owner" | "Verifier" | "Admin";
       locale: string;
@@ -1048,6 +1054,7 @@ export interface operations {
       };
     };
   };
+  /** Адрес и признак аккаунта по токену приглашения (без входа) */
   VerifiersController_preview: {
     requestBody: {
       content: {

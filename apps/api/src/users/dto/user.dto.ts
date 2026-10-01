@@ -14,6 +14,9 @@ export class UserDto {
   @ApiProperty()
   twoFaEnabled!: boolean;
 
+  @ApiProperty({ nullable: true, type: Date, description: 'Когда подтверждён адрес; null — не подтверждён' })
+  emailVerifiedAt!: Date | null;
+
   @ApiProperty({ enum: UserRole })
   role!: UserRole;
 

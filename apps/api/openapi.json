@@ -1379,11 +1379,8 @@
             }
           }
         },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
+        "security": [],
+        "summary": "Адрес и признак аккаунта по токену приглашения (без входа)",
         "tags": [
           "verifiers"
         ]
@@ -5664,6 +5661,12 @@
           "twoFaEnabled": {
             "type": "boolean"
           },
+          "emailVerifiedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true,
+            "description": "Когда подтверждён адрес; null — не подтверждён"
+          },
           "role": {
             "type": "string",
             "enum": [
@@ -5688,6 +5691,7 @@
           "id",
           "email",
           "twoFaEnabled",
+          "emailVerifiedAt",
           "role",
           "locale",
           "createdAt",

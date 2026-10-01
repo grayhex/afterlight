@@ -4,6 +4,7 @@ import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { User } from '@prisma/client';
 import { UserDto } from './dto/user.dto.js';
+import { normalizeEmail } from '../common/email.js';
 
 @Injectable()
 export class UsersService {
@@ -25,12 +26,13 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto): Promise<UserDto> {
-    const user = await this.prisma.user.create({ data: dto });
+    // Адрес всегда в каноническом виде: вход и сброс ищут по нормализованному
+    const user = await this.prisma.user.create({ data: { ...dto, ...(dto.email ? { email: normalizeEmail(dto.email) } : {}) } });
     return this.toDto(user);
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<UserDto> {
-    const user = await this.prisma.user.update({ where: { id }, data: dto });
+    const user = await this.prisma.user.update({ where: { id }, data: { ...dto, ...(dto.email ? { email: normalizeEmail(dto.email) } : {}) } });
     return this.toDto(user);
   }
 
