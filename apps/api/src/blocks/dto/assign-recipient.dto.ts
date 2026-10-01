@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class AssignRecipientDto {
   @ApiProperty({ format: 'uuid' })
@@ -11,4 +11,9 @@ export class AssignRecipientDto {
   @MinLength(1)
   @MaxLength(8192)
   dek_wrapped_for_recipient!: string;
+
+  @ApiProperty({ description: 'Отпечаток SHA-256 (hex) ключа, под который упакован DEK. Принимается, только если равен подтверждённому владельцем отпечатку получателя' })
+  @IsString()
+  @Matches(/^[0-9a-fA-F\s:]{64,160}$/, { message: 'key_fingerprint must be a SHA-256 hex digest' })
+  key_fingerprint!: string;
 }

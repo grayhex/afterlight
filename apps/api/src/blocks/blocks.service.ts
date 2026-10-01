@@ -1,9 +1,11 @@
-import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateBlockDto } from './dto/create-block.dto.js';
 import { AssignRecipientDto } from './dto/assign-recipient.dto.js';
 import { AuditService } from '../audit/audit.service.js';
-import { ActorType } from '@prisma/client';
+import { ActorType, Prisma } from '@prisma/client';
+import { normalizeFingerprint } from '../common/key-fingerprint.js';
+import { BlockRecipientDto } from './dto/block-recipient.dto.js';
 
 @Injectable()
 export class BlocksService {
@@ -71,44 +73,67 @@ export class BlocksService {
     await this.audit.log(ActorType.User, userId, 'block_soft_delete', 'Block', id);
   }
 
-  async listRecipients(userId: string, blockId: string) {
+  async listRecipients(userId: string, blockId: string): Promise<BlockRecipientDto[]> {
     const b = await this.prisma.block.findUnique({ include: { vault: true }, where: { id: blockId } });
     if (!b || b.deletedAt) throw new NotFoundException('Block not found');
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');
-    return this.prisma.blockRecipient.findMany({
+    const rows = await this.prisma.blockRecipient.findMany({
       where: { blockId },
       include: { recipient: true },
       orderBy: { createdAt: 'desc' },
     });
+    // Явный ответ: упаковка действительна, только пока она сделана под нынешний подтверждённый ключ получателя
+    return rows.map((br) => ({
+      block_id: br.blockId,
+      recipient_id: br.recipientId,
+      contact: br.recipient.contact,
+      key_status: br.recipient.verificationStatus,
+      wrapped_for_fingerprint: br.wrappedForFingerprint,
+      wrap_valid: !!br.wrappedForFingerprint && br.wrappedForFingerprint === br.recipient.keyConfirmedFingerprint,
+      created_at: br.createdAt,
+    }));
   }
 
-  async assignRecipient(userId: string, blockId: string, dto: AssignRecipientDto) {
+  async assignRecipient(userId: string, blockId: string, dto: AssignRecipientDto): Promise<BlockRecipientDto> {
     const b = await this.prisma.block.findUnique({ include: { vault: true }, where: { id: blockId } });
     if (!b || b.deletedAt) throw new NotFoundException('Block not found');
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');
-
-    const r = await this.prisma.recipient.findUnique({ where: { id: dto.recipient_id } });
-    if (!r) throw new NotFoundException('Recipient not found');
 
     const wrapped = dto.dek_wrapped_for_recipient?.trim();
     if (!wrapped) throw new BadRequestException('dek_wrapped_for_recipient must not be empty');
     if (!wrapped.includes('.') && !/^[A-Za-z0-9+/]+={0,2}$/.test(wrapped)) {
       throw new BadRequestException('dek_wrapped_for_recipient must be base64 or JWE');
     }
+    const fingerprint = normalizeFingerprint(dto.key_fingerprint);
 
-    const br = await this.prisma.blockRecipient.upsert({
-      where: { blockId_recipientId: { blockId, recipientId: dto.recipient_id } },
-      create: {
-        blockId,
-        recipientId: dto.recipient_id,
-        dekWrappedForRecipient: wrapped,
-      },
-      update: {
-        dekWrappedForRecipient: wrapped,
-      },
-      include: { recipient: true },
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Строка получателя блокируется: смена ключа и назначение идут по очереди
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM "recipient" WHERE id = ${dto.recipient_id}::uuid FOR UPDATE`);
+      const r = await tx.recipient.findUnique({ where: { id: dto.recipient_id } });
+      // Получатель другого сейфа (и унаследованный без сейфа) неотличим от несуществующего
+      if (!r || r.vaultId !== b.vaultId) throw new NotFoundException('Recipient not found');
+      if (r.verificationStatus !== 'KeyConfirmed' || !r.keyConfirmedFingerprint) {
+        throw new ConflictException('The recipient key is not confirmed by the owner');
+      }
+      if (r.keyConfirmedFingerprint !== fingerprint) {
+        throw new ConflictException('DEK must be wrapped for the confirmed key of the recipient');
+      }
+      return tx.blockRecipient.upsert({
+        where: { blockId_recipientId: { blockId, recipientId: r.id } },
+        create: { blockId, recipientId: r.id, dekWrappedForRecipient: wrapped, wrappedForFingerprint: fingerprint },
+        update: { dekWrappedForRecipient: wrapped, wrappedForFingerprint: fingerprint },
+        include: { recipient: true },
+      });
     });
     await this.audit.log(ActorType.User, userId, 'block_assign_recipient', 'Block', blockId);
-    return br;
+    return {
+      block_id: result.blockId,
+      recipient_id: result.recipientId,
+      contact: result.recipient.contact,
+      key_status: result.recipient.verificationStatus,
+      wrapped_for_fingerprint: result.wrappedForFingerprint,
+      wrap_valid: true,
+      created_at: result.createdAt,
+    };
   }
 }

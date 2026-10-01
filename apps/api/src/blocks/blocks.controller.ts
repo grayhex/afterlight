@@ -1,8 +1,9 @@
 import { Controller, Get, Post, Delete, Param, Body, Query, ParseUUIDPipe } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiOperation, ApiParam, ApiOkResponse, ApiCreatedResponse } from '@nestjs/swagger';
 import { BlocksService } from './blocks.service.js';
 import { CreateBlockDto } from './dto/create-block.dto.js';
 import { AssignRecipientDto } from './dto/assign-recipient.dto.js';
+import { BlockRecipientDto } from './dto/block-recipient.dto.js';
 import { CurrentUser } from '../common/current-user.decorator.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
@@ -41,6 +42,7 @@ export class BlocksController {
 
   @Get(':id/recipients')
   @ApiOperation({ summary: 'List recipients assigned to a block' })
+  @ApiOkResponse({ type: BlockRecipientDto, isArray: true })
   @ApiParam({ name: 'id', format: 'uuid' })
   listRecipients(
     @CurrentUser() user: any,
@@ -51,6 +53,7 @@ export class BlocksController {
 
   @Post(':id/recipients')
   @ApiOperation({ summary: 'Assign a recipient to a block' })
+  @ApiCreatedResponse({ type: BlockRecipientDto })
   @ApiParam({ name: 'id', format: 'uuid' })
   assignRecipient(
     @CurrentUser() user: any,
