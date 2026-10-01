@@ -193,6 +193,24 @@ describe('release engine (real PostgreSQL, managed clock)', () => {
       expect((await event(s)).state).toBe('Cancelled');
     });
 
+    it('cancel by id touches only that event: a stale id never cancels a newer process', async () => {
+      const s = await scene();
+      const first = await start(s);
+      expect((await cancel(s)).status).toBe(201);
+      const second = await start(s);
+      expect(second.status).toBe(201);
+
+      const stale = await ctx.request('POST', `/verification-events/${first.body.id}/cancel`, undefined, s.owner.id);
+      expect(stale.status).toBe(409);
+      expect((await ctx.db.verificationEvent.findUniqueOrThrow({ where: { id: second.body.id } })).state).toBe('Submitted');
+      expect(await vaultStatus(s)).toBe('Triggered');
+
+      // id чужого сейфа не подходит ни при каких условиях
+      const other = await scene();
+      const foreign = await start(other);
+      expect((await ctx.request('POST', `/verification-events/${foreign.body.id}/cancel`, undefined, s.owner.id)).status).toBe(403);
+    });
+
     it('race: cancel and finalization at the deadline — exactly one wins and the outcome is consistent', async () => {
       for (let i = 0; i < 6; i++) {
         const s = await scene();
@@ -272,6 +290,23 @@ describe('release engine (real PostgreSQL, managed clock)', () => {
       expect((await start(s0, s0.v1.user.id)).status).toBe(201);
     });
 
+    it('a verifier start racing with an owner ping never leaves an active process behind', async () => {
+      for (let i = 0; i < 5; i++) {
+        const s = await scene();
+        ctx.clock.setNow(new Date(s.vault.createdAt.getTime() + 31 * D)); // порог уже пройден
+        const [started, pinged] = await Promise.all([
+          start(s, s.v1.user.id),
+          ctx.request('POST', '/heartbeats/ping', { vault_id: s.vault.id }, s.owner.id),
+        ]);
+        expect(pinged.status).toBe(201);
+        expect([201, 403]).toContain(started.status);
+        // либо проверка увидела свежую активность (403), либо ping отменил созданный процесс
+        expect(await ctx.db.verificationEvent.count({
+          where: { vaultId: s.vault.id, state: { in: ['Submitted', 'Confirming', 'Disputed', 'Grace'] } },
+        })).toBe(0);
+      }
+    });
+
     it('the owner can start at any time', async () => {
       const s = await scene();
       expect((await start(s)).status).toBe(201);
@@ -323,6 +358,22 @@ describe('release engine (real PostgreSQL, managed clock)', () => {
       await cancel(s);
       expect((await ctx.request('PATCH', `/vaults/${s.vault.id}/settings`, { quorum_threshold: 3 }, s.owner.id)).status).toBe(200);
       expect((await ctx.request('POST', `/verifiers/${s.vault.id}/${s.v1.user.id}/revoke`, undefined, s.owner.id)).status).toBe(201);
+    });
+
+    it('an invitation issued before the start cannot be accepted during the process, and is not burned', async () => {
+      const s = await scene();
+      const invitee = await ctx.factory.createUser({ email: 'pending.invitee@test.local' });
+      expect((await ctx.request('POST', '/verifiers/invitations', { vault_id: s.vault.id, email: invitee.email }, s.owner.id)).status).toBe(201);
+      const token = (await ctx.invitationTokens(invitee.email))[0];
+
+      await start(s);
+      const during = await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id);
+      expect(during.status).toBe(409);
+      expect(await ctx.db.vaultUserRole.count({ where: { vaultId: s.vault.id, userId: invitee.id } })).toBe(0);
+      expect((await ctx.db.vaultUserInvitation.findFirstOrThrow({ where: { email: invitee.email } })).acceptedAt).toBeNull();
+
+      await cancel(s);
+      expect((await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id)).status).toBe(201);
     });
 
     it('the quorum, the grace length and the participants are fixed at the start, even if the data changes underneath', async () => {

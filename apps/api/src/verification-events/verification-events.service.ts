@@ -45,7 +45,7 @@ export class VerificationEventsService {
   async cancel(userId: string, id: string) {
     const event = await this.prisma.verificationEvent.findUnique({ where: { id }, select: { vaultId: true } });
     if (!event) throw new NotFoundException('Event not found');
-    return this.orchestrator.cancel(userId, event.vaultId);
+    return this.orchestrator.cancel(userId, event.vaultId, id);
   }
 
   async get(userId: string, id: string) {

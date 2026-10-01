@@ -9,7 +9,11 @@ ALTER TABLE "vault" ALTER COLUMN "quorum_threshold" SET DEFAULT 2;
 ALTER TABLE "vault" ALTER COLUMN "max_verifiers" SET DEFAULT 3;
 ALTER TABLE "vault" ALTER COLUMN "heartbeat_timeout_days" SET DEFAULT 30;
 
--- ── Heartbeat: единый источник порога — vault.heartbeat_timeout_days
+-- ── Heartbeat: единый источник порога — vault.heartbeat_timeout_days.
+-- Настроенное владельцем значение жило только в heartbeat.timeout_days — переносим его до удаления колонки,
+-- иначе порог допуска верификатора молча заменился бы устаревшим значением сейфа.
+UPDATE "vault" v SET "heartbeat_timeout_days" = h."timeout_days"
+FROM "heartbeat" h WHERE h."vault_id" = v."id";
 ALTER TABLE "heartbeat" DROP COLUMN "timeout_days";
 
 -- ── События: новые поля

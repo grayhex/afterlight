@@ -59,9 +59,8 @@ export class OrchestratorService {
 
   /** Начать процесс. Владелец/управляющий — всегда; активный верификатор — если владелец неактивен не менее порога (D1, D5). */
   async start(userId: string, vaultId: string): Promise<VerificationEvent> {
-    const { vault, asVerifier } = await this.access.assertCanStartEvent(userId, vaultId);
+    const { asVerifier } = await this.access.assertCanStartEvent(userId, vaultId);
     const now = this.clock.now();
-    if (asVerifier) await this.assertOwnerInactive(vault, now);
 
     let event: VerificationEvent;
     try {
@@ -69,6 +68,9 @@ export class OrchestratorService {
         // Блокировка сейфа сериализует параллельные старты; частичный уникальный индекс в БД — вторая линия защиты
         await tx.$queryRaw(Prisma.sql`SELECT id FROM vault WHERE id = ${vaultId}::uuid FOR UPDATE`);
         const fresh = await tx.vault.findUniqueOrThrow({ where: { id: vaultId } });
+        // Порог неактивности проверяется под блокировкой сейфа: активность владельца (cancelOnOwnerActivity) берёт ту же
+        // блокировку, поэтому либо проверка видит свежую активность, либо отмена увидит созданное событие
+        if (asVerifier) await this.assertOwnerInactive(tx, fresh, now);
         const active = await tx.verificationEvent.findFirst({
           where: { vaultId, state: { in: [...ACTIVE_STATES] } },
           select: { id: true },
@@ -120,12 +122,12 @@ export class OrchestratorService {
   }
 
   /** D5: верификатор может начать процесс, только если владелец неактивен >= heartbeat_timeout_days (0 — без порога). */
-  private async assertOwnerInactive(vault: { id: string; userId: string; createdAt: Date; heartbeatTimeoutDays: number }, now: Date) {
+  private async assertOwnerInactive(tx: Prisma.TransactionClient, vault: { id: string; userId: string; createdAt: Date; heartbeatTimeoutDays: number }, now: Date) {
     const days = vault.heartbeatTimeoutDays;
     if (!days || days <= 0) return;
     const [hb, owner] = await Promise.all([
-      this.prisma.heartbeat.findUnique({ where: { vaultId: vault.id } }),
-      this.prisma.user.findUnique({ where: { id: vault.userId } }),
+      tx.heartbeat.findUnique({ where: { vaultId: vault.id } }),
+      tx.user.findUnique({ where: { id: vault.userId } }),
     ]);
     const last = Math.max(vault.createdAt.getTime(), hb?.lastPingAt?.getTime() ?? 0, owner?.lastLoginAt?.getTime() ?? 0);
     const eligibleAt = new Date(last + days * DAY_MS);
@@ -191,8 +193,16 @@ export class OrchestratorService {
   // ─────────────────────────── отмена владельцем ───────────────────────────
 
   /** D3: владелец отменяет процесс в любом активном состоянии до Finalized («Я жив»). */
-  async cancel(ownerId: string, vaultId: string): Promise<{ id: string; state: EventState }> {
+  async cancel(ownerId: string, vaultId: string, eventId?: string): Promise<{ id: string; state: EventState }> {
     await this.access.assertOwner(ownerId, vaultId);
+    if (eventId) {
+      // Отмена по id касается только указанного события: устаревший клиент не отменит чужой, более новый процесс
+      const target = await this.prisma.verificationEvent.findFirst({ where: { id: eventId, vaultId }, select: { id: true } });
+      if (!target) throw new NotFoundException('Event not found');
+      const res = await this.cancelEvent(target.id, ownerId, 'event_cancel');
+      await this.flushQuietly();
+      return res;
+    }
     const active = await this.prisma.verificationEvent.findFirst({
       where: { vaultId, state: { in: [...ACTIVE_STATES] } },
       select: { id: true },
@@ -213,6 +223,11 @@ export class OrchestratorService {
    * активные процессы по его сейфам. Вызывается из входа и ping; сбой отмены не должен ломать вход/ping, но логируется.
    */
   async cancelOnOwnerActivity(ownerId: string, reason: 'login' | 'ping'): Promise<number> {
+    // Барьер: ждём завершения параллельных стартов по сейфам владельца (они держат блокировку сейфа до коммита).
+    // Метка активности записана до вызова, поэтому следующий старт увидит её, а уже начатый — будет найден ниже.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM vault WHERE user_id = ${ownerId}::uuid ORDER BY id FOR UPDATE`);
+    });
     const events = await this.prisma.verificationEvent.findMany({
       where: { vault: { userId: ownerId }, state: { in: [...ACTIVE_STATES] } },
       select: { id: true },

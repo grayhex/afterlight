@@ -136,6 +136,8 @@ export class VerifiersService {
 
     const now = new Date();
     const link = await this.prisma.$transaction(async (tx) => {
+      // D4: во время процесса состав не меняется — принять приглашение можно после его завершения или отмены
+      await this.access.lockVaultAssertNoActiveEvent(tx, invitation.vaultId);
       // Условное обновление делает "использовать один раз" атомарным при параллельных запросах.
       const claimed = await tx.vaultUserInvitation.updateMany({
         where: { id: invitation.id, acceptedAt: null, revokedAt: null, expiresAt: { gt: now } },
@@ -180,15 +182,17 @@ export class VerifiersService {
 
   async revokeMember(user: AuthenticatedUser, vaultId: string, memberUserId: string) {
     const vault = await this.access.assertManager(user.sub, vaultId);
-    await this.access.assertNoActiveEvent(vaultId);
     if (vault.userId === memberUserId) throw new BadRequestException('Vault owner cannot be revoked');
-    const link = await this.prisma.vaultUserRole.findUnique({
-      where: { vaultId_userId: { vaultId, userId: memberUserId } },
-    });
-    if (!link) throw new NotFoundException('Member not found');
-    await this.prisma.vaultUserRole.update({
-      where: { vaultId_userId: { vaultId, userId: memberUserId } },
-      data: { status: 'Revoked', isPrimary: false },
+    await this.prisma.$transaction(async (tx) => {
+      await this.access.lockVaultAssertNoActiveEvent(tx, vaultId);
+      const link = await tx.vaultUserRole.findUnique({
+        where: { vaultId_userId: { vaultId, userId: memberUserId } },
+      });
+      if (!link) throw new NotFoundException('Member not found');
+      await tx.vaultUserRole.update({
+        where: { vaultId_userId: { vaultId, userId: memberUserId } },
+        data: { status: 'Revoked', isPrimary: false },
+      });
     });
     await this.audit.log(ActorType.User, user.sub, 'verifier_revoke', 'Vault', vaultId);
     return { status: 'ok' };

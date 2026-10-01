@@ -299,22 +299,23 @@ describe('security: object authorization (real AuthGuard, real PostgreSQL, synth
       const before = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, invitee.id);
       expect(before.status).toBe(403); // приглашён, но ещё не активирован
 
+      // D4: пока идёт процесс, состав не меняется — приглашение принимается после отмены/завершения
+      const during = await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id);
+      expect(during.status).toBe(409);
+
+      const cancelled = await ctx.request('POST', `/verification-events/${eventId}/cancel`, {}, s.owner.id);
+      expect(cancelled.status).toBe(201);
+
       const ok = await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id);
       expect(ok.status).toBe(201);
       expect(ok.body).toEqual(expect.objectContaining({ user_id: invitee.id, role: 'Verifier', status: 'Active' }));
 
-      // состав события зафиксирован снимком при старте: присоединившийся позже в нём не участвует (D4)
-      const notInSnapshot = await ctx.request('POST', `/verification-events/${eventId}/confirm`, {}, invitee.id);
-      expect(notInSnapshot.status).toBe(403);
+      const replay = await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id);
+      expect(replay.status).toBe(410);
 
-      const cancelled = await ctx.request('POST', `/verification-events/${eventId}/cancel`, {}, s.owner.id);
-      expect(cancelled.status).toBe(201);
       const nextId = await startEvent(s);
       const vote = await ctx.request('POST', `/verification-events/${nextId}/confirm`, {}, invitee.id);
       expect(vote.status).toBe(201);
-
-      const replay = await ctx.request('POST', '/verifiers/invitations/accept', { token }, invitee.id);
-      expect(replay.status).toBe(410);
     });
 
     it('another signed-in user cannot use the token and does not burn it', async () => {
