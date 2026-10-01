@@ -12,6 +12,103 @@ export function webBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
   return (env.WEB_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
 }
 
+/** Момент времени в письме: одинаково читается в любом часовом поясе, без секунд. */
+export function formatUtc(date: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(date.getUTCDate())}.${p(date.getUTCMonth() + 1)}.${date.getUTCFullYear()} ${p(date.getUTCHours())}:${p(date.getUTCMinutes())} UTC`;
+}
+
+/** Письма о состоянии процесса: отдельный текст владельцу и верификаторам. Без названий сейфов, имён и содержимого. */
+export interface EventMessages {
+  owner: EmailContent;
+  verifiers: EmailContent;
+}
+
+const cabinet = () => `${webBaseUrl()}/cabinet`;
+
+export const eventMessages = {
+  started(): EventMessages {
+    return {
+      owner: {
+        subject: 'AfterLight: начат процесс раскрытия',
+        text:
+          'По вашему сейфу начат процесс раскрытия. Если это ошибка, войдите в аккаунт или нажмите «Я жив» — процесс будет отменён.\n' +
+          `Кабинет: ${cabinet()}`,
+      },
+      verifiers: {
+        subject: 'AfterLight: начат процесс верификации',
+        text: `Начат процесс верификации по сейфу, где вы доверитель. Войдите в кабинет и примите решение: ${cabinet()}`,
+      },
+    };
+  },
+  disputed(): EventMessages {
+    return {
+      owner: {
+        subject: 'AfterLight: спор подтверждений',
+        text:
+          'Доверители подали противоположные решения. Процесс заморожен на 24 часа; раскрытие в это время невозможно, по истечении блокировки процесс закрывается без раскрытия.\n' +
+          `Кабинет: ${cabinet()}`,
+      },
+      verifiers: {
+        subject: 'AfterLight: спор подтверждений',
+        text: 'Подтверждения противоречат друг другу. Процесс заморожен на 24 часа; раскрытие в это время невозможно.',
+      },
+    };
+  },
+  grace(until: Date): EventMessages {
+    const when = formatUtc(until);
+    return {
+      owner: {
+        subject: 'AfterLight: кворум достигнут',
+        text:
+          `Кворум подтверждений достигнут. Раскрытие не ранее ${when}. Чтобы отменить процесс до этого момента, войдите в аккаунт или нажмите «Я жив».\n` +
+          `Кабинет: ${cabinet()}`,
+      },
+      verifiers: {
+        subject: 'AfterLight: кворум достигнут',
+        text: `Кворум подтверждений достигнут. Раскрытие не ранее ${when}; до этого момента владелец может отменить процесс.`,
+      },
+    };
+  },
+  finalized(): EventMessages {
+    // Выдачи содержимого и письма получателю пока нет (#152); текст не обещает того, чего система ещё не делает.
+    return {
+      owner: {
+        subject: 'AfterLight: процесс завершён',
+        text: 'Процесс раскрытия завершён: статус сейфа изменён. Передача содержимого получателю в этой версии не выполняется, и получатель этим письмом не уведомляется.',
+      },
+      verifiers: {
+        subject: 'AfterLight: процесс завершён',
+        text: 'Процесс раскрытия завершён: решения больше не требуются. Содержимое сейфа вам не передаётся.',
+      },
+    };
+  },
+  rejected(): EventMessages {
+    return {
+      owner: {
+        subject: 'AfterLight: процесс закрыт',
+        text: 'Блокировка спора истекла, процесс закрыт без раскрытия. Новый процесс потребует нового запуска.',
+      },
+      verifiers: {
+        subject: 'AfterLight: процесс закрыт',
+        text: 'Блокировка спора истекла, процесс закрыт без раскрытия. Решения больше не требуются.',
+      },
+    };
+  },
+  cancelled(): EventMessages {
+    return {
+      owner: {
+        subject: 'AfterLight: процесс раскрытия отменён',
+        text: 'Процесс раскрытия отменён: вы подтвердили, что с вами всё в порядке.',
+      },
+      verifiers: {
+        subject: 'AfterLight: процесс раскрытия отменён',
+        text: 'Владелец сейфа подтвердил активность: процесс отменён, решения не требуются.',
+      },
+    };
+  },
+};
+
 export const templates = {
   verifierInvitation(token: string): EmailContent {
     return {
