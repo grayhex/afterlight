@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 import { blockBody, bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
 
 /**
@@ -51,6 +51,21 @@ describe('vault key and block ciphertext (real PostgreSQL)', () => {
       const other = `v1.${'D'.repeat(16)}.${'E'.repeat(64)}`;
       expect((await put(s.owner.id, { mk_wrapped: other })).status).toBe(409);
       expect(await keyOf(s.vault.id)).toBe(SAMPLE.keyEnvelope);
+    });
+
+    it('a leftover value that is not an envelope (a legacy API inserting during an update) counts as not set up and is replaced', async () => {
+      const s = await scene();
+      const legacy = randomBytes(32).toString('base64'); // как создавал прежний сервер
+      await ctx.db.vault.update({ where: { id: s.vault.id }, data: { mkWrapped: legacy } });
+      expect((await newBlock(s.vault.id, s.owner.id)).status).toBe(409);
+
+      const put = (key: string) => ctx.request('PUT', `/vaults/${s.vault.id}/key`, { mk_wrapped: key }, s.owner.id);
+      expect((await put(SAMPLE.keyEnvelope)).status).toBe(200);
+      expect(await keyOf(s.vault.id)).toBe(SAMPLE.keyEnvelope);
+      // после настройки действует прежнее правило: один раз
+      expect((await put(`v1.${'D'.repeat(16)}.${'E'.repeat(64)}`)).status).toBe(409);
+      expect(await keyOf(s.vault.id)).toBe(SAMPLE.keyEnvelope);
+      expect((await newBlock(s.vault.id, s.owner.id)).status).toBe(201);
     });
 
     it('two simultaneous requests: exactly one wins', async () => {
