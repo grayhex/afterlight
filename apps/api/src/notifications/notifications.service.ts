@@ -48,6 +48,8 @@ export class NotificationsService implements OnModuleDestroy {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly config: MailConfig = loadMailConfig();
   private draining: Promise<void> | null = null;
+  private readonly lateSends = new Set<Promise<unknown>>();
+  private readonly renewTimers = new Set<NodeJS.Timeout>();
   private again = false;
 
   constructor(
@@ -140,11 +142,17 @@ export class NotificationsService implements OnModuleDestroy {
 
   /** Дожидается идущего фонового прохода (тесты и корректное завершение). */
   async idle(): Promise<void> {
-    while (this.draining) await this.draining;
+    while (this.draining || this.lateSends.size > 0) await Promise.allSettled([this.draining, ...this.lateSends]);
   }
 
   async onModuleDestroy() {
-    await this.idle();
+    // Ждём фоновые отправки не дольше их собственного предела: зависший SMTP не должен блокировать остановку процесса
+    let timer: NodeJS.Timeout | undefined;
+    await Promise.race([this.idle(), new Promise<void>((resolve) => { timer = setTimeout(resolve, this.config.sendTimeoutMs * 3); })]);
+    clearTimeout(timer);
+    // Остановка: продление аренд прекращаем (она истечёт сама), чтобы после закрытия БД не оставалось фоновых запросов
+    for (const t of this.renewTimers) clearInterval(t);
+    this.renewTimers.clear();
   }
 
   /** Отправка задач, срок которых наступил. Безопасно вызывать параллельно из нескольких экземпляров. */
@@ -169,7 +177,7 @@ export class NotificationsService implements OnModuleDestroy {
       }
       const payload = (fresh.payload ?? {}) as EmailPayload;
       try {
-        await this.withDeadline(this.transport.send({ to: n.toContact, subject: payload.subject ?? '', text: payload.text, html: payload.html }));
+        await this.withDeadline(n.id, payload.subject ?? '', this.transport.send({ to: n.toContact, subject: payload.subject ?? '', text: payload.text, html: payload.html }));
       } catch (e) {
         const err = e instanceof MailSendError ? e : new MailSendError(String((e as Error)?.name ?? 'ERROR').replace(/[^A-Za-z0-9_]/g, '').slice(0, 40) || 'ERROR', false);
         const outcome = await this.markFailure(n.id, n.attempts, err);
@@ -190,14 +198,53 @@ export class NotificationsService implements OnModuleDestroy {
     await this.prisma.notification.updateMany({ where: { id, state: { not: 'Queued' }, lockedUntil: { not: null } }, data: { lockedUntil: null } });
   }
 
-  /** Жёсткий предел на одно сообщение: итог неоднозначен (сервер мог принять письмо), поэтому это временная ошибка. */
-  private withDeadline(send: Promise<void>): Promise<void> {
+  /**
+   * Жёсткий предел на одно сообщение: итог неоднозначен (сервер мог принять письмо), поэтому это временная ошибка.
+   * Сам запрос к SMTP прервать нельзя, поэтому после дедлайна аренда задачи удерживается, пока запрос не завершится
+   * (holdLease): иначе более новое письмо могло бы обогнать ещё идущую отправку старого.
+   */
+  private withDeadline(id: string, subject: string, send: Promise<void>): Promise<void> {
     let timer: NodeJS.Timeout;
     const deadline = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new MailSendError('ETIMEDOUT: no confirmation within the send timeout', false, 'ETIMEDOUT', true)), this.config.sendTimeoutMs);
+      timer = setTimeout(() => {
+        this.holdLease(id, subject, send);
+        reject(new MailSendError('ETIMEDOUT: no confirmation within the send timeout', false, 'ETIMEDOUT', true));
+      }, this.config.sendTimeoutMs);
     });
     send.catch(() => undefined); // поздний отказ после дедлайна не должен стать необработанным
     return Promise.race([send, deadline]).finally(() => clearTimeout(timer));
+  }
+
+  /**
+   * Пока запрос к SMTP после дедлайна не завершился, продлеваем аренду задачи (если процесс умрёт — аренда истечёт
+   * сама). Когда запрос завершился: успех — письмо фактически принято сервером, фиксируем `Sent` (повтор не нужен);
+   * отказ — задача остаётся в очереди с уже назначенным повтором. В обоих случаях аренду снимаем.
+   */
+  private holdLease(id: string, subject: string, send: Promise<void>) {
+    const hold = this.config.sendTimeoutMs * 3;
+    const renew = setInterval(() => {
+      this.prisma.notification
+        .updateMany({ where: { id }, data: { lockedUntil: new Date(this.clock.now().getTime() + hold) } })
+        .catch((e) => this.logger.error(`[Email] lease renewal failed: ${String(e)}`));
+    }, this.config.sendTimeoutMs);
+    renew.unref();
+    this.renewTimers.add(renew);
+    const settled = (async () => {
+      let ok = false;
+      try {
+        await send;
+        ok = true;
+      } catch {
+        // отказ после дедлайна: повтор уже запланирован markFailure
+      }
+      clearInterval(renew);
+      this.renewTimers.delete(renew);
+      if (ok) await this.markSent(id, subject);
+      await this.prisma.notification.updateMany({ where: { id, lockedUntil: { not: null } }, data: { lockedUntil: null } });
+    })()
+      .catch((e) => this.logger.error(`[Email] late send bookkeeping failed: ${String(e)}`))
+      .finally(() => this.lateSends.delete(settled));
+    this.lateSends.add(settled);
   }
 
   /** Письма с истёкшим сроком (токен уже недействителен) не отправляются. */

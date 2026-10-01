@@ -156,6 +156,26 @@ describe('NotificationsService', () => {
     expect(extend.data).toEqual({ lockedUntil: new Date(now.getTime() + 3 * 1000) });
   });
 
+  it('after the deadline the lease is renewed until the SMTP operation settles; a late success is recorded as Sent and the lease is cleared', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise<void>((resolve) => setTimeout(resolve, 2300))); // принято сервером уже после дедлайна
+    const res = await service.dispatchDue();
+    expect(res).toMatchObject({ sent: 0, retried: 1 });
+
+    await service.idle(); // ждём завершения запроса к SMTP
+    const calls = prisma.notification.updateMany.mock.calls.map((c: any[]) => c[0]);
+    const renewals = calls.filter((c: any) => c.where.state === undefined && c.data.lockedUntil instanceof Date && c.where.OR === undefined);
+    expect(renewals.length).toBeGreaterThanOrEqual(1); // продление, пока запрос идёт
+    expect(calls.some((c: any) => c.data.state === 'Sent')).toBe(true); // поздний успех зафиксирован
+    expect(calls.at(-1).data).toEqual({ lockedUntil: null }); // и аренда снята
+  });
+
   it('sizes the lease for the whole claimed batch (send timeout x batch size + margin)', async () => {
     prisma.$queryRaw.mockResolvedValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
     prisma.notification.findMany.mockResolvedValue([]);

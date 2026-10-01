@@ -305,7 +305,9 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       const [n] = await rows();
       expect(n).toMatchObject({ state: 'Queued', attempts: 1 });
       expect(n.lastError).toMatch(/ETIMEDOUT|ECONNECTION|timeout/i);
-      expect(n.lockedUntil).not.toBeNull(); // отправка после таймаута не прервана: порядок держится арендой
+      // запрос к SMTP после дедлайна тоже завершился (отказом) — аренда снята, повтор запланирован с backoff
+      expect(n.lockedUntil).toBeNull();
+      expect(n.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(t0.getTime() + 30_000);
       expect(ctx.mail.messages).toHaveLength(0);
     });
   });
@@ -412,6 +414,32 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       expect(row.state).toBe('Cancelled');
       expect(row.lockedUntil).not.toBeNull();
       expect(row.lockedUntil!.getTime()).toBeGreaterThanOrEqual(ctx.clock.now().getTime() + 3000); // 3 x таймаут (1 c в тестах)
+    });
+
+    it('a send that finishes after the deadline is recorded as Sent, with no duplicate on the scheduled retry', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      await svc().enqueueEmail(vault.id, 'late@test.local', { subject: 'Late', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: `${vault.id}:late` });
+      await svc().idle();
+      await ctx.db.notification.deleteMany(); // чистый старт: письмо ставим вручную ниже
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'late@test.local', { subject: 'Late', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: `${vault.id}:late` });
+      await ctx.mail.start();
+      const transport = ctx.moduleRef.get(MailTransport);
+      const original = transport.send.bind(transport);
+      jest.spyOn(transport, 'send').mockImplementation(async (mail) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500)); // дольше таймаута 1 c
+        return original(mail);
+      });
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 1, sent: 0, retried: 1 });
+      await svc().idle(); // запрос к SMTP завершился успешно после дедлайна
+      expect(ctx.mail.to('late@test.local')).toHaveLength(1);
+      const row = await ctx.db.notification.findFirstOrThrow();
+      expect(row).toMatchObject({ state: 'Sent', lockedUntil: null });
+
+      ctx.clock.setNow(secs(100000));
+      expect((await svc().dispatchDue()).claimed).toBe(0); // повтор не уходит: письмо уже принято
+      expect(ctx.mail.to('late@test.local')).toHaveLength(1);
     });
 
     it('the ordering blocker also covers a leased Failed mail (final attempt timed out while the send is still running)', async () => {
