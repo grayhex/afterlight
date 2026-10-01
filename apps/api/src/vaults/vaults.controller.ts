@@ -5,6 +5,7 @@ import { CreateVaultDto } from './dto/create-vault.dto.js';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto.js';
 import { SetVaultKeyDto } from './dto/set-vault-key.dto.js';
 import { VaultKeyDto } from './dto/vault-key.dto.js';
+import { CanonicalUuidPipe } from '../common/canonical-uuid.js';
 import { CurrentUser } from '../common/current-user.decorator.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
@@ -42,7 +43,8 @@ export class VaultsController {
   @ApiParam({ name: 'id', format: 'uuid' })
   setKey(
     @CurrentUser() user: any,
-    @Param('id', ParseUUIDPipe) id: string,
+    // идентификатор сейфа входит в соль HKDF и контекст шифрования: только в каноническом (строчном) виде
+    @Param('id', CanonicalUuidPipe) id: string,
     @Body() dto: SetVaultKeyDto,
   ) {
     return this.service.setKey(user.sub, id, dto);

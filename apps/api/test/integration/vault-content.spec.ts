@@ -75,6 +75,10 @@ describe('vault key and block ciphertext (real PostgreSQL)', () => {
         expect([String(mk_wrapped), (await ctx.request('PUT', `/vaults/${s.vault.id}/key`, { mk_wrapped }, s.owner.id)).status]).toEqual([String(mk_wrapped), 400]);
       }
       expect((await ctx.request('PUT', `/vaults/not-a-uuid/key`, { mk_wrapped: SAMPLE.keyEnvelope }, s.owner.id)).status).toBe(400);
+      // идентификатор сейфа входит в соль HKDF и AAD: «тот же» UUID в верхнем регистре не принимается,
+      // иначе ключ нельзя было бы развернуть с идентификатором, который вернёт сервер
+      const upper = await ctx.request('PUT', `/vaults/${s.vault.id.toUpperCase()}/key`, { mk_wrapped: SAMPLE.keyEnvelope }, s.owner.id);
+      expect(upper.status).toBe(400);
       expect(await keyOf(s.vault.id)).toBeNull();
     });
   });
@@ -131,10 +135,13 @@ describe('vault key and block ciphertext (real PostgreSQL)', () => {
       expect((await ctx.db.block.findUniqueOrThrow({ where: { id } })).ciphertext).toBe(SAMPLE.ciphertext);
       expect(await ctx.db.block.count()).toBe(1);
 
-      // без идентификатора и с чужим форматом — 400
-      for (const bad of [undefined, null, '', 'block-1', 42]) {
+      // без идентификатора, с чужим форматом и не в каноническом (строчном) виде — 400: клиент и сервер должны
+      // писать идентификаторы в контексте шифрования одинаково, а PostgreSQL вернёт строчные
+      for (const bad of [undefined, null, '', 'block-1', 42, randomUUID().toUpperCase()]) {
         expect([String(bad), (await newBlock(s.vault.id, s.owner.id, { id: bad })).status]).toEqual([String(bad), 400]);
       }
+      expect(await ctx.db.block.count()).toBe(1);
+      expect((await ctx.request('POST', '/blocks', blockBody(s.vault.id.toUpperCase()), s.owner.id)).status).toBe(400);
       expect(await ctx.db.block.count()).toBe(1);
     });
 

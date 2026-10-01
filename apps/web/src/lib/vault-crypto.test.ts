@@ -71,6 +71,21 @@ describe('block envelope (AES-256-GCM, v1)', () => {
   });
 });
 
+describe('identifiers in the encryption context are canonical UUIDs', () => {
+  it('refuses uppercase, malformed or placeholder ids instead of encrypting for a context nobody can rebuild', async () => {
+    const dek = await generateKey();
+    const withLetters = 'abcdefab-cdef-4bcd-8fab-cdefabcdefab'; // в UUID из цифр регистр не виден
+    expect(contextOf('block', VAULT, withLetters)).toBeTruthy();
+    for (const bad of [withLetters.toUpperCase(), 'block-1', '', ` ${BLOCK}`]) {
+      await expect(encryptText(dek, text, VAULT, bad)).rejects.toBeInstanceOf(CryptoFormatError);
+    }
+    await expect(encryptText(dek, text, withLetters.toUpperCase(), BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+    await expect(wrapVaultKey(dek, generateRecoveryCode(), withLetters.toUpperCase())).rejects.toBeInstanceOf(CryptoFormatError);
+    // у ключа сейфа блока нет: «-» допустим только как отсутствие блока
+    expect(contextOf('mk', VAULT)).toBeTruthy();
+  });
+});
+
 describe('symmetric keys are always AES-256', () => {
   it('rejects raw keys that are not 32 bytes, and AES-128 keys passed to seal/open', async () => {
     for (const n of [0, 16, 24, 31, 33, 64]) {

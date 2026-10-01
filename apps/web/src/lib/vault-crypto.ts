@@ -37,8 +37,18 @@ const fromB64Url = (s: string): Bytes => fromB64(s.replace(/-/g, '+').replace(/_
 const random = (n: number): Bytes => globalThis.crypto.getRandomValues(new Uint8Array(n));
 
 /** Контекст (AAD): шифротекст нельзя перенести в другой сейф, блок или назначение. */
-export const contextOf = (kind: 'block' | 'dek' | 'mk', vaultId: string, blockId = '-'): Bytes =>
-  enc.encode(`afterlight/v1/${kind}/${vaultId}/${blockId}`);
+const CANONICAL_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Идентификаторы сейфа и блока — строго в каноническом (строчном) виде, как их хранит и возвращает сервер:
+ * иначе контекст при шифровании и при чтении разойдётся, и данные станут нечитаемыми.
+ */
+export const contextOf = (kind: 'block' | 'dek' | 'mk', vaultId: string, blockId = '-'): Bytes => {
+  if (!CANONICAL_UUID.test(vaultId) || (blockId !== '-' && !CANONICAL_UUID.test(blockId))) {
+    throw new CryptoFormatError('Vault and block ids must be UUIDs in lowercase canonical form');
+  }
+  return enc.encode(`afterlight/v1/${kind}/${vaultId}/${blockId}`);
+};
 
 // ---------- AES-256-GCM конверт v1: "v1.<iv>.<ct>" ----------
 export async function generateKey(): Promise<CryptoKey> {
@@ -85,7 +95,7 @@ export async function open(key: CryptoKey, envelope: string, context: Uint8Array
 }
 
 // ---------- блок ----------
-export const encryptText = (dek: CryptoKey, text: string, vaultId: string, blockId: string) =>
+export const encryptText = async (dek: CryptoKey, text: string, vaultId: string, blockId: string) =>
   seal(dek, enc.encode(text), contextOf('block', vaultId, blockId));
 export const decryptText = async (dek: CryptoKey, envelope: string, vaultId: string, blockId: string) =>
   dec.decode(await open(dek, envelope, contextOf('block', vaultId, blockId)));
