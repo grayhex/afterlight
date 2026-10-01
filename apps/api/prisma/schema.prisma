@@ -102,6 +102,8 @@ model User {
   lastLoginAt     DateTime? @map("last_login_at")
   // Подтверждённый адрес: до этого момента чувствительные действия (создание сейфа, приглашение, голосование) закрыты
   emailVerifiedAt DateTime? @map("email_verified_at")
+  // Версия сессий: попадает в JWT; увеличение (сброс пароля, выход) сразу отзывает все выданные токены
+  sessionVersion  Int       @default(0) @map("session_version")
   role            UserRole  @default(Owner)
   locale          String    @default("ru-RU")
   createdAt       DateTime  @default(now()) @map("created_at")

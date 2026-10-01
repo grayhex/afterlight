@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { createHash } from 'crypto';
 import { bootstrapApp, closeApp, Ctx } from './helper.js';
+import { AuthService } from '../../src/auth/auth.service.js';
+import { hashPassword } from '../../src/auth/password.js';
 
 /** Жизненный цикл аккаунта: регистрация, подтверждение адреса, закрытые до него действия, онбординг приглашённого. */
 describe('account lifecycle (real PostgreSQL, real SMTP sandbox)', () => {
@@ -132,7 +134,7 @@ describe('account lifecycle (real PostgreSQL, real SMTP sandbox)', () => {
       ctx.clock.setNow(secs(61));
       await ctx.request('POST', '/auth/forgot-password', { email: 'moving@test.local' });
       const staleVerify = verifyToken('moving@test.local').at(-1) as string;
-      const staleReset = ctx.mail.to('moving@test.local').map((m) => m.text.match(/: ([0-9a-f]{64})/)?.[1]).filter(Boolean).at(-1) as string;
+      const staleReset = ctx.mail.to('moving@test.local').map((m) => m.text.match(/\/reset-password#token=([0-9a-f]{64})/)?.[1]).filter(Boolean).at(-1) as string;
       await ctx.request('POST', '/auth/verify-email', { token: staleVerify }); // подтверждён: проверим сброс при смене
       expect((await ctx.db.user.findUniqueOrThrow({ where: { id } })).emailVerifiedAt).not.toBeNull();
 
@@ -299,6 +301,50 @@ describe('account lifecycle (real PostgreSQL, real SMTP sandbox)', () => {
       await ctx.db.vaultUserInvitation.updateMany({ data: { revokedAt: new Date() } });
       const revoked = await register({ email: 'someone.else@test.local', invitation_token: token });
       expect(revoked.body.email_verified).toBe(false);
+    });
+  });
+
+  describe('session revocation', () => {
+    const loginToken = async (email: string, password: string) => {
+      const res = await fetch(`${ctx.baseUrl}/auth/login`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }),
+      });
+      expect(res.status).toBe(201);
+      return (res.headers.get('set-cookie') ?? '').match(/token=([^;]+)/)?.[1] as string;
+    };
+    const me = (token: string) => ctx.request('GET', '/auth/me', undefined, undefined, token);
+
+    it('a password reset revokes every session issued before it, and the new password signs in again', async () => {
+      await register({ email: 'sess@test.local' });
+      const stolen = await loginToken('sess@test.local', 'correct horse');
+      expect((await me(stolen)).status).toBe(200);
+
+      await ctx.request('POST', '/auth/forgot-password', { email: 'sess@test.local' });
+      const link = ctx.mail.to('sess@test.local').map((m) => m.text.match(/\/reset-password#token=([0-9a-f]{64})/)?.[1]).filter(Boolean).at(-1) as string;
+      expect((await ctx.request('POST', '/auth/reset-password', { token: link, password: 'brand new pass' })).status).toBe(201);
+
+      expect((await me(stolen)).status).toBe(401);
+      const fresh = await loginToken('sess@test.local', 'brand new pass');
+      expect((await me(fresh)).status).toBe(200);
+    });
+
+    it('logout revokes the token on the server, not only the cookie', async () => {
+      await ctx.factory.createUser({ email: 'out@test.local', passwordHash: await hashPassword('correct horse') });
+      const a = await loginToken('out@test.local', 'correct horse');
+      const b = await loginToken('out@test.local', 'correct horse');
+      expect((await me(a)).status).toBe(200);
+      expect((await ctx.request('POST', '/auth/logout', undefined, undefined, a)).status).toBe(201);
+      expect((await me(a)).status).toBe(401);
+      expect((await me(b)).status).toBe(401); // выход закрывает сессии на всех устройствах
+      expect((await ctx.request('POST', '/auth/logout')).status).toBe(201); // без сессии выход ничего не ломает
+    });
+
+    it('a token of a deleted user stops working', async () => {
+      const user = await ctx.factory.createUser({ email: 'gone@test.local' });
+      const token = ctx.moduleRef.get(AuthService).sign(user.id);
+      expect((await me(token)).status).toBe(200);
+      await ctx.db.user.delete({ where: { id: user.id } });
+      expect((await me(token)).status).toBe(401);
     });
   });
 });

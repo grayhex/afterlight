@@ -101,13 +101,18 @@ expect 201 "создание сейфа после подтверждения" -
 # Письмо восстановления доходит по SMTP до sandbox; пользователь без сейфа тоже получает его (здесь сейф есть, но не нужен)
 expect 201 "forgot-password: известный адрес" -X POST "$BASE/api/auth/forgot-password" "${JSON[@]}" -d "{\"email\":\"$EMAIL\"}"
 expect 201 "forgot-password: неизвестный адрес (ответ тот же)" -X POST "$BASE/api/auth/forgot-password" "${JSON[@]}" -d '{"email":"nobody-smoke@test.local"}'
-RESET_TOKEN=$(mail_text "$EMAIL" "восстановление пароля" | grep -oE '[0-9a-f]{64}' | head -1) || fail "письмо восстановления не дошло до почтового sandbox"
+RESET_TOKEN=$(mail_text "$EMAIL" "восстановление пароля" | grep -oE 'reset-password#token=[0-9a-f]{64}' | head -1 | sed 's/.*token=//') || fail "письмо восстановления не дошло до почтового sandbox"
 [ -n "$RESET_TOKEN" ] || fail "в письме нет токена сброса"
 [ "$(curl -fsS "$MAILPIT/api/v1/messages" | jq -r '[.messages[] | select(any(.To[]; .Address == "nobody-smoke@test.local"))] | length')" = "0" ] || fail "письмо ушло на неизвестный адрес"
 echo "ok  письмо восстановления доставлено в sandbox"
 expect 201 "reset-password по токену из письма" -X POST "$BASE/api/auth/reset-password" "${JSON[@]}" -d "{\"token\":\"$RESET_TOKEN\",\"password\":\"smoke-pass-456\"}"
 expect 401 "токен одноразовый" -X POST "$BASE/api/auth/reset-password" "${JSON[@]}" -d "{\"token\":\"$RESET_TOKEN\",\"password\":\"smoke-pass-789\"}"
-expect 201 "логин с новым паролем" -X POST "$BASE/api/auth/login" "${JSON[@]}" -d "{\"email\":\"$EMAIL\",\"password\":\"smoke-pass-456\"}"
+expect 200 "страница сброса пароля по ссылке из письма" "$BASE/reset-password"
+expect 401 "после сброса пароля прежняя сессия отозвана" -b "$JAR" "$BASE/api/auth/me"
+expect 201 "логин с новым паролем" -c "$JAR" -X POST "$BASE/api/auth/login" "${JSON[@]}" -d "{\"email\":\"$EMAIL\",\"password\":\"smoke-pass-456\"}"
+expect 200 "/auth/me с новой сессией" -b "$JAR" "$BASE/api/auth/me"
+expect 201 "выход" -b "$JAR" -X POST "$BASE/api/auth/logout"
+expect 401 "после выхода токен отозван на сервере" -b "$JAR" "$BASE/api/auth/me"
 
 "${COMPOSE[@]}" run --rm migrate npx prisma db seed
 expect 201 "логин seed-админа" -c "$JAR" -X POST "$BASE/api/auth/login" "${JSON[@]}" -d '{"email":"admin@example.com","password":"smoke-admin-password"}'

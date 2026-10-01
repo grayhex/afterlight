@@ -51,8 +51,19 @@ export class AuthService {
     };
   }
 
-  sign(userId: string): string {
-    return jwt.sign({ sub: userId }, this.secret, { expiresIn: '1h' });
+  sign(userId: string, sessionVersion = 0): string {
+    return jwt.sign({ sub: userId, sv: sessionVersion }, this.secret, { expiresIn: '1h' });
+  }
+
+  /** Токен действует, пока пользователь существует и версия сессий в нём совпадает с текущей (сброс пароля и выход её меняют). */
+  async isSessionCurrent(payload: { sub: string; sv?: unknown }): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub }, select: { sessionVersion: true } });
+    return !!user && (typeof payload.sv === 'number' ? payload.sv : 0) === user.sessionVersion;
+  }
+
+  /** Отзывает все выданные пользователю токены. */
+  async revokeSessions(userId: string): Promise<void> {
+    await this.prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } });
   }
 
   /**
@@ -213,7 +224,8 @@ export class AuthService {
     await (this.prisma as any).$transaction(async (tx: any) => {
       await tx.user.update({
         where: { id: entry.userId },
-        data: { passwordHash },
+        // новый пароль отзывает все прежние сессии: украденный токен перестаёт работать
+        data: { passwordHash, sessionVersion: { increment: 1 } },
       });
       await tx.passwordResetToken.delete({ where: { id: entry.id } });
       // Токен израсходован: неотправленное (или ожидающее повтора) письмо с ним больше не нужно
