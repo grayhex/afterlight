@@ -1,5 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 const DENIED = 'Vault not found or access denied';
@@ -114,5 +114,30 @@ export class VaultAccessService {
     if (active) {
       throw new ConflictException('A disclosure event is in progress: cancel it before changing settings or participants');
     }
+  }
+
+  /** Блокировка строки сейфа до конца транзакции: её же берёт старт события. */
+  async lockVault(tx: Prisma.TransactionClient, vaultId: string) {
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM vault WHERE id = ${vaultId}::uuid FOR UPDATE`);
+  }
+
+  /** Внутри транзакции под блокировкой сейфа: активного события быть не должно (D4). */
+  async assertNoActiveEventTx(tx: Prisma.TransactionClient, vaultId: string) {
+    const active = await tx.verificationEvent.findFirst({
+      where: { vaultId, state: { in: ['Submitted', 'Confirming', 'Disputed', 'Grace'] } },
+      select: { id: true },
+    });
+    if (active) {
+      throw new ConflictException('A disclosure event is in progress: cancel it before changing settings or participants');
+    }
+  }
+
+  /**
+   * Изменение состава под блокировкой сейфа: старт события берёт ту же блокировку, поэтому состав не меняется
+   * между проверкой «нет активного события» и записью (D4).
+   */
+  async lockVaultAssertNoActiveEvent(tx: Prisma.TransactionClient, vaultId: string) {
+    await this.lockVault(tx, vaultId);
+    await this.assertNoActiveEventTx(tx, vaultId);
   }
 }

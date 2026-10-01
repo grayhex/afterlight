@@ -1,6 +1,6 @@
 import { VerifiersService, hashInvitationToken } from '../../src/verifiers/verifiers.service.js';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { ForbiddenException, GoneException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, GoneException, NotFoundException } from '@nestjs/common';
 
 describe('VerifiersService', () => {
   let prisma: any;
@@ -20,7 +20,7 @@ describe('VerifiersService', () => {
     };
     notify = { sendVerifierInvitation: jest.fn() };
     audit = { log: jest.fn() };
-    access = { assertManager: jest.fn(async () => ({ id: 'v1', userId: 'owner-1' })), assertNoActiveEvent: jest.fn(async () => undefined) };
+    access = { assertManager: jest.fn(async () => ({ id: 'v1', userId: 'owner-1' })), assertNoActiveEvent: jest.fn(async () => undefined), lockVaultAssertNoActiveEvent: jest.fn(async () => undefined), lockVault: jest.fn(async () => undefined), assertNoActiveEventTx: jest.fn(async () => undefined) };
     service = new VerifiersService(prisma, notify, audit, access);
   });
 
@@ -61,5 +61,17 @@ describe('VerifiersService', () => {
     prisma.vaultUserInvitation.updateMany.mockResolvedValue({ count: 0 });
     await expect(service.acceptInvitation({ sub: 'u2' }, 'x'.repeat(32))).rejects.toBeInstanceOf(GoneException);
     expect(prisma.vaultUserRole.upsert).not.toHaveBeenCalled();
+    // недействительное приглашение не раскрывает, идёт ли у сейфа событие
+    expect(access.assertNoActiveEventTx).not.toHaveBeenCalled();
+  });
+
+  it('refuses while an event is active and does not create the role (the claim rolls back with the transaction)', async () => {
+    prisma.vaultUserInvitation.findUnique.mockResolvedValue({ id: 'i1', vaultId: 'v1', email: 'ver@example.com', role: 'Verifier' });
+    prisma.user.findUnique.mockResolvedValue({ id: 'u2', email: 'ver@example.com' });
+    prisma.vault.findUnique.mockResolvedValue({ id: 'v1', userId: 'owner-1' });
+    prisma.vaultUserInvitation.updateMany.mockResolvedValue({ count: 1 });
+    access.assertNoActiveEventTx.mockRejectedValue(new ConflictException('active'));
+    await expect(service.acceptInvitation({ sub: 'u2' }, 'x'.repeat(32))).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.vaultUserRole.upsert).not.toHaveBeenCalled(); // и транзакция откатывается вместе с отметкой «принято»
   });
 });
