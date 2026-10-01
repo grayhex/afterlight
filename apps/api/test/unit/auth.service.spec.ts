@@ -36,7 +36,7 @@ describe('AuthService password reset flow', () => {
 
     notifications = {
       sendPasswordReset: jest.fn(async () => undefined),
-      dispatchSoon: jest.fn(async () => undefined),
+      dispatchSoon: jest.fn(),
     };
 
     service = new AuthService(prisma, notifications, { now: () => new Date() } as any, { cancelOnOwnerActivity: jest.fn() } as any);
@@ -62,8 +62,10 @@ describe('AuthService password reset flow', () => {
     expect(createdTokenData.expiresAt).toBeInstanceOf(Date);
 
     expect(notifications.sendPasswordReset).toHaveBeenCalledTimes(1);
-    const [to, rawToken, tx] = notifications.sendPasswordReset.mock.calls[0];
+    const [to, rawToken, userId, expiresAt, tx] = notifications.sendPasswordReset.mock.calls[0];
     expect(to).toBe('user@example.com');
+    expect(userId).toBe('user-1');
+    expect(expiresAt).toBe(createdTokenData.expiresAt); // письмо живёт не дольше токена
     expect(tx).toBeDefined(); // письмо ставится в очередь в той же транзакции, что и токен
     expect(createHash('sha256').update(rawToken).digest('hex')).toBe(createdTokenData.tokenHash);
     expect(prisma.vault.findFirst).not.toHaveBeenCalled();

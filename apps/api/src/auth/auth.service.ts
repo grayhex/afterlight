@@ -87,9 +87,9 @@ export class AuthService {
       await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
       await tx.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
       // Восстановление аккаунта не зависит от наличия сейфа: системное письмо не привязано к vault
-      await this.notifications.sendPasswordReset(email, token, tx);
+      await this.notifications.sendPasswordReset(email, token, user.id, expiresAt, tx);
     });
-    await this.notifications.dispatchSoon();
+    this.notifications.dispatchSoon();
   }
 
   async resetPassword(token: string, password: string): Promise<boolean> {

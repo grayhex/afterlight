@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { createHash } from 'crypto';
 import { NotificationsService } from '../../src/notifications/notifications.service.js';
 import { bootstrapApp, closeApp, Ctx } from './helper.js';
 
@@ -140,6 +141,69 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       throw new Error('rollback');
     })).rejects.toThrow('rollback');
     expect(await ctx.db.notification.count()).toBe(0);
+  });
+
+  describe('mail never outlives its token and never blocks the request', () => {
+    it('a newer reset request supersedes the unsent older mail: after recovery only the valid token is delivered', async () => {
+      await ctx.factory.createUser({ email: 'twice@test.local' });
+      await ctx.mail.stop();
+      await ctx.request('POST', '/auth/forgot-password', { email: 'twice@test.local' });
+      await ctx.request('POST', '/auth/forgot-password', { email: 'twice@test.local' });
+      const queued = await rows();
+      expect(queued.map((r) => r.state)).toEqual(['Cancelled', 'Queued']);
+      expect(queued[0].lastError).toContain('superseded');
+
+      await ctx.mail.start();
+      ctx.clock.setNow(secs(31));
+      await svc().dispatchDue();
+      const mails = ctx.mail.to('twice@test.local');
+      expect(mails).toHaveLength(1);
+      const token = mails[0].text.match(/: ([0-9a-f]{64})/)?.[1] as string;
+      const stored = await ctx.db.passwordResetToken.findFirstOrThrow();
+      expect(createHash('sha256').update(token).digest('hex')).toBe(stored.tokenHash); // письмо несёт действующий токен
+    });
+
+    it('a reset mail still queued after its token expired is cancelled instead of sent', async () => {
+      await ctx.factory.createUser({ email: 'late@test.local' });
+      await ctx.mail.stop();
+      await ctx.request('POST', '/auth/forgot-password', { email: 'late@test.local' });
+      await ctx.mail.start();
+      ctx.clock.setNow(secs(61 * 60)); // токен жил час
+      expect(await svc().dispatchDue()).toMatchObject({ claimed: 0, sent: 0 });
+      expect(ctx.mail.to('late@test.local')).toHaveLength(0);
+      expect((await rows())[0]).toMatchObject({ state: 'Cancelled', lastError: 'expired before delivery' });
+    });
+
+    it('an invitation mail is cancelled once the invitation itself has expired', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id, { quorumThreshold: 2 });
+      await ctx.mail.stop();
+      const res = await ctx.request('POST', '/verifiers/invitations', { vault_id: vault.id, email: 'short@test.local', expires_in_hours: 1 }, owner.id);
+      expect(res.status).toBe(201);
+      await ctx.mail.start();
+      ctx.clock.setNow(secs(2 * 3600));
+      await svc().dispatchDue();
+      expect(ctx.mail.to('short@test.local')).toHaveLength(0);
+      expect((await rows())[0].state).toBe('Cancelled');
+    });
+
+    it('a stalled SMTP server does not hold the HTTP request; the task stays queued with a timeout error', async () => {
+      await ctx.factory.createUser({ email: 'stall@test.local' });
+      ctx.mail.mode = 'stall';
+      const started = Date.now();
+      const res = await fetch(`${ctx.baseUrl}/auth/forgot-password`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'stall@test.local' }),
+      });
+      const took = Date.now() - started;
+      expect(res.status).toBe(201);
+      expect(took).toBeLessThan(900); // SMTP-таймаут в тестах 1000 мс: запрос его не ждёт
+
+      await svc().idle(); // фоновая отправка упирается в дедлайн
+      const [n] = await rows();
+      expect(n).toMatchObject({ state: 'Queued', attempts: 1 });
+      expect(n.lastError).toMatch(/ETIMEDOUT|ECONNECTION|timeout/i);
+      expect(ctx.mail.messages).toHaveLength(0);
+    });
   });
 
   describe('account recovery works without a vault', () => {

@@ -431,6 +431,6 @@ export class OrchestratorService {
 
   /** Отправка очереди — после коммита и best-effort: сбой транспорта не откатывает и не повторяет доменную операцию. */
   private async flushQuietly() {
-    await this.notify.dispatchSoon();
+    this.notify.dispatchSoon();
   }
 }

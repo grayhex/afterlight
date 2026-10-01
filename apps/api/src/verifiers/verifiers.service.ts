@@ -106,7 +106,7 @@ export class VerifiersService {
       },
     });
 
-    await this.notify.sendVerifierInvitation(vault.id, email, token);
+    await this.notify.sendVerifierInvitation(vault.id, email, token, expiresAt);
     await this.audit.log(ActorType.User, user.sub, 'verifier_invite', 'Vault', vault.id);
 
     return { id: invitation.id, email, role: invitation.role, expires_at: expiresAt };

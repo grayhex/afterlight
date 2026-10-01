@@ -11,7 +11,8 @@ describe('NotificationsService', () => {
   const now = new Date('2026-10-01T10:00:00.000Z');
 
   const row = (over: Record<string, unknown> = {}) => ({
-    id: 'n1', toContact: 'person@mail.test', payload: { subject: 'Reset', text: 'token=SECRET-TOKEN-123' }, attempts: 1, ...over,
+    id: 'n1', toContact: 'person@mail.test', payload: { subject: 'Reset', text: 'token=SECRET-TOKEN-123' }, attempts: 1,
+    lockedUntil: new Date(now.getTime() + 60_000), expiresAt: null as Date | null, ...over,
   });
 
   beforeEach(() => {
@@ -96,10 +97,69 @@ describe('NotificationsService', () => {
     expect(all).toContain('p***@mail.test');
   });
 
-  it('dispatchSoon swallows queue errors so the caller operation is not broken', async () => {
+  it('dispatchSoon returns at once (never waits for SMTP) and swallows queue errors', async () => {
     prisma.$transaction.mockRejectedValue(new Error('db down'));
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    await expect(service.dispatchSoon()).resolves.toBeUndefined();
+    expect(service.dispatchSoon()).toBeUndefined();
+    await expect(service.idle()).resolves.toBeUndefined();
+  });
+
+  it('a stalled SMTP server is cut off by a hard per-message deadline and counted as a transient failure', async () => {
+    process.env.MAIL_SEND_TIMEOUT_MS = '1000';
+    try {
+      service = new NotificationsService(prisma, transport, clock);
+    } finally {
+      delete process.env.MAIL_SEND_TIMEOUT_MS;
+    }
+    claimOne(row({ lockedUntil: new Date(now.getTime() + 600_000) }));
+    transport.send.mockImplementation(() => new Promise(() => undefined)); // никогда не отвечает
+    const started = Date.now();
+    const res = await service.dispatchDue();
+    expect(Date.now() - started).toBeLessThan(3000);
+    expect(res).toMatchObject({ sent: 0, retried: 1 });
+    expect(prisma.notification.updateMany.mock.calls.at(-1)[0].data.lastError).toContain('ETIMEDOUT');
+  });
+
+  it('sizes the lease for the whole claimed batch (send timeout x batch size + margin)', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    prisma.notification.findMany.mockResolvedValue([]);
+    await service.dispatchDue();
+    const lease = prisma.notification.updateMany.mock.calls.find((c: any[]) => c[0].data.attempts)[0].data.lockedUntil as Date;
+    expect(lease.getTime()).toBe(now.getTime() + 15_000 * 3 + 30_000);
+  });
+
+  it('does not send a task whose lease already ran out (another worker may own it) or whose token has expired', async () => {
+    prisma.$queryRaw.mockResolvedValue([{ id: 'n1' }, { id: 'n2' }]);
+    prisma.notification.findMany.mockResolvedValue([
+      row({ id: 'n1', lockedUntil: new Date(now.getTime() - 1) }),
+      row({ id: 'n2', expiresAt: new Date(now.getTime() - 1) }),
+    ]);
+    const res = await service.dispatchDue();
+    expect(res.sent).toBe(0);
+    expect(transport.send).not.toHaveBeenCalled();
+    const cancels = prisma.notification.updateMany.mock.calls.filter((c: any[]) => c[0].data.state === 'Cancelled');
+    expect(cancels.some((c: any[]) => c[0].where.id === 'n2')).toBe(true);
+  });
+
+  it('every pass first cancels queued mail whose expiry has passed', async () => {
+    prisma.$queryRaw.mockResolvedValue([]);
+    await service.dispatchDue();
+    expect(prisma.notification.updateMany.mock.calls[0][0]).toMatchObject({
+      where: { state: 'Queued', expiresAt: { lte: now } },
+      data: { state: 'Cancelled', lastError: 'expired before delivery' },
+    });
+  });
+
+  it('a new password-reset mail supersedes the unsent previous ones of the same user, inside the caller transaction', async () => {
+    const tx: any = { notification: { updateMany: jest.fn(async () => ({ count: 1 })), create: jest.fn(async (_args: any) => ({ id: 'n9' })) } };
+    const expiresAt = new Date(now.getTime() + 3600_000);
+    await service.sendPasswordReset('person@mail.test', 'tok', 'user-1', expiresAt, tx as any);
+    expect(tx.notification.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { kind: 'password_reset', supersedeKey: 'user-1', state: 'Queued' },
+      data: expect.objectContaining({ state: 'Cancelled' }),
+    }));
+    expect(tx.notification.create.mock.calls[0][0].data).toMatchObject({ kind: 'password_reset', supersedeKey: 'user-1', expiresAt, vaultId: null });
+    expect(prisma.notification.create).not.toHaveBeenCalled();
   });
 
   it('verifier invitation carries the token in the fragment and never an example.* domain', async () => {
@@ -108,6 +168,7 @@ describe('NotificationsService', () => {
     process.env.WEB_BASE_URL = 'https://afterlight.mail.test/';
     await service.sendVerifierInvitation('v1', 'to@mail.test', 'tok');
     const payload: any = enqueue.mock.calls[0][2];
+    expect(enqueue.mock.calls[0][4]).toMatchObject({ kind: 'verifier_invitation' });
     expect(payload.text).toContain('https://afterlight.mail.test/invite#token=tok');
     expect(payload.text).not.toMatch(/example\.(com|org|net)/);
     delete process.env.WEB_BASE_URL;

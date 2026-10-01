@@ -62,6 +62,8 @@ enum NotificationState {
   Queued
   Sent
   Failed
+  // Снято до отправки: заменено новым письмом того же вида или срок действия токена истёк
+  Cancelled
 }
 
 enum PlanTier {
@@ -309,11 +311,17 @@ model Notification {
   lockedUntil   DateTime?           @map("locked_until")
   lastError     String?             @map("last_error")
   sentAt        DateTime?           @map("sent_at")
+  // Вид письма и ключ замены: новое письмо того же вида для того же ключа снимает ещё не отправленные прежние
+  kind          String?             @map("kind")
+  supersedeKey  String?             @map("supersede_key")
+  // После этого момента письмо уже не отправляется (токен в нём недействителен)
+  expiresAt     DateTime?           @map("expires_at")
 
   vault Vault? @relation(fields: [vaultId], references: [id], onDelete: Restrict)
 
   @@index([vaultId], map: "ix_notification_vault_id")
   @@index([state, nextAttemptAt], map: "ix_notification_due")
+  @@index([kind, supersedeKey], map: "ix_notification_supersede")
   @@map("notification")
 }
 

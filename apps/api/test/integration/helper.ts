@@ -6,6 +6,7 @@ import { configureApp } from '../../src/app.setup.js';
 import { AuthService } from '../../src/auth/auth.service.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { ClockService } from '../../src/clock/clock.service.js';
+import { NotificationsService } from '../../src/notifications/notifications.service.js';
 import { SmtpSandbox } from './smtp-sandbox.js';
 
 /**
@@ -38,6 +39,7 @@ export async function bootstrapApp() {
   // быстрые повторы и без фонового воркера (NODE_ENV=test): тесты вызывают dispatchDue явно
   process.env.MAIL_RETRY_BASE_SECONDS = '30';
   process.env.MAIL_MAX_ATTEMPTS = '4';
+  process.env.MAIL_SEND_TIMEOUT_MS = '1000';
 
   const moduleRef: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app: INestApplication = moduleRef.createNestApplication();
@@ -68,6 +70,8 @@ export async function bootstrapApp() {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
+    // Приложение отправляет почту в фоне, не задерживая ответ; тест дожидается завершения фоновой отправки
+    await moduleRef.get(NotificationsService).idle();
     return { status: res.status, body: text ? JSON.parse(text) : null };
   };
 
@@ -94,7 +98,7 @@ export async function bootstrapApp() {
       .map((m) => m.text.match(/#token=([A-Za-z0-9_-]+)/)?.[1])
       .filter((t): t is string => !!t);
 
-  return { app, moduleRef, db, request, factory, invitationTokens, clock, mail };
+  return { app, moduleRef, db, request, baseUrl, factory, invitationTokens, clock, mail };
 }
 
 export async function closeApp(ctx?: Ctx) {

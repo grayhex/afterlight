@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ClockService } from '../clock/clock.service.js';
@@ -7,6 +7,13 @@ import { loadMailConfig, MailConfig } from './mail.config.js';
 import { EmailContent, templates } from './templates.js';
 
 type EmailPayload = { subject: string; text?: string; html?: string };
+
+/** Вид и срок годности письма: kind+supersedeKey — новое письмо снимает неотправленные прежние; expiresAt — позже не отправляем. */
+export interface EnqueueOptions {
+  kind?: string;
+  supersedeKey?: string;
+  expiresAt?: Date;
+}
 
 export interface DispatchResult {
   claimed: number;
@@ -31,12 +38,16 @@ function mask(email: string): string {
  *  - гарантия «как минимум один раз»: если процесс упал после приёма письма сервером, но до записи `Sent`,
  *    письмо уйдёт повторно. Повтор безопасен: письмо — только уведомление, действие по нему выполняется по токену
  *    в ссылке и не зависит от числа писем; доменная операция при повторе не выполняется;
- *  - после финального состояния тело письма (в нём могут быть токены) из payload удаляется.
+ *  - после финального состояния тело письма (в нём могут быть токены) из payload удаляется;
+ *  - письмо с токеном не живёт дольше токена: после `expires_at` оно снимается (`Cancelled`), а новый запрос того же
+ *    вида (сброс пароля) снимает ещё не отправленные прежние письма — получатель не увидит недействительный токен;
+ *  - отправка не блокирует запросы: `dispatchSoon` только запускает проход в фоне, медленный SMTP не задерживает API.
  */
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnModuleDestroy {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly config: MailConfig = loadMailConfig();
+  private readonly inflight = new Set<Promise<unknown>>();
 
   constructor(
     private prisma: PrismaService,
@@ -45,7 +56,7 @@ export class NotificationsService {
   ) {}
 
   /** vaultId — null для системных писем (восстановление аккаунта), не связанных с сейфом. */
-  async enqueueEmail(vaultId: string | null, to: string, payload: EmailPayload, tx?: Prisma.TransactionClient) {
+  async enqueueEmail(vaultId: string | null, to: string, payload: EmailPayload, tx?: Prisma.TransactionClient, opts: EnqueueOptions = {}) {
     const row = await (tx ?? this.prisma).notification.create({
       data: {
         vaultId,
@@ -54,39 +65,66 @@ export class NotificationsService {
         payload: payload as Prisma.InputJsonValue,
         state: 'Queued',
         nextAttemptAt: this.clock.now(),
+        kind: opts.kind,
+        supersedeKey: opts.supersedeKey,
+        expiresAt: opts.expiresAt,
       },
       select: { id: true },
     });
     this.logger.log(`[Email][enqueue] id=${row.id} to=${mask(to)}`);
   }
 
-  async sendVerifierInvitation(vaultId: string, to: string, token: string) {
-    await this.enqueueEmail(vaultId, to, templates.verifierInvitation(token));
-    await this.dispatchSoon();
+  async sendVerifierInvitation(vaultId: string, to: string, token: string, expiresAt?: Date) {
+    await this.enqueueEmail(vaultId, to, templates.verifierInvitation(token), undefined, { kind: 'verifier_invitation', expiresAt });
+    this.dispatchSoon();
   }
 
-  async sendPasswordReset(to: string, token: string, tx?: Prisma.TransactionClient) {
-    await this.enqueueEmail(null, to, templates.passwordReset(token), tx);
+  /** Письмо сброса пароля в транзакции вызывающего: прежние неотправленные письма сброса этого пользователя снимаются. */
+  async sendPasswordReset(to: string, token: string, userId: string, expiresAt: Date, tx: Prisma.TransactionClient) {
+    await tx.notification.updateMany({
+      where: { kind: 'password_reset', supersedeKey: userId, state: 'Queued' },
+      data: { state: 'Cancelled', lastError: 'superseded by a newer request', lockedUntil: null, payload: { redacted: true } },
+    });
+    await this.enqueueEmail(null, to, templates.passwordReset(token), tx, { kind: 'password_reset', supersedeKey: userId, expiresAt });
   }
 
-  /** Попытка отправить очередь сразу после коммита; сбой не должен ломать вызывающую операцию. */
-  async dispatchSoon(): Promise<void> {
-    try {
-      await this.dispatchDue();
-    } catch (e) {
-      this.logger.error(`[Email] dispatch failed: ${String(e)}`);
-    }
+  /**
+   * Запускает проход очереди в фоне и сразу возвращается: медленный или зависший SMTP не удерживает запрос,
+   * а повтор операции клиентом из-за таймаута прокси не нужен. Ошибки пишутся в лог; недоставленное подберёт воркер.
+   */
+  dispatchSoon(): void {
+    const p: Promise<unknown> = this.dispatchDue()
+      .catch((e) => this.logger.error(`[Email] dispatch failed: ${String(e)}`))
+      .finally(() => this.inflight.delete(p));
+    this.inflight.add(p);
+  }
+
+  /** Дожидается уже запущенных фоновых проходов (тесты и корректное завершение). */
+  async idle(): Promise<void> {
+    while (this.inflight.size > 0) await Promise.allSettled([...this.inflight]);
+  }
+
+  async onModuleDestroy() {
+    await this.idle();
   }
 
   /** Отправка задач, срок которых наступил. Безопасно вызывать параллельно из нескольких экземпляров. */
   async dispatchDue(limit = 20): Promise<DispatchResult> {
+    await this.cancelExpired(this.clock.now());
     const now = this.clock.now();
     const claimed = await this.claim(now, limit);
     const result: DispatchResult = { claimed: claimed.length, sent: 0, retried: 0, failed: 0 };
     for (const n of claimed) {
+      const at = this.clock.now();
+      // Аренда ограничена: если до этой задачи дошли слишком поздно, её мог забрать другой воркер — не отправляем
+      if (n.lockedUntil && at.getTime() >= n.lockedUntil.getTime()) continue;
+      if (n.expiresAt && at.getTime() >= n.expiresAt.getTime()) {
+        await this.cancel(n.id, 'expired before delivery');
+        continue;
+      }
       const payload = (n.payload ?? {}) as EmailPayload;
       try {
-        await this.transport.send({ to: n.toContact, subject: payload.subject ?? '', text: payload.text, html: payload.html });
+        await this.withDeadline(this.transport.send({ to: n.toContact, subject: payload.subject ?? '', text: payload.text, html: payload.html }));
       } catch (e) {
         const err = e instanceof MailSendError ? e : new MailSendError(String((e as Error)?.message ?? e).slice(0, 300), false);
         const outcome = await this.markFailure(n.id, n.attempts, err);
@@ -99,10 +137,34 @@ export class NotificationsService {
     return result;
   }
 
+  /** Жёсткий предел на одно сообщение: итог неоднозначен (сервер мог принять письмо), поэтому это временная ошибка. */
+  private withDeadline(send: Promise<void>): Promise<void> {
+    let timer: NodeJS.Timeout;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new MailSendError(`ETIMEDOUT: no confirmation within ${this.config.sendTimeoutMs} ms`, false, 'ETIMEDOUT')), this.config.sendTimeoutMs);
+    });
+    send.catch(() => undefined); // поздний отказ после дедлайна не должен стать необработанным
+    return Promise.race([send, deadline]).finally(() => clearTimeout(timer));
+  }
+
+  /** Письма с истёкшим сроком (токен уже недействителен) не отправляются. */
+  private async cancelExpired(now: Date) {
+    await this.prisma.notification.updateMany({
+      where: { state: 'Queued', expiresAt: { lte: now } },
+      data: { state: 'Cancelled', lockedUntil: null, lastError: 'expired before delivery', payload: { redacted: true } },
+    });
+  }
+
+  private async cancel(id: string, reason: string) {
+    await this.prisma.notification.updateMany({
+      where: { id, state: 'Queued' },
+      data: { state: 'Cancelled', lockedUntil: null, lastError: reason, payload: { redacted: true } },
+    });
+  }
+
   /** Берём задачи под аренду; SKIP LOCKED — параллельные воркеры получают непересекающиеся наборы. */
   private async claim(now: Date, limit: number) {
     const iso = now.toISOString();
-    const leaseMs = Math.max(this.config.sendTimeoutMs * 4, 60_000);
     return this.prisma.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
         SELECT id FROM notification
@@ -114,6 +176,8 @@ export class NotificationsService {
         FOR UPDATE SKIP LOCKED`);
       if (rows.length === 0) return [];
       const ids = rows.map((r) => r.id);
+      // Аренда рассчитана на всю пачку в худшем случае (каждое письмо — до sendTimeoutMs) плюс запас
+      const leaseMs = this.config.sendTimeoutMs * ids.length + 30_000;
       await tx.notification.updateMany({
         where: { id: { in: ids } },
         data: { lockedUntil: new Date(now.getTime() + leaseMs), attempts: { increment: 1 } },
