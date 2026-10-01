@@ -29,12 +29,33 @@ const PUBLIC_ALLOWLIST = new Set([
   'POST /verifiers/invitations/preview',
 ]);
 
+/**
+ * Вошедший пользователь, но доступ НЕ определяется объектом (сейфом, блоком, событием): данные выбираются по сессии
+ * (собственная запись, собственные сейфы) или это справочник. Каждая такая запись объяснена; все остальные маршруты
+ * с входом считаются объектными (доступ решает сервис по сейфу из сессии) и проверяются тестами object-authorization.
+ */
+const SESSION_SCOPED: Record<string, string> = {
+  'GET /auth/me': 'собственная учётная запись',
+  'POST /auth/resend-verification': 'собственная учётная запись',
+  'PUT /recipients/me/key': 'собственные записи получателя: по подтверждённому адресу аккаунта',
+  'GET /vaults': 'только собственные сейфы (выборка по сессии)',
+  'POST /vaults': 'создаёт сейф для себя; нужен подтверждённый адрес',
+};
+const REFERENCE_DATA: Record<string, string> = {
+  'GET /plans': 'справочник тарифов: доступен любому вошедшему',
+  'GET /plans/:id': 'справочник тарифов: доступен любому вошедшему',
+};
+
+type Scope = 'public' | 'admin' | 'session' | 'reference' | 'object';
+
 interface RouteInfo {
   key: string;
   method: string;
   path: string;
   isPublic: boolean;
   adminOnly: boolean;
+  scope: Scope;
+  scopeNote: string;
   verifiedEmail: boolean;
   rateLimit: string | null;
 }
@@ -63,12 +84,18 @@ function discoverRoutes(ctx: Ctx): RouteInfo[] {
         const method = RequestMethod[methodCode as number];
         const roles = reflector.getAllAndOverride<string[] | undefined>(ROLES_KEY, [handler as never, type]) ?? [];
         const rl = reflector.getAllAndOverride<{ policy: string; by: string } | undefined>(RATE_LIMIT_KEY, [handler as never, type]);
-        routes.set(`${method} ${path}`, {
-          key: `${method} ${path}`,
+        const key = `${method} ${path}`;
+        const isPublic = !!reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler as never, type]);
+        const adminOnly = roles.includes('Admin');
+        const scope: Scope = isPublic ? 'public' : adminOnly ? 'admin' : key in SESSION_SCOPED ? 'session' : key in REFERENCE_DATA ? 'reference' : 'object';
+        routes.set(key, {
+          key,
           method,
           path,
-          isPublic: !!reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler as never, type]),
-          adminOnly: roles.includes('Admin'),
+          isPublic,
+          adminOnly,
+          scope,
+          scopeNote: SESSION_SCOPED[key] ?? REFERENCE_DATA[key] ?? '',
           verifiedEmail: !!reflector.getAllAndOverride<boolean>(REQUIRE_VERIFIED_EMAIL_KEY, [handler as never, type]),
           rateLimit: rl ? `${rl.policy} (${rl.by})` : null,
         });
@@ -83,22 +110,32 @@ const concrete = (path: string) => path.replace(/:[A-Za-z]+/g, UUID);
 
 const TABLE_FILE = resolve(process.cwd(), '../../docs/security/route-access.md');
 
+const ACCESS_TEXT: Record<Scope, [string, string, string, string]> = {
+  // доступ, аноним, обычный пользователь, администратор платформы
+  public: ['публичный', 'доходит до обработчика', 'то же', 'то же'],
+  admin: ['только администратор платформы', '401', '403', 'допущен'],
+  session: ['вошедший пользователь; данные выбираются по сессии', '401', 'допущен к своим данным', 'как обычный пользователь'],
+  reference: ['вошедший пользователь; справочник без привязки к объекту', '401', 'допущен', 'допущен'],
+  object: ['вошедший пользователь; доступ определяет объект (сейф, блок, событие) по сессии', '401', '403/404 для чужого объекта', 'как обычный пользователь: глобальная роль доступа к сейфу не даёт'],
+};
+
 function renderTable(routes: RouteInfo[]): string {
   const rows = routes.map((r) => {
-    const access = r.isPublic ? 'публичный' : r.adminOnly ? 'только администратор платформы' : 'вошедший пользователь; доступ к объекту (сейф, блок, событие) проверяется по сессии';
-    const notes = [r.verifiedEmail ? 'нужен подтверждённый адрес' : '', r.rateLimit ? `лимит частоты: ${r.rateLimit}` : ''].filter(Boolean).join('; ') || '—';
-    const anon = r.isPublic ? 'доходит до обработчика' : '401';
-    const user = r.isPublic ? 'то же' : r.adminOnly ? '403' : 'по объекту: 403/404 для чужого';
-    const admin = r.isPublic ? 'то же' : r.adminOnly ? 'допущен' : 'как обычный пользователь: глобальная роль доступа к сейфу не даёт';
+    const [access, anon, user, admin] = ACCESS_TEXT[r.scope];
+    const notes = [r.scopeNote, r.verifiedEmail ? 'нужен подтверждённый адрес' : '', r.rateLimit ? `лимит частоты: ${r.rateLimit}` : ''].filter(Boolean).join('; ') || '—';
     return `| \`${r.method} ${r.path}\` | ${access} | ${anon} | ${user} | ${admin} | ${notes} |`;
   });
   return [
     '# Доступ к маршрутам API: маршрут × роль',
     '',
     '> Файл **генерируется** тестом `apps/api/test/integration/route-access.spec.ts` из метаданных маршрутов Nest и сверяется им при каждом запуске CI.',
-    '> Обновить после изменения маршрутов: `UPDATE_ROUTE_TABLE=1 npm run test:integration -- route-access` (затем просмотреть diff — каждое новое публичное или администраторское изменение проходит ревью).',
+    '> Обновить после изменения маршрутов: `UPDATE_ROUTE_TABLE=1 npm run test:integration -- route-access` (затем просмотреть diff — каждое новое публичное, администраторское или «без объекта» изменение проходит ревью).',
     '',
-    'Правила: вход без токена даёт `401` на любом маршруте, кроме перечисленных как публичные; администраторские маршруты дают обычному пользователю `403` независимо от того, владеет ли он сейфом; роль платформы `Admin` сама по себе доступа к чужому сейфу не даёт (проверяется по сейфу через `VaultAccessService`).',
+    'Виды доступа:',
+    '- **публичный** — без входа (закрытый список `PUBLIC_ALLOWLIST` в тесте);',
+    '- **только администратор платформы** — аноним `401`, обычный пользователь `403` независимо от владения сейфом;',
+    '- **данные выбираются по сессии** и **справочник** — вход нужен, но доступ не зависит от объекта; каждый такой маршрут перечислен в тесте с причиной (`SESSION_SCOPED`, `REFERENCE_DATA`);',
+    '- **объектный** — всё остальное: сервис проверяет доступ к конкретному сейфу, блоку или событию по сессии (`VaultAccessService`); глобальная роль `Admin` чужого сейфа не открывает. Отрицательные сценарии по каждому модулю — `object-authorization.spec.ts` и `security.authorization.spec.ts`.',
     '',
     '| Маршрут | Доступ | Аноним | Обычный пользователь | Администратор платформы | Особенности |',
     '|---|---|---|---|---|---|',
@@ -147,6 +184,18 @@ describe('route access table (every registered route, real guards)', () => {
       if (asAdmin === 401 || asAdmin === 403) failures.push(`${r.key} as admin → ${asAdmin}`);
     }
     expect(failures).toEqual([]);
+  });
+
+  it('routes marked as not object-scoped really work for any signed-in user, and the markings stay in sync with the routes', async () => {
+    const routes = discoverRoutes(ctx);
+    const keys = new Set(routes.map((r) => r.key));
+    for (const key of [...Object.keys(SESSION_SCOPED), ...Object.keys(REFERENCE_DATA)]) expect(keys.has(key)).toBe(true); // нет устаревших записей
+    const person = await ctx.factory.createUser({ email: 'person@test.local' });
+    const open = [['GET', '/auth/me'], ['GET', '/vaults'], ['GET', '/plans'], ['POST', '/vaults', { name: 'Mine' }], ['PUT', '/recipients/me/key', { pubkey: 'KEY' }]] as Array<[string, string, unknown?]>;
+    for (const [method, path, body] of open) {
+      const res = await ctx.request(method, path, body, person.id);
+      expect([method, path, [200, 201].includes(res.status)]).toEqual([method, path, true]);
+    }
   });
 
   it('the committed table docs/security/route-access.md matches the registered routes', () => {
