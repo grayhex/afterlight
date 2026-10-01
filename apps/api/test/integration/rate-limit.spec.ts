@@ -79,12 +79,23 @@ describe('rate limiting (real app, PostgreSQL counters)', () => {
       expect(audited.map((a) => a.targetId)).toEqual(['login_fail_account_ip']);
     });
 
+    it('a blocked IP cannot grow the counter table by sending a fresh address with every request', async () => {
+      await boot({ RATE_LIMIT_LOGIN_FAIL_IP_MAX: '3' });
+      for (let i = 0; i < 3; i++) expect((await login(`fresh${i}@test.local`, 'x')).status).toBe(401);
+      const before = await ctx.db.rateLimitBucket.count();
+      for (let i = 0; i < 60; i++) expect((await login(`flood${i}@test.local`, 'x')).status).toBe(429);
+      const after = await ctx.db.rateLimitBucket.count();
+      // ни одной новой строки на заблокированный IP, кроме отметки аудита первого отказа окна
+      expect(after - before).toBeLessThanOrEqual(1);
+      // и откат не оставляет пустых строк
+      expect((await ctx.db.rateLimitBucket.findMany()).filter((r) => r.count === 0)).toHaveLength(0);
+    });
+
     it('successful logins give their reservation back: any number of them never trips the limits', async () => {
       await boot({ RATE_LIMIT_LOGIN_FAIL_IP_MAX: '3', RATE_LIMIT_LOGIN_FAIL_ACCOUNT_MAX: '3' });
       await makeUser('regular@test.local');
       for (let i = 0; i < 10; i++) expect((await login('regular@test.local', 'correct horse')).status).toBe(201);
-      const buckets = await ctx.db.rateLimitBucket.findMany();
-      for (const b of buckets) expect(b.count).toBe(0);
+      expect(await ctx.db.rateLimitBucket.count()).toBe(0); // резервы возвращены, пустые строки удалены
     });
 
     it('an unknown address behaves exactly like a known one (no account enumeration)', async () => {

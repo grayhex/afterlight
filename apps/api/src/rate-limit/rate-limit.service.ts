@@ -116,7 +116,10 @@ export class RateLimitService {
       reservations.push(reservation);
       if (!r.allowed) {
         rejected.push(reservation);
-        retryAfterSec = Math.max(retryAfterSec, r.retryAfterSec);
+        retryAfterSec = r.retryAfterSec;
+        // порядок записей — от общего к частному (IP, пара, аккаунт): после первого отказа остальные счётчики не трогаем,
+        // иначе заблокированный клиент с новым адресом в каждом запросе плодил бы строки счётчиков
+        break;
       }
     }
     if (rejected.length === 0) return { allowed: true, retryAfterSec: 0, reservations };
@@ -149,11 +152,16 @@ export class RateLimitService {
     return { allowed: count < policy.max, count, retryAfterSec, windowStart: start };
   }
 
-  /** Возвращает один резерв, сделанный `hit` (успешный вход не должен расходовать лимит неудач). Счётчик не уходит ниже нуля. */
+  /**
+   * Возвращает один резерв, сделанный `hit` (успешный вход не должен расходовать лимит неудач). Счётчик не уходит ниже
+   * нуля, а опустевшая строка удаляется: откаты не должны оставлять мусор в таблице.
+   */
   async release(name: PolicyName, subject: string, windowStart: Date): Promise<void> {
-    await this.prisma.$executeRaw`
-      UPDATE rate_limit_bucket SET "count" = GREATEST("count" - 1, 0)
-      WHERE "key" = ${this.bucketKey(name, subject)} AND window_start = ${windowStart}`;
+    const key = this.bucketKey(name, subject);
+    const removed = await this.prisma.$executeRaw`DELETE FROM rate_limit_bucket WHERE "key" = ${key} AND window_start = ${windowStart} AND "count" <= 1`;
+    if (removed === 0) {
+      await this.prisma.$executeRaw`UPDATE rate_limit_bucket SET "count" = GREATEST("count" - 1, 0) WHERE "key" = ${key} AND window_start = ${windowStart}`;
+    }
   }
 
   /** Сбрасывает счётчик субъекта (успешный вход снимает счётчик неудач для пары «аккаунт + IP»). */
