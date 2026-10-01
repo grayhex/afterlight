@@ -174,6 +174,9 @@ export async function unwrapDekForRecipient(wrapped: string, privateKey: CryptoK
 
 // ---------- резервная копия закрытого ключа получателя (файл, на сервер не уходит) ----------
 const PBKDF2_ITERATIONS = 600_000;
+const MIN_ITERATIONS = 100_000;
+const MAX_ITERATIONS = 5_000_000;
+const validIterations = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= MIN_ITERATIONS && (n as number) <= MAX_ITERATIONS;
 
 async function passphraseKey(passphrase: string, salt: Uint8Array, iterations: number): Promise<CryptoKey> {
   const base = await subtle().importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
@@ -182,6 +185,8 @@ async function passphraseKey(passphrase: string, salt: Uint8Array, iterations: n
 
 export async function exportKeyBackup(privateKey: CryptoKey, passphrase: string, iterations = PBKDF2_ITERATIONS): Promise<string> {
   if (passphrase.length < 12) throw new CryptoFormatError('Passphrase must be at least 12 characters');
+  // те же границы, что у импорта: файл, который сами же не примем, и ослабленную защиту не создаём
+  if (!validIterations(iterations)) throw new CryptoFormatError('Invalid iteration count');
   const salt = random(16);
   const pkcs8 = new Uint8Array(await subtle().exportKey('pkcs8', privateKey));
   const sealed = await seal(await passphraseKey(passphrase, salt, iterations), pkcs8, enc.encode('afterlight/v1/key-backup'));
@@ -189,16 +194,18 @@ export async function exportKeyBackup(privateKey: CryptoKey, passphrase: string,
 }
 
 export async function importKeyBackup(file: string, passphrase: string): Promise<CryptoKey> {
-  let parsed: { v?: number; kdf?: string; iterations?: number; salt?: string; data?: string };
+  let parsed: { v?: number; kdf?: string; iterations?: number; salt?: string; data?: string } | null;
   try {
     parsed = JSON.parse(file);
   } catch {
     throw new CryptoFormatError('Invalid backup file');
   }
+  // допустимый JSON не обязан быть объектом: null, число, строка, массив
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new CryptoFormatError('Invalid backup file');
   if (parsed.v !== 1 || parsed.kdf !== 'PBKDF2-SHA256' || typeof parsed.salt !== 'string' || typeof parsed.data !== 'string') throw new CryptoFormatError('Unsupported backup file');
   // защита от файла с подложенным числом итераций: меньше разумного предела не принимаем
-  if (!Number.isInteger(parsed.iterations) || (parsed.iterations as number) < 100_000 || (parsed.iterations as number) > 5_000_000) throw new CryptoFormatError('Invalid iteration count');
-  const pkcs8 = await open(await passphraseKey(passphrase, fromB64Url(parsed.salt), parsed.iterations as number), parsed.data, enc.encode('afterlight/v1/key-backup'));
+  if (!validIterations(parsed.iterations)) throw new CryptoFormatError('Invalid iteration count');
+  const pkcs8 = await open(await passphraseKey(passphrase, fromB64Url(parsed.salt), parsed.iterations), parsed.data, enc.encode('afterlight/v1/key-backup'));
   try {
     return await subtle().importKey('pkcs8', pkcs8, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['decrypt']);
   } catch {

@@ -149,11 +149,25 @@ describe('recipient key backup file (passphrase protected, never sent to the ser
     const weakened = JSON.stringify({ ...JSON.parse(file), iterations: 1 });
     await expect(importKeyBackup(weakened, 'a long enough passphrase')).rejects.toBeInstanceOf(CryptoFormatError);
     await expect(importKeyBackup('not json', 'x')).rejects.toBeInstanceOf(CryptoFormatError);
+    // валидный JSON, но не объект: ошибка формата, а не TypeError
+    for (const bad of ['null', '42', '"text"', '[]', 'true']) {
+      await expect(importKeyBackup(bad, 'x')).rejects.toBeInstanceOf(CryptoFormatError);
+    }
     await expect(importKeyBackup(JSON.stringify({ v: 2 }), 'x')).rejects.toBeInstanceOf(CryptoFormatError);
   });
 
   it('refuses short passphrases', async () => {
     const pair = await pairPromise;
     await expect(exportKeyBackup(pair.privateKey, 'short')).rejects.toBeInstanceOf(CryptoFormatError);
+  });
+
+  it('refuses work factors that the importer would not accept (export and import share one range)', async () => {
+    const pair = await pairPromise;
+    for (const bad of [0, 1, 99_999, 5_000_001, 1.5, Number.NaN]) {
+      await expect(exportKeyBackup(pair.privateKey, 'a long enough passphrase', bad)).rejects.toBeInstanceOf(CryptoFormatError);
+    }
+    const edge = await exportKeyBackup(pair.privateKey, 'a long enough passphrase', 100_000);
+    expect(JSON.parse(edge).iterations).toBe(100_000);
+    await expect(importKeyBackup(edge, 'a long enough passphrase')).resolves.toBeTruthy();
   });
 });
