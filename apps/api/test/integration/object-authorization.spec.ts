@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
+import { blockBody, bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
 
 /**
  * Негативные тесты объектной авторизации остальных модулей (#164): настоящее приложение, настоящие guard'ы,
@@ -47,7 +47,7 @@ describe('object authorization across modules (real guards, PostgreSQL)', () => 
         const got = [
           (await ctx.request('GET', `/blocks?vault_id=${s.vault.id}`, undefined, id)).status,
           (await ctx.request('GET', `/blocks/${s.block.id}`, undefined, id)).status,
-          (await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type: 'text', dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, id)).status,
+          (await ctx.request('POST', '/blocks', blockBody(s.vault.id), id)).status,
           (await ctx.request('DELETE', `/blocks/${s.block.id}`, undefined, id)).status,
         ];
         expect([label, ...got]).toEqual([label, 403, 403, 403, 403]);
@@ -67,9 +67,9 @@ describe('object authorization across modules (real guards, PostgreSQL)', () => 
     it('the owner works with the block, a deleted block is gone, and file/url blocks are refused', async () => {
       const s = await scene();
       expect((await ctx.request('GET', `/blocks/${s.block.id}`, undefined, s.owner.id)).status).toBe(200);
-      const created = await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type: 'text', dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, s.owner.id);
+      const created = await ctx.request('POST', '/blocks', blockBody(s.vault.id), s.owner.id);
       expect(created.status).toBe(201);
-      expect((await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type: 'file', dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, s.owner.id)).status).toBe(400);
+      expect((await ctx.request('POST', '/blocks', blockBody(s.vault.id, { type: 'file' }), s.owner.id)).status).toBe(400);
       expect((await ctx.request('DELETE', `/blocks/${created.body.id}`, undefined, s.owner.id)).status).toBe(200);
       expect((await ctx.request('GET', `/blocks/${created.body.id}`, undefined, s.owner.id)).status).toBe(404);
       expect((await ctx.request('DELETE', `/blocks/${created.body.id}`, undefined, s.owner.id)).status).toBe(404);
@@ -81,7 +81,7 @@ describe('object authorization across modules (real guards, PostgreSQL)', () => 
       const s = await scene();
       expect((await ctx.request('GET', `/blocks/${s.otherBlock.id}`, undefined, s.owner.id)).status).toBe(403);
       expect((await ctx.request('DELETE', `/blocks/${s.otherBlock.id}`, undefined, s.owner.id)).status).toBe(403);
-      expect((await ctx.request('POST', '/blocks', { vault_id: s.otherVault.id, type: 'text', dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, s.owner.id)).status).toBe(403);
+      expect((await ctx.request('POST', '/blocks', blockBody(s.otherVault.id), s.owner.id)).status).toBe(403);
       const mine = await ctx.request('GET', `/blocks?vault_id=${s.vault.id}`, undefined, s.owner.id);
       expect(mine.body.map((b: any) => b.id)).not.toContain(s.otherBlock.id);
     });

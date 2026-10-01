@@ -245,6 +245,12 @@ export interface components {
       /** @description Ключ сейфа (MK), упакованный в браузере владельца ключом из recovery-кода: конверт v1 (`v1.<iv>.<ct>`, base64url, ровно 84 символа). Задаётся один раз */
       mk_wrapped: string;
     };
+    VaultKeyDto: {
+      /** Format: uuid */
+      id: string;
+      /** @description Ключ сейфа под ключом из recovery-кода владельца: конверт v1, как его прислал браузер */
+      mk_wrapped: string;
+    };
     UpdateVaultSettingsDto: {
       quorum_threshold?: number;
       max_verifiers?: number;
@@ -369,6 +375,11 @@ export interface components {
       ciphertext: string | null;
     };
     CreateBlockDto: {
+      /**
+       * Format: uuid
+       * @description Идентификатор блока задаёт клиент: контекст шифрования (AAD) включает id сейфа и id блока, поэтому шифротекст и упакованный ключ создаются уже для него. Занятый идентификатор — 409
+       */
+      id: string;
       /** Format: uuid */
       vault_id: string;
       /**
@@ -1137,7 +1148,9 @@ export interface operations {
     };
     responses: {
       200: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["VaultKeyDto"];
+        };
       };
       400: {
         content: {

@@ -3,6 +3,13 @@ import { IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLen
 import { CIPHERTEXT_ENVELOPE_PATTERN, KEY_ENVELOPE_PATTERN, MAX_CIPHERTEXT_LENGTH } from '../../common/envelope.js';
 
 export class CreateBlockDto {
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Идентификатор блока задаёт клиент: контекст шифрования (AAD) включает id сейфа и id блока, поэтому шифротекст и упакованный ключ создаются уже для него. Занятый идентификатор — 409',
+  })
+  @IsUUID()
+  id!: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   vault_id!: string;

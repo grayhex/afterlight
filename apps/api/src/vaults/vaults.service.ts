@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateVaultDto } from './dto/create-vault.dto.js';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto.js';
 import { SetVaultKeyDto } from './dto/set-vault-key.dto.js';
+import { VaultKeyDto } from './dto/vault-key.dto.js';
 import { AuditService } from '../audit/audit.service.js';
 import { VaultAccessService } from '../vault-access/vault-access.service.js';
 import { ActorType } from '@prisma/client';
@@ -57,13 +58,13 @@ export class VaultsService {
   }
 
   /** Ключ сейфа задаётся один раз и только владельцем; сервер хранит конверт как непрозрачную строку (ADR-0003). */
-  async setKey(userId: string, id: string, dto: SetVaultKeyDto) {
-    await this.getForUser(userId, id);
+  async setKey(userId: string, id: string, dto: SetVaultKeyDto): Promise<VaultKeyDto> {
+    await this.access.assertOwner(userId, id);
     // Условное обновление: два одновременных запроса не перезапишут друг друга
     const { count } = await this.prisma.vault.updateMany({ where: { id, userId, mkWrapped: null }, data: { mkWrapped: dto.mk_wrapped } });
     if (count === 0) throw new ConflictException('The vault key is already set up');
     await this.audit.log(ActorType.User, userId, 'vault_set_key', 'Vault', id);
-    return this.getForUser(userId, id);
+    return { id, mk_wrapped: dto.mk_wrapped };
   }
 
   async updateSettings(userId: string, id: string, dto: UpdateVaultSettingsDto) {

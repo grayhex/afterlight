@@ -77,6 +77,7 @@ export class BlocksService {
 
     const block = await this.prisma.block.create({
       data: {
+        id: dto.id,
         vaultId: v.id,
         type: dto.type as any,
         dekWrapped: dto.dek_wrapped,

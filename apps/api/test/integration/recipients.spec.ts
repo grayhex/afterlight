@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { createHash } from 'crypto';
-import { bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
+import { blockBody, bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
 
 const fp = (key: string) => createHash('sha256').update(key.trim(), 'utf8').digest('hex');
 
@@ -177,10 +177,10 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
     it('only text blocks can be created: file and url are rejected', async () => {
       const s = await scene();
       for (const type of ['file', 'url', 'image']) {
-        const res = await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type, dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, s.owner.id);
+        const res = await ctx.request('POST', '/blocks', blockBody(s.vault.id, { type }), s.owner.id);
         expect(res.status).toBe(400);
       }
-      expect((await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type: 'text', dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, s.owner.id)).status).toBe(201);
+      expect((await ctx.request('POST', '/blocks', blockBody(s.vault.id), s.owner.id)).status).toBe(201);
     });
   });
 });

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
+import { randomUUID } from 'crypto';
+import { blockBody, bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
 
 /**
  * Хранение клиентского шифрования (ADR-0003, #152): сервер не создаёт ключ сейфа, принимает его от браузера один раз,
@@ -20,7 +21,7 @@ describe('vault key and block ciphertext (real PostgreSQL)', () => {
   }
   const keyOf = async (vaultId: string) => (await ctx.db.vault.findUniqueOrThrow({ where: { id: vaultId } })).mkWrapped;
   const newBlock = (vaultId: string, userId: string, over: Record<string, unknown> = {}) =>
-    ctx.request('POST', '/blocks', { vault_id: vaultId, type: 'text', dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext, ...over }, userId);
+    ctx.request('POST', '/blocks', blockBody(vaultId, over), userId);
 
   describe('the vault key', () => {
     it('the server does not generate a key for a new vault', async () => {
@@ -31,18 +32,19 @@ describe('vault key and block ciphertext (real PostgreSQL)', () => {
       expect(await keyOf(created.body.id)).toBeNull();
     });
 
-    it('only the owner sets it, once; the answer for everybody else is 404 and the key stays empty', async () => {
+    it('only the owner sets it, once; everybody else is refused with 403 and the key stays empty', async () => {
       const s = await scene();
       const put = (id?: string, body: unknown = { mk_wrapped: SAMPLE.keyEnvelope }) => ctx.request('PUT', `/vaults/${s.vault.id}/key`, body, id);
       expect((await put()).status).toBe(401);
       for (const [label, id] of [['outsider', s.outsider.id], ['active verifier', s.verifier.user.id], ['platform admin', s.admin.id]] as const) {
-        expect([label, (await put(id)).status]).toEqual([label, 404]);
+        expect([label, (await put(id)).status]).toEqual([label, 403]);
       }
       expect(await keyOf(s.vault.id)).toBeNull();
 
       const ok = await put(s.owner.id);
       expect(ok.status).toBe(200);
-      expect(ok.body.mkWrapped).toBe(SAMPLE.keyEnvelope);
+      // явный ответ: идентификатор и то, что сохранено, без остальных полей сейфа
+      expect(ok.body).toEqual({ id: s.vault.id, mk_wrapped: SAMPLE.keyEnvelope });
       expect(await keyOf(s.vault.id)).toBe(SAMPLE.keyEnvelope);
 
       // повторная настройка не заменяет ключ: иначе блоки под прежним ключом стали бы нечитаемыми
@@ -112,6 +114,30 @@ describe('vault key and block ciphertext (real PostgreSQL)', () => {
       expect(JSON.stringify(listed.body)).not.toContain('zzzz');
     });
 
+    it('the block id is chosen by the client: the ciphertext and the wrapped key are bound to it', async () => {
+      const s = await scene();
+      await ctx.db.vault.update({ where: { id: s.vault.id }, data: { mkWrapped: SAMPLE.keyEnvelope } });
+      const id = randomUUID();
+      const created = await newBlock(s.vault.id, s.owner.id, { id });
+      expect(created.status).toBe(201);
+      expect(created.body.id).toBe(id);
+      expect((await ctx.request('GET', `/blocks/${id}`, undefined, s.owner.id)).body.ciphertext).toBe(SAMPLE.ciphertext);
+
+      // занятый идентификатор — 409 и в том же, и в чужом сейфе; блок не перезаписывается
+      const other = await ctx.factory.createUser({ email: 'other-owner@test.local' });
+      const otherVault = await ctx.factory.createVault(other.id);
+      expect((await newBlock(s.vault.id, s.owner.id, { id, ciphertext: `v1.${'A'.repeat(16)}.${'F'.repeat(40)}` })).status).toBe(409);
+      expect((await newBlock(otherVault.id, other.id, { id })).status).toBe(409);
+      expect((await ctx.db.block.findUniqueOrThrow({ where: { id } })).ciphertext).toBe(SAMPLE.ciphertext);
+      expect(await ctx.db.block.count()).toBe(1);
+
+      // без идентификатора и с чужим форматом — 400
+      for (const bad of [undefined, null, '', 'block-1', 42]) {
+        expect([String(bad), (await newBlock(s.vault.id, s.owner.id, { id: bad })).status]).toEqual([String(bad), 400]);
+      }
+      expect(await ctx.db.block.count()).toBe(1);
+    });
+
     it('refuses what is not a v1 envelope, a missing ciphertext, and an oversized one', async () => {
       const s = await scene();
       await ctx.db.vault.update({ where: { id: s.vault.id }, data: { mkWrapped: SAMPLE.keyEnvelope } });
@@ -126,7 +152,7 @@ describe('vault key and block ciphertext (real PostgreSQL)', () => {
         ['dek of a wrong size', { dek_wrapped: SAMPLE.ciphertext }],
       ];
       for (const [label, over] of cases) expect([label, (await newBlock(s.vault.id, s.owner.id, over)).status]).toEqual([label, 400]);
-      const missing = await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type: 'text', dek_wrapped: SAMPLE.keyEnvelope }, s.owner.id);
+      const missing = await ctx.request('POST', '/blocks', { id: randomUUID(), vault_id: s.vault.id, type: 'text', dek_wrapped: SAMPLE.keyEnvelope }, s.owner.id);
       expect(missing.status).toBe(400);
       expect(await ctx.db.block.count()).toBe(0);
     });

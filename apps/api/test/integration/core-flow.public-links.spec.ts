@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
+import { blockBody, bootstrapApp, closeApp, Ctx } from './helper.js';
 
 describe('core flow: public links', () => {
   let ctx: Ctx;
@@ -11,14 +11,7 @@ describe('core flow: public links', () => {
     const owner = await ctx.factory.createUser({ email: 'owner+pl@test.local' });
     const vault = await ctx.factory.createVault(owner.id);
 
-    const blockRes = await ctx.request('POST', '/blocks', {
-      vault_id: vault.id,
-      type: 'text',
-      dek_wrapped: SAMPLE.keyEnvelope,
-      ciphertext: SAMPLE.ciphertext,
-      tags: ['legal'],
-      checksum: 'abc',
-    }, owner.id);
+    const blockRes = await ctx.request('POST', '/blocks', blockBody(vault.id, { tags: ['legal'], checksum: 'abc' }), owner.id);
 
     expect(blockRes.status).toBe(201);
 
@@ -52,12 +45,7 @@ describe('core flow: public links', () => {
   it('returns 400 on invalid publish window', async () => {
     const owner = await ctx.factory.createUser({ email: 'owner+pl-neg@test.local' });
     const vault = await ctx.factory.createVault(owner.id);
-    const blockRes = await ctx.request('POST', '/blocks', {
-      vault_id: vault.id,
-      type: 'text',
-      dek_wrapped: SAMPLE.keyEnvelope,
-      ciphertext: SAMPLE.ciphertext,
-    }, owner.id);
+    const blockRes = await ctx.request('POST', '/blocks', blockBody(vault.id), owner.id);
 
     const bad = await ctx.request('PUT', `/blocks/${blockRes.body.id}/public`, {
       enabled: true,
