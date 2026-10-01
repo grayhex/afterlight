@@ -146,6 +146,23 @@ describe('account lifecycle (real PostgreSQL, real SMTP sandbox)', () => {
     });
   });
 
+  describe('an address change racing with a reset request', () => {
+    it('never leaves a live reset token for the old address (the request re-checks the address after taking the lock)', async () => {
+      const admin = await ctx.factory.createUser({ role: 'Admin' });
+      for (let i = 0; i < 5; i++) {
+        const oldEmail = `racer${i}@test.local`;
+        const user = await ctx.factory.createUser({ email: oldEmail });
+        await Promise.all([
+          ctx.request('POST', '/auth/forgot-password', { email: oldEmail }),
+          ctx.request('PATCH', `/users/${user.id}`, { email: `racer${i}.moved@test.local` }, admin.id),
+        ]);
+        expect((await ctx.db.user.findUniqueOrThrow({ where: { id: user.id } })).email).toBe(`racer${i}.moved@test.local`);
+        // после любого порядка исполнения для сменённого адреса не остаётся действующего токена сброса
+        expect(await ctx.db.passwordResetToken.count({ where: { userId: user.id } })).toBe(0);
+      }
+    });
+  });
+
   describe('resending the confirmation mail', () => {
     it('sends a new link, which replaces the older one; a cooldown and an hourly cap apply; a verified user is a no-op', async () => {
       await register();
