@@ -9,6 +9,9 @@ BEGIN
       AND confrelid = '"user"'::regclass
       AND contype = 'f'
   ) THEN
+    -- Без ключа токены удалённых пользователей могли остаться «сиротами» и сделали бы добавление ключа невозможным;
+    -- такие токены всё равно непригодны (пользователя уже нет), поэтому удаляем их.
+    DELETE FROM "password_reset_token" t WHERE NOT EXISTS (SELECT 1 FROM "user" u WHERE u.id = t.user_id);
     ALTER TABLE "password_reset_token"
       ADD CONSTRAINT "password_reset_token_user_id_fkey"
       FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
