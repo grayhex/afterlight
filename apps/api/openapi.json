@@ -16,9 +16,6 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
-          },
           "400": {
             "description": "",
             "content": {
@@ -51,6 +48,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить",
             "content": {
               "application/json": {
                 "schema": {
@@ -90,9 +97,6 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
-          },
           "400": {
             "description": "",
             "content": {
@@ -125,6 +129,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много неудачных попыток входа; Retry-After — через сколько секунд повторить",
             "content": {
               "application/json": {
                 "schema": {
@@ -228,9 +242,6 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
-          },
           "400": {
             "description": "",
             "content": {
@@ -263,6 +274,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить",
             "content": {
               "application/json": {
                 "schema": {
@@ -302,9 +323,6 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
-          },
           "400": {
             "description": "",
             "content": {
@@ -337,6 +355,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить",
             "content": {
               "application/json": {
                 "schema": {
@@ -376,9 +404,6 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
-          },
           "400": {
             "description": "",
             "content": {
@@ -411,6 +436,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить",
             "content": {
               "application/json": {
                 "schema": {
@@ -440,9 +475,6 @@
         "operationId": "AuthController_resendVerification",
         "parameters": [],
         "responses": {
-          "201": {
-            "description": ""
-          },
           "400": {
             "description": "",
             "content": {
@@ -475,6 +507,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить",
             "content": {
               "application/json": {
                 "schema": {
@@ -1368,6 +1410,16 @@
               }
             }
           },
+          "429": {
+            "description": "Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
           "500": {
             "description": "",
             "content": {
@@ -1443,6 +1495,16 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Превышена частота запросов; заголовок Retry-After — через сколько секунд повторить",
             "content": {
               "application/json": {
                 "schema": {

@@ -23,12 +23,15 @@ import { VaultAccessModule } from './vault-access/vault-access.module.js';
 import { ClockModule } from './clock/clock.module.js';
 import { AuthGuard } from './auth/guards/auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
+import { RateLimitModule } from './rate-limit/rate-limit.module.js';
+import { RateLimitGuard } from './rate-limit/rate-limit.guard.js';
 import { OriginCheckMiddleware } from './common/origin-check.middleware.js';
 
 @Module({
 imports: [
   PrismaModule,
   ClockModule,
+  RateLimitModule,
   VaultAccessModule,
   AuthModule,
   VaultsModule,
@@ -51,6 +54,7 @@ imports: [
 // Guards живут в модуле приложения, а не в bootstrap: тесты и production проходят через одну и ту же авторизацию.
 providers: [
   { provide: APP_GUARD, useClass: AuthGuard },
+  { provide: APP_GUARD, useClass: RateLimitGuard },
   { provide: APP_GUARD, useClass: RolesGuard },
   { provide: APP_GUARD, useClass: VerifiedEmailGuard },
 ],

@@ -7,6 +7,7 @@ import { InvitationCreatedDto, InvitationPreviewDto, VerifierMemberDto } from '.
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 import { CurrentUser, AuthenticatedUser } from '../common/current-user.decorator.js';
 import { Public } from '../auth/decorators/public.decorator.js';
+import { RateLimit } from '../rate-limit/rate-limit.decorator.js';
 import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
 
 @ApiTags('verifiers')
@@ -29,6 +30,7 @@ export class VerifiersController {
   }
 
   @Public()
+  @RateLimit('invitation_preview_ip')
   @Post('invitations/preview')
   // публичный маршрут: класс помечен bearer-авторизацией, для этой операции требование снимаем
   @ApiOperation({ summary: 'Адрес и признак аккаунта по токену приглашения (без входа)', security: [] })
@@ -38,6 +40,7 @@ export class VerifiersController {
   }
 
   @RequireVerifiedEmail()
+  @RateLimit('invitation_accept_user', 'user')
   @Post('invitations/accept')
   @ApiCreatedResponse({ type: VerifierMemberDto })
   accept(@CurrentUser() user: AuthenticatedUser, @Body() dto: AcceptInvitationDto) {
