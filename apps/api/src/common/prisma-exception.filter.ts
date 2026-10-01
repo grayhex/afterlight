@@ -1,4 +1,4 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 
@@ -16,9 +16,18 @@ const MAP: Record<string, { status: number; message: string }> = {
 
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(PrismaExceptionFilter.name);
+
   catch(error: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost) {
     const res = host.switchToHttp().getResponse<Response>();
-    const mapped = MAP[error.code] ?? { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+    const known = MAP[error.code];
+    const mapped = known ?? { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal server error' };
+    if (!known) {
+      // Ответ мы пишем сами, поэтому стандартный обработчик Nest исключение не увидит: без этой записи сбой базы
+      // (пул соединений, недоступность) был бы невиден в логах. В запись — только код и модель: текст Prisma содержит запросы и значения.
+      const model = typeof error.meta?.modelName === 'string' ? error.meta.modelName : 'unknown';
+      this.logger.error(`Unmapped database error code=${error.code} model=${model}`);
+    }
     res.status(mapped.status).json({ statusCode: mapped.status, message: mapped.message });
   }
 }
