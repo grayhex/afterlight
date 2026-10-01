@@ -76,6 +76,7 @@ JSON=(-H 'content-type: application/json')
 expect 201 "регистрация" -X POST "$BASE/api/auth/register" "${JSON[@]}" -d "{\"name\":\"Smoke\",\"email\":\"$EMAIL\",\"phone\":\"+70000000000\",\"password\":\"smoke-pass-123\"}"
 expect 201 "логин" -c "$JAR" -X POST "$BASE/api/auth/login" "${JSON[@]}" -d "{\"email\":\"$EMAIL\",\"password\":\"smoke-pass-123\"}"
 grep -q $'\ttoken\t' "$JAR" || fail "cookie сессии не выставлена"
+expect 403 "запрос с чужим Origin отклонён (CSRF)" -X POST "$BASE/api/auth/logout" -H 'origin: https://evil.example' -b "$JAR"
 expect 200 "/auth/me по cookie" -b "$JAR" "$BASE/api/auth/me"
 expect 200 "/cabinet по cookie (middleware передаёт cookie)" -b "$JAR" "$BASE/cabinet"
 # mail_text <адрес> <фрагмент темы>: текст последнего письма из sandbox (ждёт до 30 с)

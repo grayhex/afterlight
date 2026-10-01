@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { VerifiedEmailGuard } from './auth/guards/verified-email.guard.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -23,6 +23,7 @@ import { VaultAccessModule } from './vault-access/vault-access.module.js';
 import { ClockModule } from './clock/clock.module.js';
 import { AuthGuard } from './auth/guards/auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
+import { OriginCheckMiddleware } from './common/origin-check.middleware.js';
 
 @Module({
 imports: [
@@ -54,4 +55,8 @@ providers: [
   { provide: APP_GUARD, useClass: VerifiedEmailGuard },
 ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(OriginCheckMiddleware).forRoutes('*');
+  }
+}
