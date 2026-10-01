@@ -131,8 +131,10 @@ Web, из `apps/web`: `npm ci && npm run lint && npm run typecheck && npm test &
 cp .env.example .env
 # отредактируйте секреты в .env
 
-docker compose -f docker-compose.server.yml up -d --build db api web
-docker compose -f docker-compose.server.yml run --rm migrate
+docker compose -f docker-compose.server.yml build api web migrate
+docker compose -f docker-compose.server.yml up -d db
+docker compose -f docker-compose.server.yml run --rm migrate   # миграции — до запуска/замены API
+docker compose -f docker-compose.server.yml up -d api web
 ```
 
 **Аккаунты.** Адрес электронной почты нормализуется (регистр не важен) и подтверждается письмом: ссылка `/verify-email#token=…` одноразовая и живёт 24 часа. До подтверждения закрыты создание сейфа, принятие приглашения, запуск процесса и голосование (ответ 403 «Email address is not verified»); повторное письмо — `POST /auth/resend-verification` (пауза 60 с, не более 5 писем в час). Приглашённый без аккаунта регистрируется по токену из письма-приглашения: получение письма доказывает владение адресом, и подтверждение не требуется; приглашение затем принимается отдельным действием после входа.
