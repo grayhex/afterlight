@@ -3,7 +3,7 @@
 Краткие правила для агентов и разработчиков. Подробности — в `README.md` и эпике #146.
 
 ## Структура
-- `apps/api` — NestJS 12 (ESM: относительные импорты пишутся с `.js`) + Prisma 7 + PostgreSQL, Node 24. `apps/web` — Next.js 16 / React 19 / Tailwind 4; web не обращается к БД, все данные — через API (`/api/*` проксируется). `k8s/`, `Dockerfile.*` — сборка и деплой.
+- `apps/api` — NestJS 12 (ESM: относительные импорты пишутся с `.js`) + Prisma 7 + PostgreSQL, Node 24. `apps/web` — Next.js 16 / React 19 / Tailwind 4; web не обращается к БД, все данные — через API (`/api/*` проксируется). `Dockerfile.*`, `docker-compose.*.yml` — сборка и запуск (Compose — единственный поддерживаемый путь; `k8s/` — архив).
 
 ## Проверки перед PR
 API (`apps/api`): `npm ci`, `npx prisma generate`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run test:unit`;

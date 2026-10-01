@@ -113,7 +113,9 @@ jobs:
     needs: build
     # environment production позволяет владельцу включить обязательное подтверждение выкладки в настройках репозитория
     environment: production
-    if: ${{ !contains(github.event.workflow_run.head_commit.message, '[skip cd]') }}
+    # k3s признан избыточным (D9, docs/mvp-contract.md): выкладка в k3s по умолчанию выключена,
+    # включается переменной репозитория K3S_DEPLOY=true. Сборка и публикация образов выполняются всегда.
+    if: ${{ vars.K3S_DEPLOY == 'true' && !contains(github.event.workflow_run.head_commit.message, '[skip cd]') }}
     env:
       NS: afterlight
     steps:
