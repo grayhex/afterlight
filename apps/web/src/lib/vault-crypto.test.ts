@@ -151,6 +151,20 @@ describe('recipient path: RSA-OAEP wrapping under the confirmed key', () => {
 });
 
 describe('recipient key backup file (passphrase protected, never sent to the server)', () => {
+  it('refuses to create a backup of a key that the import would not accept', async () => {
+    const rsa2048 = (await crypto.subtle.generateKey(
+      { name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' },
+      true,
+      ['encrypt', 'decrypt'],
+    )) as CryptoKeyPair;
+    const ec = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'])) as CryptoKeyPair;
+    const pair = await pairPromise;
+    const phrase = 'correct horse battery staple';
+    await expect(exportKeyBackup(rsa2048.privateKey, phrase)).rejects.toBeInstanceOf(CryptoFormatError);
+    await expect(exportKeyBackup(ec.privateKey, phrase)).rejects.toBeInstanceOf(CryptoFormatError);
+    await expect(exportKeyBackup(pair.publicKey, phrase)).rejects.toBeInstanceOf(CryptoFormatError);
+  });
+
   it('restores the private key on a new device, and refuses a wrong passphrase or a tampered file', async () => {
     const pair = await pairPromise;
     const pub = await exportPublicKey(pair.publicKey);

@@ -210,6 +210,9 @@ async function passphraseKey(passphrase: string, salt: Uint8Array, iterations: n
 
 export async function exportKeyBackup(privateKey: CryptoKey, passphrase: string, iterations = PBKDF2_ITERATIONS): Promise<string> {
   if (passphrase.length < 12) throw new CryptoFormatError('Passphrase must be at least 12 characters');
+  // файл, который не восстановится при импорте, создавать нельзя: узнали бы только после потери ключа
+  if (privateKey.type !== 'private') throw new CryptoFormatError('A private key is required');
+  assertRecipientKeyFormat(privateKey);
   // те же границы, что у импорта: файл, который сами же не примем, и ослабленную защиту не создаём
   if (!validIterations(iterations)) throw new CryptoFormatError('Invalid iteration count');
   const salt = random(16);
