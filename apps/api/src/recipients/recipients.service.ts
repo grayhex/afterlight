@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { ActorType, Prisma, Recipient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateRecipientDto } from './dto/create-recipient.dto.js';
@@ -9,6 +9,7 @@ import { VaultAccessService } from '../vault-access/vault-access.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { normalizeEmail } from '../common/email.js';
 import { keyFingerprint, normalizeFingerprint } from '../common/key-fingerprint.js';
+import { isRecipientPublicKey } from '../common/recipient-key.js';
 
 const DENIED = 'Vault not found or access denied';
 
@@ -70,7 +71,10 @@ export class RecipientsService {
     const account = await this.prisma.user.findUnique({ where: { id: user.sub }, select: { email: true, emailVerifiedAt: true } });
     if (!account || !account.emailVerifiedAt) throw new ForbiddenException('Email address is not verified');
     const pubkey = dto.pubkey.trim();
-    if (!pubkey) throw new ConflictException('Public key must not be empty');
+    // Формат фиксирован (ADR-0003): другой размер, тип или кодировка — не ключ получателя, под него нельзя ничего упаковывать
+    if (!isRecipientPublicKey(pubkey)) {
+      throw new BadRequestException('pubkey must be an RSA-OAEP 3072 public key (SPKI, base64, exponent 65537)');
+    }
     const fingerprint = keyFingerprint(pubkey);
     const contact = normalizeEmail(account.email);
 

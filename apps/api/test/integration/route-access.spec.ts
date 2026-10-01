@@ -13,6 +13,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module.js';
 import { configureApp } from '../../src/app.setup.js';
 import { bootstrapApp, closeApp, Ctx } from './helper.js';
+import { rsaSpki } from '../support/rsa-spki.js';
 
 /**
  * «Все маршруты закрыты» (#164): тест сам перечисляет маршруты, зарегистрированные в Nest, и падает, если появился маршрут,
@@ -246,7 +247,7 @@ describe('route access table (every registered route, real guards)', () => {
     const keys = new Set(routes.map((r) => r.key));
     for (const key of [...Object.keys(SESSION_SCOPED), ...Object.keys(REFERENCE_DATA), ...Object.keys(CAPABILITY)]) expect(keys.has(key)).toBe(true); // нет устаревших записей
     const person = await ctx.factory.createUser({ email: 'person@test.local' });
-    const open = [['GET', '/auth/me'], ['GET', '/vaults'], ['GET', '/plans'], ['POST', '/vaults', { name: 'Mine' }], ['PUT', '/recipients/me/key', { pubkey: 'KEY' }]] as Array<[string, string, unknown?]>;
+    const open = [['GET', '/auth/me'], ['GET', '/vaults'], ['GET', '/plans'], ['POST', '/vaults', { name: 'Mine' }], ['PUT', '/recipients/me/key', { pubkey: rsaSpki('route-access') }]] as Array<[string, string, unknown?]>;
     for (const [method, path, body] of open) {
       const res = await ctx.request(method, path, body, person.id);
       expect([method, path, [200, 201].includes(res.status)]).toEqual([method, path, true]);
