@@ -1,9 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { CANONICAL_UUID_MESSAGE, CANONICAL_UUID_PATTERN } from '../../common/canonical-uuid.js';
+import { CIPHERTEXT_ENVELOPE_PATTERN, KEY_ENVELOPE_PATTERN, MAX_CIPHERTEXT_LENGTH } from '../../common/envelope.js';
 
 export class CreateBlockDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Идентификатор блока задаёт клиент: контекст шифрования (AAD) включает id сейфа и id блока, поэтому шифротекст и упакованный ключ создаются уже для него. Занятый идентификатор — 409',
+  })
   @IsUUID()
+  @Matches(CANONICAL_UUID_PATTERN, { message: `id ${CANONICAL_UUID_MESSAGE}` })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid', description: 'Идентификатор сейфа в том виде, в каком его вернул сервер (строчные буквы): он входит в контекст шифрования' })
+  @IsUUID()
+  @Matches(CANONICAL_UUID_PATTERN, { message: `vault_id ${CANONICAL_UUID_MESSAGE}` })
   vault_id!: string;
 
   // Файлы и ссылки — отдельный срез (хранилища файлов нет): путь выключен явно, а не работает через заглушку
@@ -11,10 +22,16 @@ export class CreateBlockDto {
   @IsIn(['text'])
   type!: 'text';
 
-  @ApiProperty({ description: 'Wrapped DEK (base64 or JWE compact)' })
+  @ApiProperty({ description: 'Ключ блока (DEK), упакованный ключом сейфа в браузере владельца: конверт v1 (`v1.<iv>.<ct>`, base64url, ровно 84 символа)' })
   @IsString()
-  @MaxLength(8192)
+  @Matches(KEY_ENVELOPE_PATTERN, { message: 'dek_wrapped must be a v1 envelope of a 256-bit key' })
   dek_wrapped!: string;
+
+  @ApiProperty({ description: 'Шифротекст блока: конверт v1 (AES-256-GCM), собранный в браузере; сервер хранит его как непрозрачный текст', maxLength: MAX_CIPHERTEXT_LENGTH })
+  @IsString()
+  @MaxLength(MAX_CIPHERTEXT_LENGTH)
+  @Matches(CIPHERTEXT_ENVELOPE_PATTERN, { message: 'ciphertext must be a v1 envelope' })
+  ciphertext!: string;
 
   @ApiProperty({ required: false, description: 'Arbitrary JSON metadata (stringified or object)' })
   @IsOptional()
@@ -24,12 +41,6 @@ export class CreateBlockDto {
   @IsOptional()
   @IsArray()
   tags?: string[];
-
-  @ApiProperty({ required: false, description: 'Encrypted payload size in bytes' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  size?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()

@@ -71,6 +71,21 @@ describe('block envelope (AES-256-GCM, v1)', () => {
   });
 });
 
+describe('identifiers in the encryption context are canonical UUIDs', () => {
+  it('refuses uppercase, malformed or placeholder ids instead of encrypting for a context nobody can rebuild', async () => {
+    const dek = await generateKey();
+    const withLetters = 'abcdefab-cdef-4bcd-8fab-cdefabcdefab'; // в UUID из цифр регистр не виден
+    expect(contextOf('block', VAULT, withLetters)).toBeTruthy();
+    for (const bad of [withLetters.toUpperCase(), 'block-1', '', ` ${BLOCK}`]) {
+      await expect(encryptText(dek, text, VAULT, bad)).rejects.toBeInstanceOf(CryptoFormatError);
+    }
+    await expect(encryptText(dek, text, withLetters.toUpperCase(), BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+    await expect(wrapVaultKey(dek, generateRecoveryCode(), withLetters.toUpperCase())).rejects.toBeInstanceOf(CryptoFormatError);
+    // у ключа сейфа блока нет: «-» допустим только как отсутствие блока
+    expect(contextOf('mk', VAULT)).toBeTruthy();
+  });
+});
+
 describe('symmetric keys are always AES-256', () => {
   it('rejects raw keys that are not 32 bytes, and AES-128 keys passed to seal/open', async () => {
     for (const n of [0, 16, 24, 31, 33, 64]) {
@@ -175,6 +190,26 @@ describe('recipient path: RSA-OAEP wrapping under the confirmed key', () => {
     expect(await keyFingerprint(pub)).toBe(serverSide);
     expect(await keyFingerprint(`  ${pub}\n`)).toBe(serverSide);
     expect(serverSide).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe('formats match what the server accepts (apps/api/src/common/envelope.ts)', () => {
+  // Шаблоны продублированы намеренно: если сервер или клиент изменят формат, один из двух тестов упадёт
+  const KEY_ENVELOPE = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{64}$/;
+  const CIPHERTEXT = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22,}$/;
+
+  it('wrapped keys, ciphertexts and the recipient wrapping have the shapes the API validates', async () => {
+    const mk = await generateKey();
+    const dek = await generateKey();
+    const code = generateRecoveryCode();
+    expect(await wrapVaultKey(mk, code, VAULT)).toMatch(KEY_ENVELOPE);
+    expect(await wrapDekForOwner(mk, dek, VAULT, BLOCK)).toMatch(KEY_ENVELOPE);
+    for (const t of ['', 'a', text, 'x'.repeat(5000)]) expect(await encryptText(dek, t, VAULT, BLOCK)).toMatch(CIPHERTEXT);
+
+    const pub = await exportPublicKey((await pairPromise).publicKey);
+    const wrapped = await wrapDekForRecipient(dek, pub, VAULT, BLOCK);
+    expect(wrapped).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+    expect(Buffer.from(wrapped, 'base64')).toHaveLength(384);
   });
 });
 

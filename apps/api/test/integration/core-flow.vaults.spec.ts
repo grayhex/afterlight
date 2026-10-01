@@ -32,7 +32,8 @@ describe('core flow: vaults', () => {
     expect(listRes.body[0]).toEqual(expect.objectContaining({
       id: createRes.body.id,
       userId: owner.id,
-      mkWrapped: expect.any(String),
+      // ключ сейфа сервер не создаёт: его задаёт браузер владельца (PUT /vaults/:id/key)
+      mkWrapped: null,
     }));
   });
 
