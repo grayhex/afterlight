@@ -18,13 +18,12 @@ describe('VaultsService', () => {
     service = new VaultsService(prisma, audit, { assertNoActiveEvent: jest.fn() } as any);
   });
 
-  it('creates vault with generated mk_wrapped', async () => {
-    const res = await service.createForUser('u1', {} as any);
+  it('creates a vault without a server-generated key (the browser of the owner sets it once)', async () => {
+    await service.createForUser('u1', {} as any);
     expect(prisma.vault.create).toHaveBeenCalled();
     const passed = prisma.vault.create.mock.calls[0][0].data;
     expect(passed.userId).toBe('u1');
-    expect(passed.mkWrapped).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
-    expect(res.mkWrapped).toBe(passed.mkWrapped);
+    expect(passed).not.toHaveProperty('mkWrapped');
   });
 
   it('throws NotFound when vault not found', async () => {

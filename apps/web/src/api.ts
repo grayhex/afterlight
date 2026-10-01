@@ -45,6 +45,10 @@ export interface paths {
   "/vaults/{id}": {
     get: operations["VaultsController_get"];
   };
+  "/vaults/{id}/key": {
+    /** Set the vault key wrapped under the owner recovery code (once; the key is created in the browser) */
+    put: operations["VaultsController_setKey"];
+  };
   "/vaults/{id}/settings": {
     patch: operations["VaultsController_updateSettings"];
   };
@@ -84,10 +88,13 @@ export interface paths {
     post: operations["VerificationEventsController_deny"];
   };
   "/blocks": {
+    /** List blocks of a vault (without ciphertext) */
     get: operations["BlocksController_list"];
+    /** Create a text block from a ciphertext produced in the browser (the vault key must be set up) */
     post: operations["BlocksController_create"];
   };
   "/blocks/{id}": {
+    /** Read one block with its ciphertext (owner of the vault only) */
     get: operations["BlocksController_get"];
     delete: operations["BlocksController_remove"];
   };
@@ -234,6 +241,10 @@ export interface components {
       /** @default 24 */
       grace_hours?: number;
     };
+    SetVaultKeyDto: {
+      /** @description Ключ сейфа (MK), упакованный в браузере владельца ключом из recovery-кода: конверт v1 (`v1.<iv>.<ct>`, base64url, ровно 84 символа). Задаётся один раз */
+      mk_wrapped: string;
+    };
     UpdateVaultSettingsDto: {
       quorum_threshold?: number;
       max_verifiers?: number;
@@ -301,6 +312,62 @@ export interface components {
     VerificationDecisionDto: {
       signature?: string;
     };
+    BlockDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      vault_id: string;
+      /**
+       * @description Создаются только текстовые блоки; file и url — унаследованные значения
+       * @enum {string}
+       */
+      type: "text" | "file" | "url";
+      /** @description Ключ блока (DEK) под ключом сейфа: конверт v1 */
+      dek_wrapped: string;
+      /** @description Произвольные метаданные в открытом виде (не кладите сюда секреты) */
+      metadata?: {
+        [key: string]: unknown;
+      } | null;
+      /** @description Теги в открытом виде (не кладите сюда секреты) */
+      tags: string[];
+      /** @description Размер шифротекста в байтах; null у унаследованных блоков без шифротекста */
+      size: number | null;
+      checksum: string | null;
+      is_public: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    BlockDetailDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      vault_id: string;
+      /**
+       * @description Создаются только текстовые блоки; file и url — унаследованные значения
+       * @enum {string}
+       */
+      type: "text" | "file" | "url";
+      /** @description Ключ блока (DEK) под ключом сейфа: конверт v1 */
+      dek_wrapped: string;
+      /** @description Произвольные метаданные в открытом виде (не кладите сюда секреты) */
+      metadata?: {
+        [key: string]: unknown;
+      } | null;
+      /** @description Теги в открытом виде (не кладите сюда секреты) */
+      tags: string[];
+      /** @description Размер шифротекста в байтах; null у унаследованных блоков без шифротекста */
+      size: number | null;
+      checksum: string | null;
+      is_public: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** @description Шифротекст блока (конверт v1); null у унаследованных блоков */
+      ciphertext: string | null;
+    };
     CreateBlockDto: {
       /** Format: uuid */
       vault_id: string;
@@ -309,14 +376,14 @@ export interface components {
        * @enum {string}
        */
       type: "text";
-      /** @description Wrapped DEK (base64 or JWE compact) */
+      /** @description Ключ блока (DEK), упакованный ключом сейфа в браузере владельца: конверт v1 (`v1.<iv>.<ct>`, base64url, ровно 84 символа) */
       dek_wrapped: string;
+      /** @description Шифротекст блока: конверт v1 (AES-256-GCM), собранный в браузере; сервер хранит его как непрозрачный текст */
+      ciphertext: string;
       /** @description Arbitrary JSON metadata (stringified or object) */
       metadata?: Record<string, never>;
       /** @default [] */
       tags?: string[];
-      /** @description Encrypted payload size in bytes */
-      size?: number;
       checksum?: string;
       /** @default false */
       is_public?: boolean;
@@ -342,7 +409,7 @@ export interface components {
     AssignRecipientDto: {
       /** Format: uuid */
       recipient_id: string;
-      /** @description DEK wrapped for this recipient (base64 or JWE compact) */
+      /** @description DEK, упакованный в браузере владельца под подтверждённый ключ получателя: RSA-OAEP 3072, стандартный base64, ровно 384 байта */
       dek_wrapped_for_recipient: string;
       /** @description Отпечаток SHA-256 (hex) ключа, под который упакован DEK. Принимается, только если равен подтверждённому владельцем отпечатку получателя */
       key_fingerprint: string;
@@ -1056,6 +1123,49 @@ export interface operations {
       };
     };
   };
+  /** Set the vault key wrapped under the owner recovery code (once; the key is created in the browser) */
+  VaultsController_setKey: {
+    parameters: {
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetVaultKeyDto"];
+      };
+    };
+    responses: {
+      200: {
+        content: never;
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
   VaultsController_updateSettings: {
     parameters: {
       path: {
@@ -1577,6 +1687,7 @@ export interface operations {
       };
     };
   };
+  /** List blocks of a vault (without ciphertext) */
   BlocksController_list: {
     parameters: {
       query: {
@@ -1587,7 +1698,9 @@ export interface operations {
     };
     responses: {
       200: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["BlockDto"][];
+        };
       };
       400: {
         content: {
@@ -1616,6 +1729,7 @@ export interface operations {
       };
     };
   };
+  /** Create a text block from a ciphertext produced in the browser (the vault key must be set up) */
   BlocksController_create: {
     requestBody: {
       content: {
@@ -1624,7 +1738,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["BlockDetailDto"];
+        };
       };
       400: {
         content: {
@@ -1653,6 +1769,7 @@ export interface operations {
       };
     };
   };
+  /** Read one block with its ciphertext (owner of the vault only) */
   BlocksController_get: {
     parameters: {
       path: {
@@ -1661,7 +1778,9 @@ export interface operations {
     };
     responses: {
       200: {
-        content: never;
+        content: {
+          "application/json": components["schemas"]["BlockDetailDto"];
+        };
       };
       400: {
         content: {

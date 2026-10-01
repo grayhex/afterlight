@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, Patch } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, Patch, Put } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { VaultsService } from './vaults.service.js';
 import { CreateVaultDto } from './dto/create-vault.dto.js';
 import { UpdateVaultSettingsDto } from './dto/update-vault-settings.dto.js';
+import { SetVaultKeyDto } from './dto/set-vault-key.dto.js';
 import { CurrentUser } from '../common/current-user.decorator.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
@@ -32,6 +33,17 @@ export class VaultsController {
   @Post()
   create(@CurrentUser() user: any, @Body() dto: CreateVaultDto) {
     return this.service.createForUser(user.sub, dto);
+  }
+
+  @Put(':id/key')
+  @ApiOperation({ summary: 'Set the vault key wrapped under the owner recovery code (once; the key is created in the browser)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  setKey(
+    @CurrentUser() user: any,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetVaultKeyDto,
+  ) {
+    return this.service.setKey(user.sub, id, dto);
   }
 
   @Patch(':id/settings')

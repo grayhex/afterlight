@@ -178,6 +178,26 @@ describe('recipient path: RSA-OAEP wrapping under the confirmed key', () => {
   });
 });
 
+describe('formats match what the server accepts (apps/api/src/common/envelope.ts)', () => {
+  // Шаблоны продублированы намеренно: если сервер или клиент изменят формат, один из двух тестов упадёт
+  const KEY_ENVELOPE = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{64}$/;
+  const CIPHERTEXT = /^v1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{22,}$/;
+
+  it('wrapped keys, ciphertexts and the recipient wrapping have the shapes the API validates', async () => {
+    const mk = await generateKey();
+    const dek = await generateKey();
+    const code = generateRecoveryCode();
+    expect(await wrapVaultKey(mk, code, VAULT)).toMatch(KEY_ENVELOPE);
+    expect(await wrapDekForOwner(mk, dek, VAULT, BLOCK)).toMatch(KEY_ENVELOPE);
+    for (const t of ['', 'a', text, 'x'.repeat(5000)]) expect(await encryptText(dek, t, VAULT, BLOCK)).toMatch(CIPHERTEXT);
+
+    const pub = await exportPublicKey((await pairPromise).publicKey);
+    const wrapped = await wrapDekForRecipient(dek, pub, VAULT, BLOCK);
+    expect(wrapped).toMatch(/^[A-Za-z0-9+/]+={0,2}$/);
+    expect(Buffer.from(wrapped, 'base64')).toHaveLength(384);
+  });
+});
+
 describe('recipient key backup file (passphrase protected, never sent to the server)', () => {
   it('refuses to create a backup of a key that the import would not accept', async () => {
     const rsa2048 = (await crypto.subtle.generateKey(

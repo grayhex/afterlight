@@ -1143,6 +1143,96 @@
         ]
       }
     },
+    "/vaults/{id}/key": {
+      "put": {
+        "operationId": "VaultsController_setKey",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetVaultKeyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Set the vault key wrapped under the owner recovery code (once; the key is created in the browser)",
+        "tags": [
+          "vaults"
+        ]
+      }
+    },
     "/vaults/{id}/settings": {
       "patch": {
         "operationId": "VaultsController_updateSettings",
@@ -2289,7 +2379,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BlockDto"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -2347,6 +2447,7 @@
             "bearer": []
           }
         ],
+        "summary": "List blocks of a vault (without ciphertext)",
         "tags": [
           "blocks"
         ]
@@ -2366,7 +2467,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockDetailDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -2424,6 +2532,7 @@
             "bearer": []
           }
         ],
+        "summary": "Create a text block from a ciphertext produced in the browser (the vault key must be set up)",
         "tags": [
           "blocks"
         ]
@@ -2438,13 +2547,21 @@
             "required": true,
             "in": "path",
             "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockDetailDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "",
@@ -2502,6 +2619,7 @@
             "bearer": []
           }
         ],
+        "summary": "Read one block with its ciphertext (owner of the vault only)",
         "tags": [
           "blocks"
         ]
@@ -5688,6 +5806,18 @@
           }
         }
       },
+      "SetVaultKeyDto": {
+        "type": "object",
+        "properties": {
+          "mk_wrapped": {
+            "type": "string",
+            "description": "Ключ сейфа (MK), упакованный в браузере владельца ключом из recovery-кода: конверт v1 (`v1.<iv>.<ct>`, base64url, ровно 84 символа). Задаётся один раз"
+          }
+        },
+        "required": [
+          "mk_wrapped"
+        ]
+      },
       "UpdateVaultSettingsDto": {
         "type": "object",
         "properties": {
@@ -5875,6 +6005,154 @@
           }
         }
       },
+      "BlockDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vault_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "file",
+              "url"
+            ],
+            "description": "Создаются только текстовые блоки; file и url — унаследованные значения"
+          },
+          "dek_wrapped": {
+            "type": "string",
+            "description": "Ключ блока (DEK) под ключом сейфа: конверт v1"
+          },
+          "metadata": {
+            "type": "object",
+            "nullable": true,
+            "description": "Произвольные метаданные в открытом виде (не кладите сюда секреты)",
+            "additionalProperties": true
+          },
+          "tags": {
+            "description": "Теги в открытом виде (не кладите сюда секреты)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "size": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Размер шифротекста в байтах; null у унаследованных блоков без шифротекста"
+          },
+          "checksum": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_public": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "vault_id",
+          "type",
+          "dek_wrapped",
+          "tags",
+          "size",
+          "checksum",
+          "is_public",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "BlockDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vault_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "text",
+              "file",
+              "url"
+            ],
+            "description": "Создаются только текстовые блоки; file и url — унаследованные значения"
+          },
+          "dek_wrapped": {
+            "type": "string",
+            "description": "Ключ блока (DEK) под ключом сейфа: конверт v1"
+          },
+          "metadata": {
+            "type": "object",
+            "nullable": true,
+            "description": "Произвольные метаданные в открытом виде (не кладите сюда секреты)",
+            "additionalProperties": true
+          },
+          "tags": {
+            "description": "Теги в открытом виде (не кладите сюда секреты)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "size": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Размер шифротекста в байтах; null у унаследованных блоков без шифротекста"
+          },
+          "checksum": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_public": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ciphertext": {
+            "type": "string",
+            "nullable": true,
+            "description": "Шифротекст блока (конверт v1); null у унаследованных блоков"
+          }
+        },
+        "required": [
+          "id",
+          "vault_id",
+          "type",
+          "dek_wrapped",
+          "tags",
+          "size",
+          "checksum",
+          "is_public",
+          "created_at",
+          "updated_at",
+          "ciphertext"
+        ]
+      },
       "CreateBlockDto": {
         "type": "object",
         "properties": {
@@ -5891,7 +6169,12 @@
           },
           "dek_wrapped": {
             "type": "string",
-            "description": "Wrapped DEK (base64 or JWE compact)"
+            "description": "Ключ блока (DEK), упакованный ключом сейфа в браузере владельца: конверт v1 (`v1.<iv>.<ct>`, base64url, ровно 84 символа)"
+          },
+          "ciphertext": {
+            "type": "string",
+            "description": "Шифротекст блока: конверт v1 (AES-256-GCM), собранный в браузере; сервер хранит его как непрозрачный текст",
+            "maxLength": 60000
           },
           "metadata": {
             "type": "object",
@@ -5904,10 +6187,6 @@
               "type": "string"
             }
           },
-          "size": {
-            "type": "number",
-            "description": "Encrypted payload size in bytes"
-          },
           "checksum": {
             "type": "string"
           },
@@ -5919,7 +6198,8 @@
         "required": [
           "vault_id",
           "type",
-          "dek_wrapped"
+          "dek_wrapped",
+          "ciphertext"
         ]
       },
       "BlockRecipientDto": {
@@ -5978,7 +6258,7 @@
           },
           "dek_wrapped_for_recipient": {
             "type": "string",
-            "description": "DEK wrapped for this recipient (base64 or JWE compact)"
+            "description": "DEK, упакованный в браузере владельца под подтверждённый ключ получателя: RSA-OAEP 3072, стандартный base64, ровно 384 байта"
           },
           "key_fingerprint": {
             "type": "string",

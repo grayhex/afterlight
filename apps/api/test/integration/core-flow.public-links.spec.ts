@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { bootstrapApp, closeApp, Ctx } from './helper.js';
+import { bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
 
 describe('core flow: public links', () => {
   let ctx: Ctx;
@@ -14,7 +14,8 @@ describe('core flow: public links', () => {
     const blockRes = await ctx.request('POST', '/blocks', {
       vault_id: vault.id,
       type: 'text',
-      dek_wrapped: 'dek',
+      dek_wrapped: SAMPLE.keyEnvelope,
+      ciphertext: SAMPLE.ciphertext,
       tags: ['legal'],
       checksum: 'abc',
     }, owner.id);
@@ -54,7 +55,8 @@ describe('core flow: public links', () => {
     const blockRes = await ctx.request('POST', '/blocks', {
       vault_id: vault.id,
       type: 'text',
-      dek_wrapped: 'dek',
+      dek_wrapped: SAMPLE.keyEnvelope,
+      ciphertext: SAMPLE.ciphertext,
     }, owner.id);
 
     const bad = await ctx.request('PUT', `/blocks/${blockRes.body.id}/public`, {

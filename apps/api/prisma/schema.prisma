@@ -160,7 +160,8 @@ model Vault {
   heartbeatTimeoutDays Int         @default(30) @map("heartbeat_timeout_days")
   graceHours           Int         @default(24) @map("grace_hours")
   isDemo               Boolean     @default(false) @map("is_demo")
-  mkWrapped            String      @map("mk_wrapped")
+  // Ключ сейфа под recovery-кодом владельца (конверт v1). Задаётся клиентом один раз; NULL — ключ ещё не настроен, блоки создавать нельзя (ADR-0003)
+  mkWrapped            String?     @map("mk_wrapped")
   createdAt            DateTime    @default(now()) @map("created_at")
   updatedAt            DateTime    @updatedAt @map("updated_at")
 
@@ -183,6 +184,8 @@ model Block {
   vaultId    String    @map("vault_id") @db.Uuid
   type       BlockType
   dekWrapped String    @map("dek_wrapped")
+  // Шифротекст блока (конверт v1, AES-256-GCM), непрозрачный для сервера. NULL — унаследованные блоки без шифротекста (ADR-0003)
+  ciphertext String?
   metadata   Json?
   tags       String[] // postgres text[]
   size       BigInt?

@@ -10,6 +10,19 @@ import { NotificationsService } from '../../src/notifications/notifications.serv
 import { SmtpSandbox } from './smtp-sandbox.js';
 
 /**
+ * Синтетические образцы клиентских форматов (ADR-0003): сервер проверяет только форму и размер, расшифровывать ему нечего.
+ * Реальные конверты строит браузер (apps/web/src/lib/vault-crypto.ts).
+ */
+export const SAMPLE = {
+  /** Упакованный 256-битный ключ (DEK или MK): v1.<iv:16>.<ct:64>. */
+  keyEnvelope: `v1.${'A'.repeat(16)}.${'B'.repeat(64)}`,
+  /** Шифротекст блока. */
+  ciphertext: `v1.${'A'.repeat(16)}.${'C'.repeat(40)}`,
+  /** Упаковка DEK под RSA-OAEP 3072: ровно 384 байта в base64. */
+  rsaWrap: Buffer.alloc(384, 7).toString('base64'),
+};
+
+/**
  * Integration-контур: настоящее приложение (AppModule, те же guard'ы и pipes, что в runtime),
  * настоящий PostgreSQL, настоящие JWT. Почта уходит по SMTP на локальный sandbox-сервер (smtp-sandbox.ts) тем же
  * транспортом, что и в runtime; подменять в приложении нечего.
@@ -80,7 +93,7 @@ export async function bootstrapApp() {
     createUser: (attrs: Partial<Prisma.UserUncheckedCreateInput> = {}) =>
       db.user.create({ data: { email: `user${++seq}@test.local`, emailVerifiedAt: new Date(), ...attrs } }),
     createVault: (userId: string, attrs: Partial<Prisma.VaultUncheckedCreateInput> = {}) =>
-      db.vault.create({ data: { userId, name: 'Vault', mkWrapped: 'mk', ...attrs } }),
+      db.vault.create({ data: { userId, name: 'Vault', mkWrapped: SAMPLE.keyEnvelope, ...attrs } }),
     createVerifier: async (vaultId: string, attrs: { status?: 'Invited' | 'Active' | 'Revoked'; email?: string } = {}) => {
       const user = await db.user.create({
         data: { email: attrs.email ?? `verifier${++seq}@test.local`, role: 'Verifier', emailVerifiedAt: new Date() },

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { CIPHERTEXT_ENVELOPE_PATTERN, KEY_ENVELOPE_PATTERN, MAX_CIPHERTEXT_LENGTH } from '../../common/envelope.js';
 
 export class CreateBlockDto {
   @ApiProperty({ format: 'uuid' })
@@ -11,10 +12,16 @@ export class CreateBlockDto {
   @IsIn(['text'])
   type!: 'text';
 
-  @ApiProperty({ description: 'Wrapped DEK (base64 or JWE compact)' })
+  @ApiProperty({ description: 'Ключ блока (DEK), упакованный ключом сейфа в браузере владельца: конверт v1 (`v1.<iv>.<ct>`, base64url, ровно 84 символа)' })
   @IsString()
-  @MaxLength(8192)
+  @Matches(KEY_ENVELOPE_PATTERN, { message: 'dek_wrapped must be a v1 envelope of a 256-bit key' })
   dek_wrapped!: string;
+
+  @ApiProperty({ description: 'Шифротекст блока: конверт v1 (AES-256-GCM), собранный в браузере; сервер хранит его как непрозрачный текст', maxLength: MAX_CIPHERTEXT_LENGTH })
+  @IsString()
+  @MaxLength(MAX_CIPHERTEXT_LENGTH)
+  @Matches(CIPHERTEXT_ENVELOPE_PATTERN, { message: 'ciphertext must be a v1 envelope' })
+  ciphertext!: string;
 
   @ApiProperty({ required: false, description: 'Arbitrary JSON metadata (stringified or object)' })
   @IsOptional()
@@ -24,12 +31,6 @@ export class CreateBlockDto {
   @IsOptional()
   @IsArray()
   tags?: string[];
-
-  @ApiProperty({ required: false, description: 'Encrypted payload size in bytes' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  size?: number;
 
   @ApiProperty({ required: false })
   @IsOptional()

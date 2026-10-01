@@ -4,6 +4,7 @@ import { BlocksService } from './blocks.service.js';
 import { CreateBlockDto } from './dto/create-block.dto.js';
 import { AssignRecipientDto } from './dto/assign-recipient.dto.js';
 import { BlockRecipientDto } from './dto/block-recipient.dto.js';
+import { BlockDetailDto, BlockDto } from './dto/block-response.dto.js';
 import { CurrentUser } from '../common/current-user.decorator.js';
 import { ApiErrorResponses } from '../common/api-error-responses.decorator.js';
 
@@ -15,6 +16,8 @@ export class BlocksController {
   constructor(private readonly service: BlocksService) {}
 
   @Get()
+  @ApiOperation({ summary: 'List blocks of a vault (without ciphertext)' })
+  @ApiOkResponse({ type: BlockDto, isArray: true })
   list(
     @CurrentUser() user: any,
     @Query('vault_id', ParseUUIDPipe) vaultId: string,
@@ -25,11 +28,16 @@ export class BlocksController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Read one block with its ciphertext (owner of the vault only)' })
+  @ApiOkResponse({ type: BlockDetailDto })
+  @ApiParam({ name: 'id', format: 'uuid' })
   get(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(user.sub, id);
   }
 
   @Post()
+  @ApiOperation({ summary: 'Create a text block from a ciphertext produced in the browser (the vault key must be set up)' })
+  @ApiCreatedResponse({ type: BlockDetailDto })
   create(@CurrentUser() user: any, @Body() dto: CreateBlockDto) {
     return this.service.create(user.sub, dto);
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { createHash } from 'crypto';
-import { bootstrapApp, closeApp, Ctx } from './helper.js';
+import { bootstrapApp, closeApp, Ctx, SAMPLE } from './helper.js';
 
 const fp = (key: string) => createHash('sha256').update(key.trim(), 'utf8').digest('hex');
 
@@ -26,7 +26,7 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
   const confirm = (s: Awaited<ReturnType<typeof scene>>, recipientId: string, fingerprint: string, who = s.owner) =>
     ctx.request('POST', `/recipients/${recipientId}/confirm-key`, { key_fingerprint: fingerprint }, who.id);
   const assign = (s: Awaited<ReturnType<typeof scene>>, recipientId: string, fingerprint: string, who = s.owner, blockId = s.block.id) =>
-    ctx.request('POST', `/blocks/${blockId}/recipients`, { recipient_id: recipientId, dek_wrapped_for_recipient: 'd3JhcHBlZA==', key_fingerprint: fingerprint }, who.id);
+    ctx.request('POST', `/blocks/${blockId}/recipients`, { recipient_id: recipientId, dek_wrapped_for_recipient: SAMPLE.rsaWrap, key_fingerprint: fingerprint }, who.id);
 
   describe('ownership by vault', () => {
     it('the same address is a separate recipient in every vault; the address is normalized', async () => {
@@ -128,7 +128,8 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
       const done = await assign(s, r.id, fp('KEY-P'));
       expect(done.status).toBe(201);
       expect(done.body).toMatchObject({ contact: 'person@test.local', wrap_valid: true, wrapped_for_fingerprint: fp('KEY-P') });
-      expect(JSON.stringify(done.body)).not.toMatch(/d3JhcHBlZA|dek_wrapped/);
+      expect(JSON.stringify(done.body)).not.toContain(SAMPLE.rsaWrap);
+      expect(JSON.stringify(done.body)).not.toMatch(/dek_wrapped/);
     });
 
     it('a key change drops the confirmation and invalidates earlier wrappings until the owner confirms again', async () => {
@@ -176,10 +177,10 @@ describe('recipients are scoped to a vault and their key must be confirmed (real
     it('only text blocks can be created: file and url are rejected', async () => {
       const s = await scene();
       for (const type of ['file', 'url', 'image']) {
-        const res = await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type, dek_wrapped: 'ZGVr' }, s.owner.id);
+        const res = await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type, dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, s.owner.id);
         expect(res.status).toBe(400);
       }
-      expect((await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type: 'text', dek_wrapped: 'ZGVr' }, s.owner.id)).status).toBe(201);
+      expect((await ctx.request('POST', '/blocks', { vault_id: s.vault.id, type: 'text', dek_wrapped: SAMPLE.keyEnvelope, ciphertext: SAMPLE.ciphertext }, s.owner.id)).status).toBe(201);
     });
   });
 });

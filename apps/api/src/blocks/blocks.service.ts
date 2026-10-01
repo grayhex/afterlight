@@ -6,6 +6,8 @@ import { AuditService } from '../audit/audit.service.js';
 import { ActorType, Prisma } from '@prisma/client';
 import { normalizeFingerprint } from '../common/key-fingerprint.js';
 import { BlockRecipientDto } from './dto/block-recipient.dto.js';
+import { BlockDetailDto, BlockDto } from './dto/block-response.dto.js';
+import { isRsa3072Wrap } from '../common/envelope.js';
 
 @Injectable()
 export class BlocksService {
@@ -17,30 +19,54 @@ export class BlocksService {
     return v;
   }
 
-  async list(userId: string, vaultId: string, cursor?: string, limit = 50) {
+  private toDto(b: Prisma.BlockGetPayload<object>): BlockDto {
+    return {
+      id: b.id,
+      vault_id: b.vaultId,
+      type: b.type,
+      dek_wrapped: b.dekWrapped,
+      metadata: b.metadata,
+      tags: b.tags,
+      size: b.size === null ? null : Number(b.size),
+      checksum: b.checksum,
+      is_public: b.isPublic,
+      created_at: b.createdAt,
+      updated_at: b.updatedAt,
+    };
+  }
+
+  private toDetailDto(b: Prisma.BlockGetPayload<object>): BlockDetailDto {
+    return { ...this.toDto(b), ciphertext: b.ciphertext };
+  }
+
+  async list(userId: string, vaultId: string, cursor?: string, limit = 50): Promise<BlockDto[]> {
     await this.ensureVaultOwner(userId, vaultId);
     const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
-    return this.prisma.block.findMany({
+    // Шифротекст в список не попадает: до 200 блоков по десятки килобайт — лишний трафик; он отдаётся при чтении блока
+    const rows = await this.prisma.block.findMany({
       where: { vaultId, deletedAt: null },
       take,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { createdAt: 'desc' },
+      omit: { ciphertext: true },
     });
+    return rows.map((b) => this.toDto({ ...b, ciphertext: null }));
   }
 
-  async get(userId: string, id: string) {
+  async get(userId: string, id: string): Promise<BlockDetailDto> {
     const b = await this.prisma.block.findUnique({
       where: { id },
       include: { vault: true },
     });
     if (!b || b.deletedAt) throw new NotFoundException('Block not found');
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');
-    const { vault, ...rest } = b as any;
-    return rest;
+    return this.toDetailDto(b);
   }
 
-  async create(userId: string, dto: CreateBlockDto) {
+  async create(userId: string, dto: CreateBlockDto): Promise<BlockDetailDto> {
     const v = await this.ensureVaultOwner(userId, dto.vault_id);
+    // Без ключа сейфа у владельца нет способа прочитать блок обратно: сначала настройка ключа (PUT /vaults/:id/key)
+    if (!v.mkWrapped) throw new ConflictException('The vault key is not set up yet');
 
     let metadata: any = undefined;
     if (typeof dto.metadata === 'string') {
@@ -54,15 +80,16 @@ export class BlocksService {
         vaultId: v.id,
         type: dto.type as any,
         dekWrapped: dto.dek_wrapped,
+        ciphertext: dto.ciphertext,
         metadata,
         tags: dto.tags ?? [],
-        size: dto.size as any,
+        size: Buffer.byteLength(dto.ciphertext, 'utf8'),
         checksum: dto.checksum,
         isPublic: dto.is_public ?? false,
       },
     });
     await this.audit.log(ActorType.User, userId, 'block_create', 'Block', block.id);
-    return block;
+    return this.toDetailDto(block);
   }
 
   async softDelete(userId: string, id: string) {
@@ -99,10 +126,10 @@ export class BlocksService {
     if (!b || b.deletedAt) throw new NotFoundException('Block not found');
     if (b.vault.userId !== userId) throw new ForbiddenException('Access denied');
 
+    // Упаковка под RSA-OAEP 3072 всегда ровно 384 байта: всё остальное — не упаковка ключа (ADR-0003)
     const wrapped = dto.dek_wrapped_for_recipient?.trim();
-    if (!wrapped) throw new BadRequestException('dek_wrapped_for_recipient must not be empty');
-    if (!wrapped.includes('.') && !/^[A-Za-z0-9+/]+={0,2}$/.test(wrapped)) {
-      throw new BadRequestException('dek_wrapped_for_recipient must be base64 or JWE');
+    if (!isRsa3072Wrap(wrapped)) {
+      throw new BadRequestException('dek_wrapped_for_recipient must be a base64 RSA-OAEP 3072 ciphertext (384 bytes)');
     }
     const fingerprint = normalizeFingerprint(dto.key_fingerprint);
 

@@ -6,7 +6,7 @@ export class AssignRecipientDto {
   @IsUUID()
   recipient_id!: string;
 
-  @ApiProperty({ description: 'DEK wrapped for this recipient (base64 or JWE compact)' })
+  @ApiProperty({ description: 'DEK, упакованный в браузере владельца под подтверждённый ключ получателя: RSA-OAEP 3072, стандартный base64, ровно 384 байта' })
   @IsString()
   @MinLength(1)
   @MaxLength(8192)
