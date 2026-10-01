@@ -84,6 +84,18 @@ describe('symmetric keys are always AES-256', () => {
     const envelope = await seal(good, new Uint8Array([1]), contextOf('block', VAULT, BLOCK));
     await expect(open(aes128, envelope, contextOf('block', VAULT, BLOCK))).rejects.toBeInstanceOf(CryptoFormatError);
   });
+
+  it('refuses to wrap a key that is not AES-256 (the result could not be restored later)', async () => {
+    const aes128 = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 128 }, true, ['encrypt', 'decrypt']);
+    const aes192 = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 192 }, true, ['encrypt', 'decrypt']);
+    const mk = await generateKey();
+    const pub = await exportPublicKey((await pairPromise).publicKey);
+    for (const weak of [aes128, aes192]) {
+      await expect(wrapDekForOwner(mk, weak, VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+      await expect(wrapVaultKey(weak, generateRecoveryCode(), VAULT)).rejects.toBeInstanceOf(CryptoFormatError);
+      await expect(wrapDekForRecipient(weak, pub, VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+    }
+  });
 });
 
 describe('owner path: DEK under the vault key, vault key under the recovery code', () => {

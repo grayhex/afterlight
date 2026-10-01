@@ -45,19 +45,23 @@ export async function generateKey(): Promise<CryptoKey> {
   return subtle().generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 
-export const exportRawKey = async (key: CryptoKey): Promise<Bytes> => new Uint8Array(await subtle().exportKey('raw', key));
-
 const AES_KEY_BYTES = 32;
+
+function assertAes256(key: CryptoKey): void {
+  const a = key.algorithm as Partial<AesKeyAlgorithm>;
+  if (a.name !== 'AES-GCM' || a.length !== 256) throw new CryptoFormatError('Key must be AES-256-GCM');
+}
+
+/** Все пути упаковки ключа идут через экспорт: AES-128/192 отклоняем здесь, пока не получился файл, который не восстановить. */
+export async function exportRawKey(key: CryptoKey): Promise<Bytes> {
+  assertAes256(key);
+  return new Uint8Array(await subtle().exportKey('raw', key));
+}
 
 /** `length: 256` не ограничивает импорт сырого ключа: 16 или 24 байта дали бы AES-128/192, поэтому длину проверяем сами. */
 export async function importRawKey(raw: Uint8Array): Promise<CryptoKey> {
   if (raw.byteLength !== AES_KEY_BYTES) throw new CryptoFormatError('Key must be 32 bytes (AES-256)');
   return subtle().importKey('raw', raw as Bytes, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
-}
-
-function assertAes256(key: CryptoKey): void {
-  const a = key.algorithm as Partial<AesKeyAlgorithm>;
-  if (a.name !== 'AES-GCM' || a.length !== 256) throw new CryptoFormatError('Key must be AES-256-GCM');
 }
 
 export async function seal(key: CryptoKey, plaintext: Uint8Array, context: Uint8Array): Promise<string> {
