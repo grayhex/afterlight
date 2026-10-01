@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, ParseUUIDPipe } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { HeartbeatsService } from './heartbeats.service.js';
 import { UpdateHeartbeatDto } from './dto/update-heartbeat.dto.js';
@@ -14,14 +14,14 @@ export class HeartbeatsController {
   constructor(private readonly service: HeartbeatsService) {}
 
   @Get('vaults/:vaultId/heartbeat')
-  getConfig(@CurrentUser() user: any, @Param('vaultId') vaultId: string) {
+  getConfig(@CurrentUser() user: any, @Param('vaultId', ParseUUIDPipe) vaultId: string) {
     return this.service.getConfig(user.sub, vaultId);
   }
 
   @Patch('vaults/:vaultId/heartbeat')
   updateConfig(
     @CurrentUser() user: any,
-    @Param('vaultId') vaultId: string,
+    @Param('vaultId', ParseUUIDPipe) vaultId: string,
     @Body() dto: UpdateHeartbeatDto,
   ) {
     return this.service.updateConfig(user.sub, vaultId, dto);
