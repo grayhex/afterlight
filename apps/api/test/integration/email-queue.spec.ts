@@ -392,6 +392,28 @@ describe('email queue (real PostgreSQL, real SMTP sandbox)', () => {
       expect(ctx.mail.to('older@test.local')).toHaveLength(0);
     });
 
+    it('a message cancelled during a send that then times out keeps the ordering lease long enough', async () => {
+      const owner = await ctx.factory.createUser();
+      const vault = await ctx.factory.createVault(owner.id);
+      const key = `${vault.id}:slow`;
+      await ctx.mail.stop();
+      await svc().enqueueEmail(vault.id, 'slow@test.local', { subject: 'Started', text: 'x' }, undefined, { kind: 'event_state', supersedeKey: key });
+      const transport = ctx.moduleRef.get(MailTransport);
+      jest.spyOn(transport, 'send').mockImplementation(async () => {
+        // пока отправка висит, её снимает более новое состояние; сама отправка так и не завершается
+        await ctx.db.notification.updateMany({ where: { toContact: 'slow@test.local' }, data: { state: 'Cancelled', lastError: 'superseded' } });
+        return new Promise<void>(() => undefined);
+      });
+      // аренда пачки намеренно короткая: продление после таймаута должно быть единственным, что держит порядок
+      await ctx.db.$executeRawUnsafe(`UPDATE notification SET attempts = 0`);
+      const res = await svc().dispatchDue();
+      expect(res).toMatchObject({ claimed: 1, retried: 1 });
+      const row = await ctx.db.notification.findFirstOrThrow({ where: { toContact: 'slow@test.local' } });
+      expect(row.state).toBe('Cancelled');
+      expect(row.lockedUntil).not.toBeNull();
+      expect(row.lockedUntil!.getTime()).toBeGreaterThanOrEqual(ctx.clock.now().getTime() + 3000); // 3 x таймаут (1 c в тестах)
+    });
+
     it('the ordering blocker also covers a leased Failed mail (final attempt timed out while the send is still running)', async () => {
       const owner = await ctx.factory.createUser();
       const vault = await ctx.factory.createVault(owner.id);

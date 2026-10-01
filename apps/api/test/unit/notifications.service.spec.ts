@@ -149,6 +149,11 @@ describe('NotificationsService', () => {
     expect(data.lockedUntil).toEqual(new Date(now.getTime() + 3 * 1000));
     expect(data.nextAttemptAt.getTime()).toBeGreaterThanOrEqual(now.getTime() + 3 * 1000);
     expect(prisma.notification.updateMany.mock.calls.some((c: any[]) => c[0].where.state?.not !== undefined)).toBe(false);
+    // аренда продлевается и у задачи, снятой во время отправки (запрос без условия на состояние), и никогда не сокращается
+    const extend = prisma.notification.updateMany.mock.calls.find((c: any[]) => c[0].where.OR !== undefined)[0];
+    expect(extend.where.state).toBeUndefined();
+    expect(extend.where.OR).toEqual([{ lockedUntil: null }, { lockedUntil: { lt: new Date(now.getTime() + 3 * 1000) } }]);
+    expect(extend.data).toEqual({ lockedUntil: new Date(now.getTime() + 3 * 1000) });
   });
 
   it('sizes the lease for the whole claimed batch (send timeout x batch size + margin)', async () => {

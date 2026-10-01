@@ -261,6 +261,13 @@ export class NotificationsService implements OnModuleDestroy {
     // транспорт (nodemailer) гарантированно сдаётся по собственным таймаутам. Пока она действует, это письмо не берётся
     // повторно, а более новое письмо с тем же ключом ждёт (см. claim)
     const lease = err.inFlight ? new Date(now.getTime() + this.config.sendTimeoutMs * 3) : null;
+    if (lease) {
+      // Состояние задачи могло измениться (её сняли новым письмом) — аренду продлеваем независимо от состояния, но не сокращаем
+      await this.prisma.notification.updateMany({
+        where: { id, OR: [{ lockedUntil: null }, { lockedUntil: { lt: lease } }] },
+        data: { lockedUntil: lease },
+      });
+    }
     if (final) {
       await this.prisma.notification.updateMany({
         where: { id, state: 'Queued' },
