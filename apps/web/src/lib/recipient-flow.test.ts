@@ -5,8 +5,10 @@ import {
   claimRecipientKey,
   createRecipientKey,
   formatFingerprint,
+  keyFromBackup,
   listDeliveries,
   openDelivery,
+  verifyBackupFile,
   type Fetcher,
 } from './recipient-flow';
 import {
@@ -83,7 +85,12 @@ describe('recipient flow in the browser', () => {
     };
     const all = await listDeliveries(fetcher);
     expect(all).toHaveLength(230);
-    expect(seen).toEqual(['/recipients/me/deliveries?limit=200', '/recipients/me/deliveries?limit=200&cursor=id-0199']);
+    // читаем до пустой страницы: короткая страница ещё не значит конец (сервер вправе отдать меньше, чем просили)
+    expect(seen).toEqual([
+      '/recipients/me/deliveries?limit=200',
+      '/recipients/me/deliveries?limit=200&cursor=id-0199',
+      '/recipients/me/deliveries?limit=200&cursor=id-0229',
+    ]);
     await expect(listDeliveries(async () => reply(401))).rejects.toBeInstanceOf(ApiError);
     expect(await listDeliveries(async () => reply(200, []))).toEqual([]);
   });
@@ -122,6 +129,31 @@ describe('recipient flow in the browser', () => {
     const backup = await exportKeyBackup(pair.privateKey, PHRASE);
     // сервер вернул блок под другим идентификатором: контекст шифрования не совпадает
     await expect(openDelivery(async () => reply(200, moved), BLOCK, backup, PHRASE)).rejects.toBeInstanceOf(OpenDeliveryError);
+  });
+
+  it('refuses a block that is not the one asked for, even though it would decrypt', async () => {
+    const OTHER = 'cccccccc-3333-4333-8333-cccccccccccc';
+    const { pair, payload } = await delivered({ block: OTHER });
+    const backup = await exportKeyBackup(pair.privateKey, PHRASE);
+    // сервер отвечает на запрос блока BLOCK данными другого блока получателя, ровно с его идентификаторами
+    const swapped = { ...payload, block_id: OTHER };
+    await expect(openDelivery(async () => reply(200, swapped), BLOCK, backup, PHRASE)).rejects.toMatchObject({ reason: 'mismatch' });
+    // тот же блок, но в другом сейфе, чем в списке
+    const own = await delivered();
+    const ownBackup = await exportKeyBackup(own.pair.privateKey, PHRASE);
+    await expect(openDelivery(async () => reply(200, own.payload), BLOCK, ownBackup, PHRASE, 'dddddddd-4444-4444-8444-dddddddddddd')).rejects.toMatchObject({ reason: 'mismatch' });
+    expect(await openDelivery(async () => reply(200, own.payload), BLOCK, ownBackup, PHRASE, VAULT)).toBe(TEXT);
+  });
+
+  it('checks that a backup file restores exactly this key, and takes the key from an existing file', async () => {
+    const created = await createRecipientKey(PHRASE);
+    expect(await verifyBackupFile(created.backupFile, PHRASE, created.publicKey)).toEqual({ ok: true });
+    expect(await verifyBackupFile(created.backupFile, 'another phrase of enough length', created.publicKey)).toEqual({ ok: false });
+    expect(await verifyBackupFile('not json', PHRASE, created.publicKey)).toEqual({ ok: false });
+    const other = await createRecipientKey(PHRASE);
+    expect(await verifyBackupFile(other.backupFile, PHRASE, created.publicKey)).toEqual({ ok: false }); // файл от другого ключа
+    expect(await keyFromBackup(created.backupFile, PHRASE)).toEqual({ publicKey: created.publicKey, fingerprint: created.fingerprint });
+    await expect(keyFromBackup(created.backupFile, 'another phrase of enough length')).rejects.toBeDefined();
   });
 
   it('formats a fingerprint in groups of four for reading aloud', () => {

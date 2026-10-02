@@ -1,60 +1,78 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { httpClient } from '@/shared/api/httpClient';
+import { buttonClass, inputClass } from '@/shared/ui/classes';
 import { ApiError, OpenDeliveryError, listDeliveries, openDelivery, type DeliveryItem } from '@/lib/recipient-flow';
 
 type Load = { state: 'loading' } | { state: 'ready'; items: DeliveryItem[] } | { state: 'error'; message: string };
 
-const inputClass =
-  'rounded border border-bodaghee-accent bg-bodaghee-bg p-2 text-white placeholder:text-white/50 transition-colors focus:border-bodaghee-accent';
-const buttonClass =
-  'rounded border border-bodaghee-accent bg-bodaghee-bg px-4 py-2 text-white transition-colors hover:bg-bodaghee-accent hover:text-bodaghee-bg disabled:opacity-50';
+const MAX_BACKUP_BYTES = 100_000;
 
-function loadMessage(e: unknown): string {
+function sessionMessage(e: unknown): string | null {
   if (e instanceof ApiError && e.status === 401) return 'Войдите в аккаунт на главной странице: переданное привязано к вашему адресу.';
   if (e instanceof ApiError && e.status === 403) return 'Адрес аккаунта не подтверждён. Откройте ссылку из письма подтверждения.';
-  return 'Не удалось загрузить список. Попробуйте позже.';
+  return null;
+}
+
+function loadMessage(e: unknown): string {
+  return sessionMessage(e) ?? 'Не удалось загрузить список. Попробуйте позже.';
 }
 
 function openMessage(e: unknown): string {
   if (e instanceof OpenDeliveryError) {
     if (e.reason === 'backup') return 'Файл или парольная фраза не подходят. Нужен резервный файл ключа, созданный на странице «Мой ключ», и фраза, которой он защищён.';
     if (e.reason === 'wrong-key') return 'Этот ключ не расшифровывает данный блок: возможно, файл от другого ключа или ключ был заявлен заново после подготовки доступа.';
+    if (e.reason === 'mismatch') return 'Сервер вернул не тот блок, который вы открывали. Расшифровка остановлена; обновите страницу и повторите.';
     if (e.reason === 'not-available') return 'Блок сейчас недоступен: процесс раскрытия не завершён, ключ не подтверждён владельцем или доступ отозван.';
     return 'Нет связи с сервером. Повторите позже.';
   }
+  const session = sessionMessage(e);
+  if (session) return session;
   if (e instanceof ApiError && e.status === 429) return 'Слишком много попыток. Подождите немного.';
   return 'Не удалось открыть блок.';
 }
-
-const MAX_BACKUP_BYTES = 100_000;
 
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ru-RU') : '—');
 
 export default function ReceivedPage() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<DeliveryItem | null>(null);
+  const [formKey, setFormKey] = useState(0); // новый ключ — новая форма: выбранный файл не остаётся в поле, когда состояние сброшено
   const [passphrase, setPassphrase] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [text, setText] = useState<{ blockId: string; value: string } | null>(null);
-  const alive = useRef(true);
+  // Номер текущей попытки: результат прежней (после переключения на другой блок) отбрасывается
+  const run = useRef(0);
 
-  useEffect(() => {
-    alive.current = true;
+  const fetchList = useCallback((isCancelled: () => boolean) => {
     listDeliveries(httpClient)
-      .then((items) => alive.current && setLoad({ state: 'ready', items }))
-      .catch((e) => alive.current && setLoad({ state: 'error', message: loadMessage(e) }));
-    return () => {
-      alive.current = false;
-    };
+      .then((items) => !isCancelled() && setLoad({ state: 'ready', items }))
+      .catch((e) => !isCancelled() && setLoad({ state: 'error', message: loadMessage(e) }));
   }, []);
 
-  function choose(blockId: string) {
-    setSelected(blockId);
+  // первая загрузка: состояние уже «Загружаем», поэтому эффект ничего синхронно не выставляет
+  useEffect(() => {
+    let cancelled = false;
+    fetchList(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchList]);
+
+  function refresh() {
+    setLoad({ state: 'loading' });
+    fetchList(() => false);
+  }
+
+  function choose(item: DeliveryItem) {
+    if (busy) return;
+    run.current++;
+    setSelected(item);
+    setFormKey((k) => k + 1);
     setError('');
     setText(null);
     setPassphrase('');
@@ -63,23 +81,24 @@ export default function ReceivedPage() {
 
   async function handleOpen(e: FormEvent) {
     e.preventDefault();
-    if (!selected || !file) return;
-    // резервный файл — это короткий JSON; огромный файл читать в память незачем
+    if (busy || !selected || !file) return;
     if (file.size > MAX_BACKUP_BYTES) {
       setError(openMessage(new OpenDeliveryError('backup')));
       return;
     }
+    const attempt = ++run.current;
+    const target = selected;
     setBusy(true);
     setError('');
     try {
-      const value = await openDelivery(httpClient, selected, await file.text(), passphrase);
-      if (!alive.current) return;
-      setText({ blockId: selected, value });
+      const value = await openDelivery(httpClient, target.block_id, await file.text(), passphrase, target.vault_id);
+      if (run.current !== attempt) return;
+      setText({ blockId: target.block_id, value });
       setPassphrase('');
     } catch (err) {
-      if (alive.current) setError(openMessage(err));
+      if (run.current === attempt) setError(openMessage(err));
     } finally {
-      if (alive.current) setBusy(false);
+      if (run.current === attempt) setBusy(false);
     }
   }
 
@@ -93,6 +112,11 @@ export default function ReceivedPage() {
 
       {load.state === 'loading' && <p role="status">Загружаем…</p>}
       {load.state === 'error' && <p role="alert" className="text-bodaghee-accent">{load.message}</p>}
+      {load.state === 'ready' && (
+        <p className="mb-3">
+          <button type="button" onClick={refresh} disabled={busy} className={buttonClass}>Обновить список</button>
+        </p>
+      )}
       {load.state === 'ready' && load.items.length === 0 && (
         <p role="status">
           Пока ничего не передано. Передача начнётся после завершения процесса раскрытия, если владелец подтвердил ваш ключ и подготовил для вас доступ.
@@ -104,11 +128,11 @@ export default function ReceivedPage() {
           {load.items.map((item, i) => (
             <li key={item.block_id} className="rounded border border-bodaghee-accent/40 p-3">
               <p>Блок {i + 1}: {item.size} байт зашифрованных данных, доступен с {date(item.finalized_at)}</p>
-              <button type="button" onClick={() => choose(item.block_id)} aria-expanded={selected === item.block_id} className={`${buttonClass} mt-2`}>
+              <button type="button" onClick={() => choose(item)} disabled={busy} aria-expanded={selected?.block_id === item.block_id} className={`${buttonClass} mt-2`}>
                 Открыть
               </button>
-              {selected === item.block_id && (
-                <form onSubmit={handleOpen} className="mt-3 flex flex-col gap-3" aria-busy={busy}>
+              {selected?.block_id === item.block_id && (
+                <form key={formKey} onSubmit={handleOpen} className="mt-3 flex flex-col gap-3" aria-busy={busy}>
                   <label className="flex flex-col gap-1">
                     <span>Резервный файл ключа</span>
                     <input type="file" required accept="application/json,.json" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className={inputClass} />

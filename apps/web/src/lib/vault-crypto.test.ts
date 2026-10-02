@@ -14,6 +14,7 @@ import {
   importRawKey,
   importKeyBackup,
   keyFingerprint,
+  publicKeyOf,
   open,
   seal,
   unwrapDekForOwner,
@@ -181,6 +182,18 @@ describe('recipient path: RSA-OAEP wrapping under the confirmed key', () => {
     await expect(wrapDekForRecipient(dek, 'bm90IGEga2V5', VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
     const ec = (await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'])) as CryptoKeyPair;
     await expect(wrapDekForRecipient(dek, await exportPublicKey(ec.publicKey), VAULT, BLOCK)).rejects.toBeInstanceOf(CryptoFormatError);
+  });
+
+  it('derives the public key from the private one: exactly what the browser exported at the creation', async () => {
+    const pair = await pairPromise;
+    const exported = await exportPublicKey(pair.publicKey);
+    expect(await publicKeyOf(pair.privateKey)).toBe(exported);
+    // и из ключа, восстановленного из резервного файла
+    const restored = await importKeyBackup(await exportKeyBackup(pair.privateKey, 'correct horse battery staple'), 'correct horse battery staple');
+    expect(await publicKeyOf(restored)).toBe(exported);
+    await expect(publicKeyOf(pair.publicKey)).rejects.toBeInstanceOf(CryptoFormatError);
+    const weak = (await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt'])) as CryptoKeyPair;
+    await expect(publicKeyOf(weak.privateKey)).rejects.toBeInstanceOf(CryptoFormatError);
   });
 
   it('the fingerprint equals what the server computes (SHA-256 hex of the trimmed key string)', async () => {
