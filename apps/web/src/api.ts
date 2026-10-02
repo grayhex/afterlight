@@ -111,6 +111,14 @@ export interface paths {
   "/recipients/me/key": {
     put: operations["RecipientsController_claimKey"];
   };
+  "/recipients/me/deliveries": {
+    /** Blocks that may be delivered to me now (only after the release event is finalized) */
+    get: operations["RecipientsController_listDeliveries"];
+  };
+  "/recipients/me/deliveries/{blockId}": {
+    /** Ciphertext of a block and the data key wrapped for my confirmed key */
+    get: operations["RecipientsController_getDelivery"];
+  };
   "/recipients/{id}/confirm-key": {
     post: operations["RecipientsController_confirmKey"];
   };
@@ -466,6 +474,33 @@ export interface components {
       key_fingerprint: string;
       /** @description Сколько назначений на этот адрес получили ключ (сейфов, где вас назначили получателем) */
       recipients: number;
+    };
+    DeliveryItemDto: {
+      /** Format: uuid */
+      block_id: string;
+      /** Format: uuid */
+      vault_id: string;
+      /**
+       * Format: date-time
+       * @description Когда процесс раскрытия завершился
+       */
+      finalized_at: string | null;
+      /** @description Размер шифротекста в байтах */
+      size: number;
+    };
+    DeliveredBlockDto: {
+      /** Format: uuid */
+      block_id: string;
+      /** Format: uuid */
+      vault_id: string;
+      /** @description Шифротекст блока (конверт v1); расшифровывается в браузере получателя */
+      ciphertext: string;
+      /** @description Ключ блока (DEK), упакованный под подтверждённый ключ этого получателя: RSA-OAEP 3072, base64 */
+      dek_wrapped_for_recipient: string;
+      /** @description Отпечаток ключа получателя, под который сделана упаковка */
+      key_fingerprint: string;
+      /** Format: date-time */
+      finalized_at: string | null;
     };
     ConfirmKeyDto: {
       /** @description Отпечаток SHA-256 (hex, пробелы и двоеточия допускаются), который владелец сверил с получателем вне сервера */
@@ -2039,6 +2074,81 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["ClaimKeyResultDto"];
+        };
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  /** Blocks that may be delivered to me now (only after the release event is finalized) */
+  RecipientsController_listDeliveries: {
+    responses: {
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeliveryItemDto"][];
+        };
+      };
+      400: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      401: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      403: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+      500: {
+        content: {
+          "application/json": components["schemas"]["ErrorDto"];
+        };
+      };
+    };
+  };
+  /** Ciphertext of a block and the data key wrapped for my confirmed key */
+  RecipientsController_getDelivery: {
+    parameters: {
+      path: {
+        blockId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": components["schemas"]["DeliveredBlockDto"];
         };
       };
       400: {
