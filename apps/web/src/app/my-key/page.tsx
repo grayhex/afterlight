@@ -63,7 +63,8 @@ export default function MyKeyPage() {
     a.href = url;
     a.download = 'afterlight-recipient-key-backup.json';
     a.click();
-    URL.revokeObjectURL(url);
+    // не сразу: часть браузеров начинает скачивание после возврата из обработчика
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
     setDownloaded(true);
   }
 

@@ -29,6 +29,8 @@ function openMessage(e: unknown): string {
   return 'Не удалось открыть блок.';
 }
 
+const MAX_BACKUP_BYTES = 100_000;
+
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString('ru-RU') : '—');
 
 export default function ReceivedPage() {
@@ -62,6 +64,11 @@ export default function ReceivedPage() {
   async function handleOpen(e: FormEvent) {
     e.preventDefault();
     if (!selected || !file) return;
+    // резервный файл — это короткий JSON; огромный файл читать в память незачем
+    if (file.size > MAX_BACKUP_BYTES) {
+      setError(openMessage(new OpenDeliveryError('backup')));
+      return;
+    }
     setBusy(true);
     setError('');
     try {
