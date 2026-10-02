@@ -203,6 +203,24 @@ export async function importPublicKey(spkiB64: string): Promise<CryptoKey> {
   return key;
 }
 
+/**
+ * Открытый ключ (SPKI, base64) по закрытому: так из резервного файла получают ключ для заявки на сервер и для проверки,
+ * что файл действительно восстанавливает именно этот ключ. Закрытый ключ должен быть извлекаемым (импорт файла такой).
+ */
+export async function publicKeyOf(privateKey: CryptoKey): Promise<string> {
+  assertRecipientKeyFormat(privateKey);
+  if (privateKey.type !== 'private') throw new CryptoFormatError('A private key is required');
+  let jwk: JsonWebKey;
+  try {
+    jwk = await subtle().exportKey('jwk', privateKey);
+  } catch {
+    throw new CryptoFormatError('The private key cannot be exported');
+  }
+  if (jwk.kty !== 'RSA' || !jwk.n || !jwk.e) throw new CryptoFormatError('Not an RSA key');
+  const pub = await subtle().importKey('jwk', { kty: 'RSA', n: jwk.n, e: jwk.e, alg: 'RSA-OAEP-256', ext: true }, { name: 'RSA-OAEP', hash: 'SHA-256' }, true, ['encrypt']);
+  return exportPublicKey(pub);
+}
+
 /** Отпечаток: SHA-256 (hex) строки ключа без внешних пробелов — ровно то, что считает сервер (#167). */
 export async function keyFingerprint(pubkey: string): Promise<string> {
   const digest = new Uint8Array(await subtle().digest('SHA-256', enc.encode(pubkey.trim())));

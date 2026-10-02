@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAuth } from "@/shared/auth/useAuth";
-import { LogIn, LogOut, Menu, X } from "lucide-react";
+import { Inbox, KeyRound, LogIn, LogOut, Menu, X } from "lucide-react";
 import { motion } from "framer-motion";
 import LoginModal from "@/components/login-modal";
 import { httpClient } from "@/shared/api/httpClient";
@@ -13,7 +13,14 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
 
-  const mainLinks: { href: string; label: string; icon: ReactNode }[] = [];
+  // Страницы получателя доступны любому вошедшему: право на данные решает сервер по адресу аккаунта, а не меню
+  const mainLinks: { href: string; label: string; icon: ReactNode }[] =
+    role === "guest"
+      ? []
+      : [
+          { href: "/my-key", label: "Мой ключ", icon: <KeyRound className="h-4 w-4" /> },
+          { href: "/received", label: "Мне передано", icon: <Inbox className="h-4 w-4" /> },
+        ];
 
   const authLinks =
     role === "guest"
