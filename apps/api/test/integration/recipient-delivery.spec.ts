@@ -218,6 +218,88 @@ describe('delivery to the recipient after the release (real engine, managed cloc
     expect((await get(s.block.id, s.person.id)).status).toBe(403);
   });
 
+  describe('participants of the vault never receive a delivery, even when their address is designated as a recipient', () => {
+    /** Адрес участника назначен получателем и вооружён так же, как у настоящего получателя: ключ заявлен, подтверждён, DEK упакован. */
+    async function designateAndArm(s: S, userId: string, email: string, label: string) {
+      const key = rsaSpki(label);
+      const recipient = (await ctx.request('POST', '/recipients', { vault_id: s.vault.id, contact: email }, s.owner.id)).body;
+      expect((await ctx.request('PUT', '/recipients/me/key', { pubkey: key }, userId)).status).toBe(200);
+      expect((await ctx.request('POST', `/recipients/${recipient.id}/confirm-key`, { key_fingerprint: fp(key) }, s.owner.id)).status).toBe(201);
+      const assigned = await ctx.request('POST', `/blocks/${s.block.id}/recipients`, { recipient_id: recipient.id, dek_wrapped_for_recipient: WRAP, key_fingerprint: fp(key) }, s.owner.id);
+      expect(assigned.status).toBe(201);
+    }
+
+    it('the owner, an active verifier and the platform admin get nothing; the real recipient still gets the block', async () => {
+      const s = await scene();
+      await arm(s);
+      const owner = await ctx.db.user.findUniqueOrThrow({ where: { id: s.owner.id } });
+      const verifier = await ctx.db.user.findUniqueOrThrow({ where: { id: s.v1.user.id } });
+      await designateAndArm(s, s.owner.id, owner.email, 'owner-as-recipient');
+      await designateAndArm(s, s.v1.user.id, verifier.email, 'verifier-as-recipient');
+      await designateAndArm(s, s.admin.id, 'admin@test.local', 'admin-as-recipient');
+      await release(s);
+
+      for (const [label, id] of [['owner', s.owner.id], ['active verifier', s.v1.user.id], ['platform admin', s.admin.id]] as const) {
+        expect([label, (await list(id)).body]).toEqual([label, []]);
+        expect([label, (await get(s.block.id, id)).status]).toEqual([label, 404]);
+      }
+      expect((await get(s.block.id, s.person.id)).status).toBe(200);
+      // получатель в обычной роли получает по-прежнему только свой блок
+      expect((await list(s.person.id)).body.map((i: any) => i.block_id)).toEqual([s.block.id]);
+    });
+
+    it('a verifier of ANOTHER vault, a revoked and an invited one are not participants of this vault: they receive', async () => {
+      const s = await scene();
+      const revoked = await ctx.factory.createVerifier(s.vault.id, { status: 'Revoked', email: 'revoked@test.local' });
+      const invited = await ctx.factory.createVerifier(s.vault.id, { status: 'Invited', email: 'invited@test.local' });
+      const foreignOwner = await ctx.factory.createUser({ email: 'foreign-owner@test.local' });
+      const foreignVault = await ctx.factory.createVault(foreignOwner.id);
+      const foreignVerifier = await ctx.factory.createVerifier(foreignVault.id, { status: 'Active', email: 'foreign-verifier@test.local' });
+      await designateAndArm(s, revoked.user.id, 'revoked@test.local', 'revoked');
+      await designateAndArm(s, invited.user.id, 'invited@test.local', 'invited');
+      await designateAndArm(s, foreignVerifier.user.id, 'foreign-verifier@test.local', 'foreign');
+      await release(s);
+      for (const id of [revoked.user.id, invited.user.id, foreignVerifier.user.id]) {
+        expect((await get(s.block.id, id)).status).toBe(200);
+      }
+    });
+  });
+
+  describe('the list is paged and never loads ciphertexts', () => {
+    it('pages by block id with limit and cursor; invalid parameters are 400', async () => {
+      const s = await scene();
+      const ids = [s.block.id];
+      for (let i = 0; i < 4; i++) ids.push((await ctx.request('POST', '/blocks', blockBody(s.vault.id, { ciphertext: `v1.${'A'.repeat(16)}.${String.fromCharCode(66 + i).repeat(40 + i)}` }), s.owner.id)).body.id);
+      await ctx.request('PUT', '/recipients/me/key', { pubkey: PERSON_KEY }, s.person.id);
+      await ctx.request('POST', `/recipients/${s.recipient.id}/confirm-key`, { key_fingerprint: fp(PERSON_KEY) }, s.owner.id);
+      for (const id of ids) {
+        expect((await ctx.request('POST', `/blocks/${id}/recipients`, { recipient_id: s.recipient.id, dek_wrapped_for_recipient: WRAP, key_fingerprint: fp(PERSON_KEY) }, s.owner.id)).status).toBe(201);
+      }
+      await release(s);
+
+      const sorted = [...ids].sort();
+      const page = (q: string) => ctx.request('GET', `/recipients/me/deliveries${q}`, undefined, s.person.id);
+      const first = await page('?limit=2');
+      expect(first.status).toBe(200);
+      expect(first.body.map((i: any) => i.block_id)).toEqual(sorted.slice(0, 2));
+      const second = await page(`?limit=2&cursor=${first.body[1].block_id}`);
+      expect(second.body.map((i: any) => i.block_id)).toEqual(sorted.slice(2, 4));
+      const third = await page(`?limit=2&cursor=${second.body[1].block_id}`);
+      expect(third.body.map((i: any) => i.block_id)).toEqual(sorted.slice(4));
+      expect((await page(`?cursor=${sorted[4]}`)).body).toEqual([]);
+      expect((await page('')).body).toHaveLength(5);
+
+      // размер берётся из сохранённого размера шифротекста, а не из его загрузки
+      for (const item of (await page('')).body) {
+        const row = await ctx.db.block.findUniqueOrThrow({ where: { id: item.block_id } });
+        expect(item.size).toBe(Number(row.size));
+      }
+      for (const bad of ['?limit=0', '?limit=201', '?limit=x', '?limit=1.5', `?cursor=${sorted[0].toUpperCase()}`, '?cursor=nope']) {
+        expect([bad, (await page(bad)).status]).toEqual([bad, 400]);
+      }
+    });
+  });
+
   it('a malformed block id is 400', async () => {
     const s = await scene();
     expect((await get('not-a-uuid', s.person.id)).status).toBe(400);

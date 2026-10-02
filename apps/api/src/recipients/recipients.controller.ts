@@ -4,7 +4,7 @@ import { RecipientsService } from './recipients.service.js';
 import { CreateRecipientDto } from './dto/create-recipient.dto.js';
 import { ClaimKeyDto, ClaimKeyResultDto } from './dto/claim-key.dto.js';
 import { ConfirmKeyDto } from './dto/confirm-key.dto.js';
-import { DeliveredBlockDto, DeliveryItemDto } from './dto/delivery.dto.js';
+import { DeliveredBlockDto, DeliveryItemDto, ListDeliveriesDto } from './dto/delivery.dto.js';
 import { RecipientDto } from './dto/recipient.dto.js';
 import { RequireVerifiedEmail } from '../auth/decorators/require-verified-email.decorator.js';
 import { SearchRecipientsDto } from './dto/search-recipients.dto.js';
@@ -43,8 +43,8 @@ export class RecipientsController {
   @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Blocks that may be delivered to me now (only after the release event is finalized)' })
   @ApiOkResponse({ type: DeliveryItemDto, isArray: true })
-  listDeliveries(@CurrentUser() user: AuthenticatedUser) {
-    return this.service.listDeliveries(user);
+  listDeliveries(@CurrentUser() user: AuthenticatedUser, @Query() q: ListDeliveriesDto) {
+    return this.service.listDeliveries(user, q);
   }
 
   @Get('me/deliveries/:blockId')

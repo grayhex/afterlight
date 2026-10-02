@@ -2105,6 +2105,14 @@ export interface operations {
   };
   /** Blocks that may be delivered to me now (only after the release event is finalized) */
   RecipientsController_listDeliveries: {
+    parameters: {
+      query?: {
+        /** @description Сколько блоков вернуть */
+        limit?: number;
+        /** @description block_id последнего блока предыдущей страницы: список идёт по возрастанию block_id */
+        cursor?: string;
+      };
+    };
     responses: {
       200: {
         content: {
