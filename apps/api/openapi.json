@@ -3164,7 +3164,30 @@
     "/recipients/me/deliveries": {
       "get": {
         "operationId": "RecipientsController_listDeliveries",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Сколько блоков вернуть",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "block_id последнего блока предыдущей страницы: список идёт по возрастанию block_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",

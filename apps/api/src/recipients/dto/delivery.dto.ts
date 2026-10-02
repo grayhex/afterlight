@@ -1,4 +1,23 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsUUID, Matches, Max, Min } from 'class-validator';
+import { CANONICAL_UUID_MESSAGE, CANONICAL_UUID_PATTERN } from '../../common/canonical-uuid.js';
+
+export class ListDeliveriesDto {
+  @ApiProperty({ required: false, minimum: 1, maximum: 200, default: 50, description: 'Сколько блоков вернуть' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
+
+  @ApiProperty({ required: false, format: 'uuid', description: 'block_id последнего блока предыдущей страницы: список идёт по возрастанию block_id' })
+  @IsOptional()
+  @IsUUID()
+  @Matches(CANONICAL_UUID_PATTERN, { message: `cursor ${CANONICAL_UUID_MESSAGE}` })
+  cursor?: string;
+}
 
 /** Блок, доступный получателю после раскрытия: только метаданные (шифротекст — отдельным запросом). */
 export class DeliveryItemDto {

@@ -3,7 +3,7 @@ import { ActorType, Prisma, Recipient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateRecipientDto } from './dto/create-recipient.dto.js';
 import { ClaimKeyDto, ClaimKeyResultDto } from './dto/claim-key.dto.js';
-import { DeliveredBlockDto, DeliveryItemDto } from './dto/delivery.dto.js';
+import { DeliveredBlockDto, DeliveryItemDto, ListDeliveriesDto } from './dto/delivery.dto.js';
 import { KeyStatus, RecipientDto } from './dto/recipient.dto.js';
 import { AuthenticatedUser } from '../common/current-user.decorator.js';
 import { VaultAccessService } from '../vault-access/vault-access.service.js';
@@ -18,6 +18,16 @@ const DENIED = 'Vault not found or access denied';
  * Получатель принадлежит сейфу. Ключ заявляет сам получатель (аккаунт с подтверждённым адресом = контакт),
  * владелец подтверждает его отпечаток, сверенный вне сервера; DEK упаковывается только под подтверждённый отпечаток.
  */
+interface DeliveryRow {
+  block_id: string;
+  vault_id: string;
+  size: bigint | number;
+  finalized_at: Date | null;
+  ciphertext?: string;
+  wrapped?: string;
+  fingerprint?: string;
+}
+
 @Injectable()
 export class RecipientsService {
   constructor(private prisma: PrismaService, private access: VaultAccessService, private audit: AuditService) {}
@@ -104,65 +114,60 @@ export class RecipientsService {
 
   /**
    * Выдача получателю (ADR-0003, поток 6): блоки, которые ему вправе отдать СЕЙЧАС. Условия проверяются заново при каждом
-   * запросе, по данным базы, а не по тому, что было раньше: событие раскрытия завершено (`Finalized`) и сейф раскрыт
-   * (`Released`), аккаунт — подтверждённый адрес назначенного получателя, ключ получателя подтверждён владельцем, упаковка
-   * сделана под этот самый ключ, блок не удалён и содержит шифротекст. Верификаторам, владельцу и посторонним ничего не отдаётся:
-   * доступ даёт только адрес получателя в этом сейфе.
+   * запросе, одним запросом к базе: событие раскрытия завершено (`Finalized`) и сейф раскрыт (`Released`); аккаунт — подтверждённый
+   * адрес назначенного получателя в этом сейфе; ключ получателя подтверждён владельцем, а упаковка сделана под этот самый ключ;
+   * блок этого сейфа, не удалён, текстовый и с шифротекстом. Участники сейфа выдачу не получают, даже если их адрес назначен
+   * получателем (роли разделены, docs/mvp-contract.md): владелец, активный участник с любой ролью и администратор платформы.
+   * Шифротекст читается только при запросе одного блока; список его не загружает.
    */
-  private async deliverable(user: AuthenticatedUser, blockId?: string) {
-    const account = await this.prisma.user.findUnique({ where: { id: user.sub }, select: { email: true, emailVerifiedAt: true } });
+  private async deliveries(user: AuthenticatedUser, opts: { blockId?: string; cursor?: string; limit?: number; withPayload?: boolean }): Promise<DeliveryRow[]> {
+    const account = await this.prisma.user.findUnique({ where: { id: user.sub }, select: { email: true, emailVerifiedAt: true, role: true } });
     if (!account || !account.emailVerifiedAt) throw new ForbiddenException('Email address is not verified');
-    const rows = await this.prisma.blockRecipient.findMany({
-      where: {
-        ...(blockId ? { blockId } : {}),
-        recipient: {
-          contact: normalizeEmail(account.email),
-          vaultId: { not: null },
-          verificationStatus: 'KeyConfirmed',
-          keyConfirmedFingerprint: { not: null },
-          vault: { status: 'Released', events: { some: { state: 'Finalized' } } },
-        },
-        block: { deletedAt: null, ciphertext: { not: null }, type: 'text' },
-      },
-      include: { block: true, recipient: true },
-      orderBy: { createdAt: 'asc' },
-    });
-    // Упаковка действительна, только пока сделана под нынешний подтверждённый ключ; блок обязан принадлежать сейфу получателя
-    const valid = rows.filter(
-      (r) => !!r.wrappedForFingerprint && r.wrappedForFingerprint === r.recipient.keyConfirmedFingerprint && r.block.vaultId === r.recipient.vaultId,
-    );
-    const vaultIds = [...new Set(valid.map((r) => r.block.vaultId))];
-    const finalized = await this.prisma.verificationEvent.findMany({
-      where: { vaultId: { in: vaultIds }, state: 'Finalized' },
-      orderBy: { finalizedAt: 'desc' },
-      select: { vaultId: true, finalizedAt: true },
-    });
-    const finalizedAt = (vaultId: string) => finalized.find((e) => e.vaultId === vaultId)?.finalizedAt ?? null;
-    return valid.map((r) => ({ ...r, finalizedAt: finalizedAt(r.block.vaultId) }));
+    if (account.role === 'Admin') return []; // глобальная роль администратора доступа к содержимому сейфов не даёт
+    const payload = opts.withPayload ? Prisma.sql`b.ciphertext AS ciphertext, br.dek_wrapped_for_recipient AS wrapped, br.wrapped_for_fingerprint AS fingerprint,` : Prisma.empty;
+    return this.prisma.$queryRaw<DeliveryRow[]>(Prisma.sql`
+      SELECT ${payload}
+        br.block_id AS block_id,
+        b.vault_id AS vault_id,
+        COALESCE(b.size, octet_length(b.ciphertext))::bigint AS size,
+        (SELECT max(e.finalized_at) FROM "verification_event" e WHERE e.vault_id = v.id AND e.state = 'Finalized') AS finalized_at
+      FROM "block_recipient" br
+      JOIN "recipient" r ON r.id = br.recipient_id
+      JOIN "block" b ON b.id = br.block_id
+      JOIN "vault" v ON v.id = b.vault_id
+      WHERE r.contact = ${normalizeEmail(account.email)}
+        AND r.vault_id = b.vault_id
+        AND r.verification_status = 'KeyConfirmed'
+        AND r.key_confirmed_fingerprint IS NOT NULL
+        AND br.wrapped_for_fingerprint = r.key_confirmed_fingerprint
+        AND b.deleted_at IS NULL AND b.ciphertext IS NOT NULL AND b.type = 'text'
+        AND v.status = 'Released'
+        AND EXISTS (SELECT 1 FROM "verification_event" e WHERE e.vault_id = v.id AND e.state = 'Finalized')
+        AND v.user_id <> ${user.sub}::uuid
+        AND NOT EXISTS (SELECT 1 FROM "vault_user_role" ur WHERE ur.vault_id = v.id AND ur.user_id = ${user.sub}::uuid AND ur.status = 'Active')
+        ${opts.blockId ? Prisma.sql`AND br.block_id = ${opts.blockId}::uuid` : Prisma.empty}
+        ${opts.cursor ? Prisma.sql`AND br.block_id > ${opts.cursor}::uuid` : Prisma.empty}
+      ORDER BY br.block_id
+      LIMIT ${opts.limit ?? 200}`);
   }
 
-  async listDeliveries(user: AuthenticatedUser): Promise<DeliveryItemDto[]> {
-    const rows = await this.deliverable(user);
-    return rows.map((r) => ({
-      block_id: r.blockId,
-      vault_id: r.block.vaultId,
-      finalized_at: r.finalizedAt,
-      size: Buffer.byteLength(r.block.ciphertext as string, 'utf8'),
-    }));
+  async listDeliveries(user: AuthenticatedUser, q: ListDeliveriesDto = {}): Promise<DeliveryItemDto[]> {
+    const rows = await this.deliveries(user, { cursor: q.cursor, limit: q.limit ?? 50 });
+    return rows.map((r) => ({ block_id: r.block_id, vault_id: r.vault_id, finalized_at: r.finalized_at, size: Number(r.size) }));
   }
 
   async getDelivery(user: AuthenticatedUser, blockId: string): Promise<DeliveredBlockDto> {
-    const [row] = await this.deliverable(user, blockId);
-    // «Нет назначения», «ещё не раскрыто», «ключ не подтверждён», «чужой блок» — неразличимы
+    const [row] = await this.deliveries(user, { blockId, limit: 1, withPayload: true });
+    // «Нет назначения», «ещё не раскрыто», «ключ не подтверждён», «чужой блок», «вы участник сейфа» — неразличимы
     if (!row) throw new NotFoundException('Nothing to deliver for this block');
     await this.audit.log(ActorType.User, user.sub, 'block_delivered', 'Block', blockId);
     return {
-      block_id: row.blockId,
-      vault_id: row.block.vaultId,
-      ciphertext: row.block.ciphertext as string,
-      dek_wrapped_for_recipient: row.dekWrappedForRecipient,
-      key_fingerprint: row.wrappedForFingerprint as string,
-      finalized_at: row.finalizedAt,
+      block_id: row.block_id,
+      vault_id: row.vault_id,
+      ciphertext: row.ciphertext as string,
+      dek_wrapped_for_recipient: row.wrapped as string,
+      key_fingerprint: row.fingerprint as string,
+      finalized_at: row.finalized_at,
     };
   }
 
